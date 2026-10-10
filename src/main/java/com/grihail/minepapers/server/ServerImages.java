@@ -26,14 +26,15 @@ import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.SharedImage;
-import com.grihail.minepapers.tile.FrameGeometry;
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameGeometry;
+import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
@@ -83,8 +84,8 @@ public final class ServerImages {
         dir = null;
     }
 
-    /** Настройки открывают кликом по любой части картины — проверяем расстояние до холста, а не до рамки. */
-    public static boolean canEdit(EntityPlayerMP player, TilePictureFrame frame) {
+    /** Настройки открывают кликом по любой части картины — проверяем расстояние до холста, а не до его центра. */
+    public static boolean canEdit(EntityPlayerMP player, PictureFrame frame) {
         AxisAlignedBB box = FrameGeometry.canvasBox(frame);
         double dx = Math.max(Math.max(box.minX - player.posX, player.posX - box.maxX), 0);
         double dy = Math.max(Math.max(box.minY - player.posY, player.posY - box.maxY), 0);
@@ -92,26 +93,26 @@ public final class ServerImages {
         return dx * dx + dy * dy + dz * dz <= EDIT_DISTANCE * EDIT_DISTANCE;
     }
 
-    public static TilePictureFrame frameAt(World world, int x, int y, int z) {
-        if (world == null || !world.blockExists(x, y, z)) return null;
-        TileEntity te = world.getTileEntity(x, y, z);
-        return te instanceof TilePictureFrame ? (TilePictureFrame) te : null;
+    public static EntityPicture pictureById(World world, int entityId) {
+        Entity entity = world != null ? world.getEntityByID(entityId) : null;
+        return entity instanceof EntityPicture && !entity.isDead ? (EntityPicture) entity : null;
     }
 
     // ---------------------------------------------------------------------
     // Выкладывание
 
-    public static void offer(EntityPlayerMP player, int x, int y, int z, String origin, byte[] hashes) {
-        TilePictureFrame frame = frameAt(player.worldObj, x, y, z);
-        if (frame == null || hashes.length == 0 || hashes.length > TilePictureFrame.MAX_FILES * SharedImage.HASH_BYTES
-            || !origin.equals(frame.getOriginKey()) || frame.source == TilePictureFrame.SOURCE_YANDEX
+    public static void offer(EntityPlayerMP player, int entityId, String origin, byte[] hashes) {
+        EntityPicture picture = pictureById(player.worldObj, entityId);
+        PictureFrame frame = picture != null ? picture.frame : null;
+        if (frame == null || hashes.length == 0 || hashes.length > PictureFrame.MAX_FILES * SharedImage.HASH_BYTES
+            || !origin.equals(frame.getOriginKey()) || frame.source == PictureFrame.SOURCE_YANDEX
             || !canEdit(player, frame)) {
             return;
         }
         for (Iterator<Offer> it = OFFERS.iterator(); it.hasNext();) {
-            if (it.next().isAt(player.dimension, x, y, z)) it.remove();
+            if (it.next().isFor(player.dimension, entityId)) it.remove();
         }
-        Offer offer = new Offer(player.dimension, x, y, z, origin, hashes);
+        Offer offer = new Offer(player.dimension, entityId, origin, hashes);
         Set<String> missing = new LinkedHashSet<String>();
         for (int i = 0; i < hashes.length; i += SharedImage.HASH_BYTES) {
             String hex = SharedImage.hex(hashes, i, SharedImage.HASH_BYTES);
@@ -179,14 +180,12 @@ public final class ServerImages {
     }
 
     private static void apply(Offer offer) {
-        World world = DimensionManager.getWorld(offer.dim);
-        TilePictureFrame frame = frameAt(world, offer.x, offer.y, offer.z);
-        // Пока картинки грузились, рамку могли перенастроить на другой источник.
-        if (frame == null || !offer.origin.equals(frame.getOriginKey())) return;
-        if (Arrays.equals(frame.files, offer.hashes)) return;
-        frame.files = offer.hashes;
-        frame.markDirty();
-        world.markBlockForUpdate(offer.x, offer.y, offer.z);
+        EntityPicture picture = pictureById(DimensionManager.getWorld(offer.dim), offer.entityId);
+        // Пока картинки грузились, картину могли сломать или перенастроить на другой источник.
+        if (picture == null || !offer.origin.equals(picture.frame.getOriginKey())) return;
+        if (Arrays.equals(picture.frame.files, offer.hashes)) return;
+        picture.frame.files = offer.hashes;
+        picture.settingsChanged();
     }
 
     // ---------------------------------------------------------------------
@@ -373,22 +372,20 @@ public final class ServerImages {
     }
 
     private static final class Offer {
-        final int dim, x, y, z;
+        final int dim, entityId;
         final String origin;
         final byte[] hashes;
         final long created = System.currentTimeMillis();
 
-        Offer(int dim, int x, int y, int z, String origin, byte[] hashes) {
+        Offer(int dim, int entityId, String origin, byte[] hashes) {
             this.dim = dim;
-            this.x = x;
-            this.y = y;
-            this.z = z;
+            this.entityId = entityId;
             this.origin = origin;
             this.hashes = hashes;
         }
 
-        boolean isAt(int dim, int x, int y, int z) {
-            return this.dim == dim && this.x == x && this.y == y && this.z == z;
+        boolean isFor(int dim, int entityId) {
+            return this.dim == dim && this.entityId == entityId;
         }
 
         boolean isComplete() {

@@ -12,7 +12,9 @@ import org.lwjgl.opengl.GL12;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketSaveFrame;
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameGeometry;
+import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.client.config.GuiCheckBox;
 import net.minecraft.client.gui.GuiButton;
@@ -35,7 +37,8 @@ public class GuiPictureFrame extends GuiScreen {
     private static final int GUI_WIDTH = 360;
     private static final int COLUMN = 175;
 
-    private final TilePictureFrame tile;
+    private final EntityPicture picture;
+    private final PictureFrame tile;
 
     private int source, fitMode, style, mode;
     private String borderItem;
@@ -45,9 +48,11 @@ public class GuiPictureFrame extends GuiScreen {
     private GuiTextField fPath, fUrl, fFolder, fInterval, fWidth, fHeight, fOffX, fOffY, fPpb;
     private final List<GuiTextField> fields = new ArrayList<GuiTextField>();
     private int left, right, top;
+    private boolean overlap;
 
-    public GuiPictureFrame(TilePictureFrame tile) {
-        this.tile = tile;
+    public GuiPictureFrame(EntityPicture picture) {
+        this.picture = picture;
+        this.tile = picture.frame;
         this.source = tile.source;
         this.fitMode = tile.fitMode;
         this.style = tile.style;
@@ -129,7 +134,7 @@ public class GuiPictureFrame extends GuiScreen {
     }
 
     private void updateWidgets() {
-        boolean local = source == TilePictureFrame.SOURCE_LOCAL;
+        boolean local = source == PictureFrame.SOURCE_LOCAL;
         btnSource.displayString = I18n.format("minepapers.gui.source." + source);
         btnPrev.visible = local;
         btnNext.visible = local;
@@ -143,14 +148,14 @@ public class GuiPictureFrame extends GuiScreen {
     }
 
     private boolean isActive(GuiTextField f) {
-        if (f == fPath) return source == TilePictureFrame.SOURCE_LOCAL;
-        if (f == fUrl) return source == TilePictureFrame.SOURCE_YANDEX;
-        if (f == fFolder) return source == TilePictureFrame.SOURCE_FOLDER;
+        if (f == fPath) return source == PictureFrame.SOURCE_LOCAL;
+        if (f == fUrl) return source == PictureFrame.SOURCE_YANDEX;
+        if (f == fFolder) return source == PictureFrame.SOURCE_FOLDER;
         return true;
     }
 
     private String currentKey() {
-        return TilePictureFrame.makeSourceKey(source, fPath.getText(), fUrl.getText(), fFolder.getText());
+        return PictureFrame.makeSourceKey(source, fPath.getText(), fUrl.getText(), fFolder.getText());
     }
 
     /** Что на самом деле показывает рамка: если источник не меняли и картинки уже на сервере — их. */
@@ -161,21 +166,22 @@ public class GuiPictureFrame extends GuiScreen {
 
     @Override
     protected void actionPerformed(GuiButton button) {
+        overlap = false;
         switch (button.id) {
             case ID_SOURCE:
-                source = (source + 1) % TilePictureFrame.SOURCE_COUNT;
+                source = (source + 1) % PictureFrame.SOURCE_COUNT;
                 updateWidgets();
                 break;
             case ID_FIT:
-                fitMode = (fitMode + 1) % TilePictureFrame.FIT_COUNT;
+                fitMode = (fitMode + 1) % PictureFrame.FIT_COUNT;
                 updateWidgets();
                 break;
             case ID_STYLE:
-                style = (style + 1) % TilePictureFrame.STYLE_COUNT;
+                style = (style + 1) % PictureFrame.STYLE_COUNT;
                 updateWidgets();
                 break;
             case ID_MODE:
-                mode = (mode + 1) % TilePictureFrame.MODE_COUNT;
+                mode = (mode + 1) % PictureFrame.MODE_COUNT;
                 updateWidgets();
                 break;
             case ID_BORDER:
@@ -196,7 +202,7 @@ public class GuiPictureFrame extends GuiScreen {
                     // Перечитать папку и выложить на сервер то, что в ней появилось.
                     if (key.equals(tile.getOriginKey())) {
                         if (tile.hasSharedFiles()) PictureManager.reload(tile.getSourceKey());
-                        ImageSync.offer(tile);
+                        ImageSync.offer(picture);
                     }
                 }
                 break;
@@ -262,6 +268,8 @@ public class GuiPictureFrame extends GuiScreen {
     }
 
     private void save() {
+        NBTTagCompound old = new NBTTagCompound();
+        tile.writeSettings(old);
         tile.source = source;
         tile.localPath = fPath.getText().trim();
         tile.yandexUrl = fUrl.getText().trim();
@@ -288,9 +296,17 @@ public class GuiPictureFrame extends GuiScreen {
         tile.writeSettings(tag);
         tile.readSettings(tag);
 
-        MinePapers.network.sendToServer(new PacketSaveFrame(tile));
+        // Картины не проходят сквозь блоки и друг друга: если новый размер или смещение задевают — окно остаётся.
+        overlap = FrameGeometry.isBlocked(picture.worldObj, tile, picture);
+        if (overlap) {
+            tile.readSettings(old);
+            return;
+        }
+
+        picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
+        MinePapers.network.sendToServer(new PacketSaveFrame(picture));
         // Файлы с этого компьютера другие игроки увидят, только когда они окажутся на сервере.
-        ImageSync.offer(tile);
+        ImageSync.offer(picture);
         mc.displayGuiScreen(null);
     }
 
@@ -324,8 +340,8 @@ public class GuiPictureFrame extends GuiScreen {
     /** Высота / ширина картинки, которая сейчас показывается в рамке (1, если неизвестно). */
     private double currentAspect() {
         PictureManager.Source s = PictureManager.peek(shownKey());
-        if (s != null && tile.getWorldObj() != null) {
-            PictureManager.Picture p = s.slide(tile.getWorldObj().getTotalWorldTime(), tile.interval, 0, tile.getSlideSeed());
+        if (s != null) {
+            PictureManager.Picture p = s.slide(picture.worldObj.getTotalWorldTime(), tile.interval, 0, tile.getSlideSeed());
             if (p != null && p.request() && p.getOrigWidth() > 0) {
                 return (double) p.getOrigHeight() / p.getOrigWidth();
             }
@@ -357,6 +373,7 @@ public class GuiPictureFrame extends GuiScreen {
 
     @Override
     protected void keyTyped(char c, int key) {
+        overlap = false;
         if (key == Keyboard.KEY_ESCAPE) {
             mc.displayGuiScreen(null);
             return;
@@ -422,7 +439,7 @@ public class GuiPictureFrame extends GuiScreen {
         drawCenteredString(fontRendererObj, I18n.format("minepapers.gui.title"), width / 2, top - 14, 0xFFFFFF);
 
         label(I18n.format("minepapers.gui.path." + source), left, top + 24);
-        if (source == TilePictureFrame.SOURCE_YANDEX) {
+        if (source == PictureFrame.SOURCE_YANDEX) {
             fontRendererObj.drawString(I18n.format("minepapers.gui.hint.1"), left, top + 60, 0x808080);
         }
 
@@ -437,7 +454,9 @@ public class GuiPictureFrame extends GuiScreen {
             if (isActive(f)) f.drawTextBox();
         }
 
-        fontRendererObj.drawString(fontRendererObj.trimStringToWidth(statusText(), GUI_WIDTH), left, top + 179, 0xFFFF80);
+        String status = overlap ? I18n.format("minepapers.gui.status.overlap") : statusText();
+        fontRendererObj.drawString(fontRendererObj.trimStringToWidth(status, GUI_WIDTH), left, top + 179,
+            overlap ? 0xFF6060 : 0xFFFF80);
         super.drawScreen(mouseX, mouseY, partialTicks);
         drawBorderIcon();
 

@@ -6,13 +6,14 @@ import com.grihail.minepapers.block.BlockPictureFiller;
 import com.grihail.minepapers.block.BlockPictureFrame;
 import com.grihail.minepapers.block.ItemPictureFrame;
 import com.grihail.minepapers.block.RecipePictureFrame;
+import com.grihail.minepapers.block.TileLegacyPicture;
+import com.grihail.minepapers.network.PacketBreakPicture;
 import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.PacketSaveFrame;
+import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.server.ServerImages;
-import com.grihail.minepapers.tile.TileFrameFiller;
-import com.grihail.minepapers.tile.TilePictureFrame;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
@@ -22,6 +23,7 @@ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
+import cpw.mods.fml.common.registry.EntityRegistry;
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
 import net.minecraft.init.Items;
@@ -55,14 +57,13 @@ public class MinePapers {
             picturesDir.mkdirs();
         }
 
+        // Картина — сущность. Блок нужен предмету картины и старым сохранениям, где картины были блоками.
         frame = new BlockPictureFrame();
         GameRegistry.registerBlock(frame, ItemPictureFrame.class, "picture_frame");
-        GameRegistry.registerTileEntity(TilePictureFrame.class, MODID + ":picture_frame");
-
-        // Невидимые части большой картины: своего предмета у них нет
+        GameRegistry.registerTileEntity(TileLegacyPicture.class, MODID + ":picture_frame");
         filler = new BlockPictureFiller();
         GameRegistry.registerBlock(filler, null, "picture_frame_part");
-        GameRegistry.registerTileEntity(TileFrameFiller.class, MODID + ":picture_frame_part");
+        EntityRegistry.registerModEntity(EntityPicture.class, "picture", 0, this, 160, Integer.MAX_VALUE, false);
 
         network = NetworkRegistry.INSTANCE.newSimpleChannel(MODID);
         network.registerMessage(PacketSaveFrame.Handler.class, PacketSaveFrame.class, 0, Side.SERVER);
@@ -71,6 +72,7 @@ public class MinePapers {
         network.registerMessage(PacketFileChunk.Upload.Handler.class, PacketFileChunk.Upload.class, 3, Side.SERVER);
         network.registerMessage(PacketHashes.Request.Handler.class, PacketHashes.Request.class, 4, Side.SERVER);
         network.registerMessage(PacketFileChunk.Handler.class, PacketFileChunk.class, 5, Side.CLIENT);
+        network.registerMessage(PacketBreakPicture.Handler.class, PacketBreakPicture.class, 6, Side.SERVER);
         FMLCommonHandler.instance().bus().register(new ServerImages.Events());
 
         proxy.preInit();

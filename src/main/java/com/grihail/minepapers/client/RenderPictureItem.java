@@ -4,7 +4,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.block.BlockPictureFrame;
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ItemRenderer;
@@ -45,11 +45,11 @@ public class RenderPictureItem implements IItemRenderer {
 
     @Override
     public void renderItem(ItemRenderType type, ItemStack stack, Object... data) {
-        TilePictureFrame s = new TilePictureFrame();
+        PictureFrame s = new PictureFrame();
         s.readSettings(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG));
 
         // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (у граффити рамки нет).
-        int ring = s.mode == TilePictureFrame.MODE_DECAL ? 0 : RING;
+        int ring = s.mode == PictureFrame.MODE_DECAL ? 0 : RING;
         int inner = ICON - 2 * ring;
         double w = s.getWidthBlocks(), h = s.getHeightBlocks();
         int iw = w >= h ? inner : Math.max(1, (int) Math.round(inner * w / h));

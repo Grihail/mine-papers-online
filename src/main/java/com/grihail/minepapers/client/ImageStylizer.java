@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.block.material.MapColor;
 
@@ -49,13 +49,13 @@ public final class ImageStylizer {
         }
 
         /** Та же картина, уменьшенная так, что большая сторона холста — iconPixels пикселей (для иконки предмета). */
-        public static Layout icon(TilePictureFrame tile, int iconPixels) {
+        public static Layout icon(PictureFrame tile, int iconPixels) {
             double w = tile.getWidthBlocks(), h = tile.getHeightBlocks();
             return new Layout(w, h, tile.fitMode, iconPixels / Math.max(w, h), tile.pixelsPerBlock, tile.style);
         }
 
         /** Размер холста в блоках: 0 по одной из сторон = подобрать по пропорциям картинки. */
-        public static Layout of(TilePictureFrame tile, int imageW, int imageH) {
+        public static Layout of(PictureFrame tile, int imageW, int imageH) {
             double w = tile.getWidthBlocks();
             double h = tile.getHeightBlocks();
             double aspect = (double) imageH / imageW;
@@ -87,27 +87,27 @@ public final class ImageStylizer {
         double natural = 1.0 / l.naturalPpb;
         double dw, dh;
         switch (l.fit) {
-            case TilePictureFrame.FIT_FILL:
+            case PictureFrame.FIT_FILL:
                 dw = canvasW;
                 dh = canvasH;
                 break;
-            case TilePictureFrame.FIT_CONTAIN: {
+            case PictureFrame.FIT_CONTAIN: {
                 double s = Math.min(canvasW / origW, canvasH / origH);
                 dw = origW * s;
                 dh = origH * s;
                 break;
             }
-            case TilePictureFrame.FIT_NONE:
+            case PictureFrame.FIT_NONE:
                 dw = origW * natural;
                 dh = origH * natural;
                 break;
-            case TilePictureFrame.FIT_SCALE_DOWN: {
+            case PictureFrame.FIT_SCALE_DOWN: {
                 double s = Math.min(natural, Math.min(canvasW / origW, canvasH / origH));
                 dw = origW * s;
                 dh = origH * s;
                 break;
             }
-            case TilePictureFrame.FIT_COVER:
+            case PictureFrame.FIT_COVER:
             default: {
                 double s = Math.max(canvasW / origW, canvasH / origH);
                 dw = origW * s;
@@ -145,11 +145,11 @@ public final class ImageStylizer {
         int outH = Math.max(1, (int) Math.round(th));
 
         int[] out = resample(src, srcW, srcH, sx0, sy0, sx1, sy1, outW, outH);
-        if (l.style == TilePictureFrame.STYLE_MAP) {
+        if (l.style == PictureFrame.STYLE_MAP) {
             quantize(out, outW, outH, 0f);
-        } else if (l.style == TilePictureFrame.STYLE_MAP_DITHER) {
+        } else if (l.style == PictureFrame.STYLE_MAP_DITHER) {
             quantize(out, outW, outH, 1f);
-        } else if (l.style == TilePictureFrame.STYLE_MAP_SOFT_DITHER) {
+        } else if (l.style == PictureFrame.STYLE_MAP_SOFT_DITHER) {
             quantize(out, outW, outH, SOFT_DITHER);
         }
 

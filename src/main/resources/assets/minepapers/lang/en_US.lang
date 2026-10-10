@@ -1,5 +1,6 @@
 tile.minepapers.picture_frame.name=Picture Frame
 tile.minepapers.picture_frame_part.name=Picture Part
+entity.minepapers.picture.name=Picture
 
 minepapers.gui.title=Picture Settings
 minepapers.gui.source.0=Source: config/minepapers
@@ -49,6 +50,7 @@ minepapers.gui.status.unknown=Press Done or Reload to load
 minepapers.gui.status.loading=Loading...
 minepapers.gui.status.count=Pictures found: %d
 minepapers.gui.status.error=Error: %s
+minepapers.gui.status.overlap=The picture would go through a block or another picture - change its size or offset
 
 minepapers.tooltip.configured=Configured picture
 minepapers.tooltip.source.0=config/minepapers

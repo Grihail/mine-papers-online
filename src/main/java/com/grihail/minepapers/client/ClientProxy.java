@@ -2,9 +2,9 @@ package com.grihail.minepapers.client;
 
 import com.grihail.minepapers.CommonProxy;
 import com.grihail.minepapers.MinePapers;
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.EntityPicture;
 
-import cpw.mods.fml.client.registry.ClientRegistry;
+import cpw.mods.fml.client.registry.RenderingRegistry;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
@@ -20,15 +20,17 @@ public class ClientProxy extends CommonProxy {
 
     @Override
     public void preInit() {
-        ClientRegistry.bindTileEntitySpecialRenderer(TilePictureFrame.class, new RenderPicture());
+        RenderingRegistry.registerEntityRenderingHandler(EntityPicture.class, new RenderPicture());
         MinecraftForgeClient.registerItemRenderer(Item.getItemFromBlock(MinePapers.frame), new RenderPictureItem());
         FMLCommonHandler.instance().bus().register(this);
-        MinecraftForge.EVENT_BUS.register(new PlacementPreview());
+        PictureControls controls = new PictureControls();
+        FMLCommonHandler.instance().bus().register(controls);
+        MinecraftForge.EVENT_BUS.register(controls);
     }
 
     @Override
-    public void openFrameGui(TilePictureFrame tile) {
-        Minecraft.getMinecraft().displayGuiScreen(new GuiPictureFrame(tile));
+    public void openFrameGui(EntityPicture picture) {
+        Minecraft.getMinecraft().displayGuiScreen(new GuiPictureFrame(picture));
     }
 
     @Override

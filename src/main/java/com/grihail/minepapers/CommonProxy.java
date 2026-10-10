@@ -1,12 +1,12 @@
 package com.grihail.minepapers;
 
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.EntityPicture;
 
 public class CommonProxy {
 
     public void preInit() {}
 
-    public void openFrameGui(TilePictureFrame tile) {}
+    public void openFrameGui(EntityPicture picture) {}
 
     /** Сервер просит выложить эти картинки (вызывается в сетевом потоке). */
     public void onFilesNeeded(byte[] hashes) {}

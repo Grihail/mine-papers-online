@@ -38,7 +38,8 @@ import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.SharedImage;
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.client.Minecraft;
 
@@ -197,10 +198,10 @@ public final class ImageSync {
      * Выложить картинки локального источника рамки на сервер, чтобы их увидели все.
      * Если у этого игрока таких файлов нет, ничего не происходит.
      */
-    public static void offer(TilePictureFrame tile) {
-        final String origin = tile.getOriginKey();
-        if (origin == null || tile.source == TilePictureFrame.SOURCE_YANDEX) return;
-        final int x = tile.xCoord, y = tile.yCoord, z = tile.zCoord;
+    public static void offer(EntityPicture picture) {
+        final String origin = picture.frame.getOriginKey();
+        if (origin == null || picture.frame.source == PictureFrame.SOURCE_YANDEX) return;
+        final int entityId = picture.getEntityId();
         jobOrigin = origin;
         jobStage = STAGE_PREPARING;
         jobDone = 0;
@@ -208,7 +209,7 @@ public final class ImageSync {
         WORKER.submit(() -> {
             try {
                 List<File> files = PictureManager.sourceFiles(origin);
-                int n = Math.min(files.size(), TilePictureFrame.MAX_FILES);
+                int n = Math.min(files.size(), PictureFrame.MAX_FILES);
                 jobTotal = n;
                 ByteArrayOutputStream hashes = new ByteArrayOutputStream();
                 for (int i = 0; i < n; i++) {
@@ -222,7 +223,7 @@ public final class ImageSync {
                     return;
                 }
                 MAIN.add(() -> {
-                    if (isConnected()) MinePapers.network.sendToServer(new PacketOfferFiles(x, y, z, origin, list));
+                    if (isConnected()) MinePapers.network.sendToServer(new PacketOfferFiles(entityId, origin, list));
                     if (origin.equals(jobOrigin) && jobStage == STAGE_PREPARING) jobStage = STAGE_NONE;
                 });
             } catch (Throwable t) {
@@ -236,12 +237,12 @@ public final class ImageSync {
      * Рамки, настроенные до появления общих картинок, хост одиночной игры / LAN выкладывает сам:
      * файлы с его компьютера, значит, это его картины.
      */
-    static void autoOffer(TilePictureFrame tile) {
+    static void autoOffer(EntityPicture picture) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (!mc.isIntegratedServerRunning() || tile.getWorldObj() == null) return;
-        String key = tile.getWorldObj().provider.dimensionId + "," + tile.xCoord + "," + tile.yCoord + ","
-            + tile.zCoord + "|" + tile.getOriginKey();
-        if (AUTO_OFFERED.add(key)) offer(tile);
+        if (!mc.isIntegratedServerRunning()) return;
+        String key = picture.worldObj.provider.dimensionId + "," + picture.getEntityId() + "|"
+            + picture.frame.getOriginKey();
+        if (AUTO_OFFERED.add(key)) offer(picture);
     }
 
     /** Сервер попросил эти картинки (сетевой поток). */

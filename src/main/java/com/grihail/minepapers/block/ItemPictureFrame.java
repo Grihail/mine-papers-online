@@ -2,7 +2,9 @@ package com.grihail.minepapers.block;
 
 import java.util.List;
 
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameGeometry;
+import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -12,13 +14,78 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.MathHelper;
 import net.minecraft.util.StatCollector;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
 
-/** Предмет рамки: в подсказке видно, какие настройки в нём сохранены. */
+/**
+ * Предмет картины: вешает картину-сущность; в подсказке видно, какие настройки в нём сохранены.
+ * Остаётся ItemBlock своего блока, чтобы старые предметы в мирах и инвентарях не пропали.
+ */
 public class ItemPictureFrame extends ItemBlock {
 
     public ItemPictureFrame(Block block) {
         super(block);
+    }
+
+    /**
+     * Будущая картина при клике по грани side блока (x, y, z), с настройками из предмета.
+     * Лежит ровно на этой грани — на настоящей поверхности блока (полублок, ковёр, боковина забора), а не на границе
+     * клетки. На полу и потолке верх картинки — в ту сторону, куда смотрит игрок (yaw).
+     */
+    public static PictureFrame ghostAt(World world, int x, int y, int z, int side, float yaw, ItemStack stack) {
+        if (side < 0 || side > 5) return null;
+        Block block = world.getBlock(x, y, z);
+        block.setBlockBoundsBasedOnState(world, x, y, z);
+        double[] min = { block.getBlockBoundsMinX(), block.getBlockBoundsMinY(), block.getBlockBoundsMinZ() };
+        double[] max = { block.getBlockBoundsMaxX(), block.getBlockBoundsMaxY(), block.getBlockBoundsMaxZ() };
+        int axis = side < 2 ? 1 : side < 4 ? 2 : 0;
+        boolean positive = (side & 1) == 1;
+
+        ForgeDirection dir = ForgeDirection.getOrientation(side);
+        PictureFrame ghost = new PictureFrame();
+        ghost.x = x + dir.offsetX;
+        ghost.y = y + dir.offsetY;
+        ghost.z = z + dir.offsetZ;
+        ghost.facing = side;
+        ghost.rotation = MathHelper.floor_double(yaw * 4f / 360f + 0.5) & 3;
+        // Грань блока может не доходить до границы клетки: прижимаем картину к ней.
+        ghost.surface = (float) (positive ? max[axis] - 1 : -min[axis]);
+        if (stack.hasTagCompound() && stack.getTagCompound().hasKey(BlockPictureFrame.ITEM_TAG)) {
+            ghost.readSettings(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG));
+        }
+        return ghost;
+    }
+
+    /**
+     * Установка картины-сущности. Клетки она не занимает, поэтому рядом и в той же клетке может быть что угодно;
+     * нельзя только провести холст сквозь блоки и другие картины.
+     */
+    @Override
+    public boolean onItemUse(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
+                             float hitX, float hitY, float hitZ) {
+        if (stack.stackSize == 0) return false;
+        PictureFrame ghost = ghostAt(world, x, y, z, side, player.rotationYaw, stack);
+        if (ghost == null || !player.canPlayerEdit(ghost.x, ghost.y, ghost.z, side, stack)) return false;
+        if (FrameGeometry.isBlocked(world, ghost, null)) return false;
+        if (!world.isRemote) {
+            EntityPicture picture = new EntityPicture(world, ghost);
+            world.spawnEntityInWorld(picture);
+            Block.SoundType sound = field_150939_a.stepSound;
+            world.playSoundEffect(picture.posX, picture.posY, picture.posZ, sound.func_150496_b(),
+                (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
+        }
+        stack.stackSize--;
+        return true;
+    }
+
+    /** Проверка на клиенте перед отправкой клика на сервер (у ItemBlock она требовала свободную клетку). */
+    @Override
+    @SideOnly(Side.CLIENT)
+    public boolean func_150936_a(World world, int x, int y, int z, int side, EntityPlayer player, ItemStack stack) {
+        PictureFrame ghost = ghostAt(world, x, y, z, side, player.rotationYaw, stack);
+        return ghost != null && !FrameGeometry.isBlocked(world, ghost, null);
     }
 
     @Override
@@ -26,12 +93,12 @@ public class ItemPictureFrame extends ItemBlock {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public void addInformation(ItemStack stack, EntityPlayer player, List lines, boolean advanced) {
         if (!stack.hasTagCompound() || !stack.getTagCompound().hasKey(BlockPictureFrame.ITEM_TAG)) return;
-        TilePictureFrame s = new TilePictureFrame();
+        PictureFrame s = new PictureFrame();
         s.readSettings(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG));
 
         lines.add(EnumChatFormatting.GOLD + StatCollector.translateToLocal("minepapers.tooltip.configured"));
-        String path = s.source == TilePictureFrame.SOURCE_YANDEX ? s.yandexUrl
-            : s.source == TilePictureFrame.SOURCE_FOLDER ? s.folderPath : s.localPath;
+        String path = s.source == PictureFrame.SOURCE_YANDEX ? s.yandexUrl
+            : s.source == PictureFrame.SOURCE_FOLDER ? s.folderPath : s.localPath;
         if (path.length() > 40) path = "..." + path.substring(path.length() - 37);
         lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocal("minepapers.tooltip.source." + s.source)
             + (path.isEmpty() ? "" : ": " + EnumChatFormatting.WHITE + path));

@@ -15,34 +15,28 @@ import net.minecraft.entity.player.EntityPlayerMP;
  */
 public class PacketOfferFiles implements IMessage {
 
-    private int x, y, z;
+    private int entityId;
     private String origin;
     private byte[] hashes;
 
     public PacketOfferFiles() {}
 
-    public PacketOfferFiles(int x, int y, int z, String origin, byte[] hashes) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
+    public PacketOfferFiles(int entityId, String origin, byte[] hashes) {
+        this.entityId = entityId;
         this.origin = origin;
         this.hashes = hashes;
     }
 
     @Override
     public void fromBytes(ByteBuf buf) {
-        x = buf.readInt();
-        y = buf.readInt();
-        z = buf.readInt();
+        entityId = buf.readInt();
         origin = ByteBufUtils.readUTF8String(buf);
         hashes = PacketHashes.readHashes(buf);
     }
 
     @Override
     public void toBytes(ByteBuf buf) {
-        buf.writeInt(x);
-        buf.writeInt(y);
-        buf.writeInt(z);
+        buf.writeInt(entityId);
         ByteBufUtils.writeUTF8String(buf, origin);
         PacketHashes.writeHashes(buf, hashes);
     }
@@ -51,7 +45,7 @@ public class PacketOfferFiles implements IMessage {
         @Override
         public IMessage onMessage(final PacketOfferFiles msg, MessageContext ctx) {
             final EntityPlayerMP player = ctx.getServerHandler().playerEntity;
-            ServerImages.schedule(() -> ServerImages.offer(player, msg.x, msg.y, msg.z, msg.origin, msg.hashes));
+            ServerImages.schedule(() -> ServerImages.offer(player, msg.entityId, msg.origin, msg.hashes));
             return null;
         }
     }

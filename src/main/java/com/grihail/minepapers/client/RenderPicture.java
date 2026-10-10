@@ -3,48 +3,67 @@ package com.grihail.minepapers.client;
 import org.lwjgl.opengl.GL11;
 
 import com.grihail.minepapers.MinePapers;
-import com.grihail.minepapers.tile.FrameGeometry;
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameGeometry;
+import com.grihail.minepapers.picture.PictureFrame;
 
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.entity.Render;
+import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.texture.TextureMap;
-import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
-import net.minecraft.tileentity.TileEntity;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.IIcon;
+import net.minecraft.util.MathHelper;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 
 /**
- * Рисует картину целиком: холст, рамку (по выбранному виду) и саму картинку.
+ * Рисует картину целиком: холст, рамку (по выбранному виду), саму картинку и трещины, пока её ломают.
  * Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. FrameGeometry.
  */
-public class RenderPicture extends TileEntitySpecialRenderer {
+public class RenderPicture extends Render {
 
-    private static final double PX = TilePictureFrame.PIXEL;
+    private static final double PX = PictureFrame.PIXEL;
     /** Плоскость граффити — почти вплотную к стене. */
     private static final double DECAL_DEPTH = 0.003;
     /** Длина одного повтора текстуры рамки вдоль ребра: 12 пикселей текстуры = 12/16 блока. */
     private static final double TILE = 12 * PX;
 
     // Состояние текущей отрисовки (рендер однопоточный)
-    private int facing;
+    private int facing, rotation;
     private World world;
+    /** Угол клетки рамки у поверхности (см. FrameGeometry.origin) и сама клетка рамки. */
+    private double ox, oy, oz;
     private int bx, by, bz;
     private Tessellator t;
     private float tintR = 1f, tintG = 1f, tintB = 1f;
 
     @Override
-    public void renderTileEntityAt(TileEntity te, double x, double y, double z, float partialTicks) {
-        TilePictureFrame tile = (TilePictureFrame) te;
-        PictureManager.Variant shown = currentVariant(tile);
+    protected ResourceLocation getEntityTexture(Entity entity) {
+        return null;
+    }
+
+    @Override
+    public void doRender(Entity entity, double x, double y, double z, float yaw, float partialTicks) {
+        EntityPicture picture = (EntityPicture) entity;
+        PictureFrame tile = picture.frame;
+        world = picture.worldObj;
+        PictureManager.Variant shown = currentVariant(picture);
         tile.clientRenderState = shown;
         boolean hasPicture = shown != null && shown.hasTexture();
         if (hasPicture) shown.touch();
 
         facing = tile.getFacing();
-        world = tile.getWorldObj();
-        bx = tile.xCoord;
-        by = tile.yCoord;
-        bz = tile.zCoord;
+        rotation = tile.getRotation();
+        double[] origin = FrameGeometry.origin(tile);
+        ox = origin[0];
+        oy = origin[1];
+        oz = origin[2];
+        // Запасной свет — из самой клетки рамки: угол у поверхности может оказаться внутри блока (полублок, ковёр).
+        bx = tile.x;
+        by = tile.y;
+        bz = tile.z;
         t = Tessellator.instance;
 
         double u0 = tile.getOffsetXBlocks(), v0 = tile.getOffsetYBlocks();
@@ -52,7 +71,8 @@ public class RenderPicture extends TileEntitySpecialRenderer {
         int mode = tile.mode;
 
         GL11.glPushMatrix();
-        GL11.glTranslated(x, y, z);
+        // Отсчёт от угла клетки рамки у поверхности, а не от позиции сущности (центра холста).
+        GL11.glTranslated(ox - RenderManager.renderPosX, oy - RenderManager.renderPosY, oz - RenderManager.renderPosZ);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glDisable(GL11.GL_CULL_FACE);
         GL11.glEnable(GL11.GL_BLEND);
@@ -60,12 +80,12 @@ public class RenderPicture extends TileEntitySpecialRenderer {
         GL11.glColor4f(1f, 1f, 1f, 1f);
 
         // 1. Холст (атлас блоков) и рамка (обычная или с текстурой предмета — она может быть в атласе предметов)
-        if (mode != TilePictureFrame.MODE_DECAL || !hasPicture) {
+        if (mode != PictureFrame.MODE_DECAL || !hasPicture) {
             bindTexture(TextureMap.locationBlocksTexture);
             t.startDrawingQuads();
             setTint(1f, 1f, 1f);
-            canvas(MinePapers.frame.canvasIcon, u0, v0, u1, v1, mode == TilePictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
-            if (mode != TilePictureFrame.MODE_DECAL) {
+            canvas(MinePapers.frame.canvasIcon, u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
+            if (mode != PictureFrame.MODE_DECAL) {
                 FrameSkin skin = FrameSkin.of(tile.borderItem, tile.borderMeta);
                 if (skin.atlas != TextureMap.locationBlocksTexture) {
                     t.draw();
@@ -73,7 +93,7 @@ public class RenderPicture extends TileEntitySpecialRenderer {
                     t.startDrawingQuads();
                 }
                 setTint(skin.r, skin.g, skin.b);
-                if (mode == TilePictureFrame.MODE_PANEL) {
+                if (mode == PictureFrame.MODE_PANEL) {
                     edges(skin.icon, u0, v0, u1, v1, 0, PX);
                 } else {
                     realisticFrame(skin.icon, u0, v0, u1, v1);
@@ -84,7 +104,7 @@ public class RenderPicture extends TileEntitySpecialRenderer {
 
         // 2. Картинка
         if (hasPicture) {
-            boolean decal = mode == TilePictureFrame.MODE_DECAL;
+            boolean decal = mode == PictureFrame.MODE_DECAL;
             double d = decal ? DECAL_DEPTH : PX + 0.002;
             if (decal) {
                 // Прижимаем к стене без мерцания
@@ -98,6 +118,12 @@ public class RenderPicture extends TileEntitySpecialRenderer {
             if (decal) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         }
 
+        // 3. Трещины, пока картину ломают — ванильные текстуры разрушения, как у блоков
+        if (picture.breakProgress > 0) {
+            double front = mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH + 0.001 : tile.getDepth() + 0.002;
+            cracks(Math.min(9, (int) (picture.breakProgress * 10)), u0, v0, u1, v1, front);
+        }
+
         // Возвращаем состояние OpenGL как было: моды вроде Angelica следят за ним и не любят "хвостов".
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_CULL_FACE);
@@ -105,6 +131,34 @@ public class RenderPicture extends TileEntitySpecialRenderer {
         GL11.glColor4f(1f, 1f, 1f, 1f);
         bindTexture(TextureMap.locationBlocksTexture);
         GL11.glPopMatrix();
+    }
+
+    /** Трещины поверх всей лицевой стороны: смешивание как у ванильного разрушения блоков (RenderGlobal). */
+    private void cracks(int stage, double u0, double v0, double u1, double v1, double d) {
+        bindTexture(TextureMap.locationBlocksTexture);
+        OpenGlHelper.glBlendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR, 1, 0);
+        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glPolygonOffset(-3f, -3f);
+        t.startDrawingQuads();
+        t.setBrightness(0xF000F0);
+        t.setColorRGBA_F(1f, 1f, 1f, 0.5f);
+        IIcon icon = MinePapers.frame.crackIcons[stage];
+        for (int cu = (int) Math.floor(u0); cu < u1; cu++) {
+            for (int cv = (int) Math.floor(v0); cv < v1; cv++) {
+                double a = Math.max(u0, cu), b = Math.min(u1, cu + 1);
+                double c = Math.max(v0, cv), e = Math.min(v1, cv + 1);
+                if (b - a < 1e-6 || e - c < 1e-6) continue;
+                double ia = icon.getInterpolatedU((a - cu) * 16), ib = icon.getInterpolatedU((b - cu) * 16);
+                double ic = icon.getInterpolatedV((cv + 1 - c) * 16), ie = icon.getInterpolatedV((cv + 1 - e) * 16);
+                vertex(a, c, d, ia, ic);
+                vertex(b, c, d, ib, ic);
+                vertex(b, e, d, ib, ie);
+                vertex(a, e, d, ia, ie);
+            }
+        }
+        t.draw();
+        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     // ---------------------------------------------------------------------
@@ -146,8 +200,8 @@ public class RenderPicture extends TileEntitySpecialRenderer {
 
         int sky = 0, block = 0, n = 0;
         for (int i = 0; i < 4; i++) {
-            double[] p = FrameGeometry.toBlock(facing, u + ((i & 1) == 0 ? -0.5 : 0.5), v + ((i & 2) == 0 ? -0.5 : 0.5), d + 0.05);
-            int x = bx + (int) Math.floor(p[0]), y = by + (int) Math.floor(p[1]), z = bz + (int) Math.floor(p[2]);
+            double[] p = FrameGeometry.toBlock(facing, rotation, u + ((i & 1) == 0 ? -0.5 : 0.5), v + ((i & 2) == 0 ? -0.5 : 0.5), d + 0.05);
+            int x = MathHelper.floor_double(ox + p[0]), y = MathHelper.floor_double(oy + p[1]), z = MathHelper.floor_double(oz + p[2]);
             if (world.getBlock(x, y, z).isOpaqueCube()) continue;
             int br = world.getLightBrightnessForSkyBlocks(x, y, z, 0);
             sky += (br >> 16) & 0xFFFF;
@@ -279,14 +333,14 @@ public class RenderPicture extends TileEntitySpecialRenderer {
     // Вершины и свет
 
     private void vertex(double u, double v, double d, double tu, double tv) {
-        double[] p = FrameGeometry.toBlock(facing, u, v, d);
+        double[] p = FrameGeometry.toBlock(facing, rotation, u, v, d);
         t.addVertexWithUV(p[0], p[1], p[2], tu, tv);
     }
 
     /** Освещение клетки, в которой лежит точка (u, v, d), и затенение грани как у ванильных блоков. */
     private void light(double u, double v, double d, float shade) {
-        double[] p = FrameGeometry.toBlock(facing, u, v, d);
-        int x = bx + (int) Math.floor(p[0]), y = by + (int) Math.floor(p[1]), z = bz + (int) Math.floor(p[2]);
+        double[] p = FrameGeometry.toBlock(facing, rotation, u, v, d);
+        int x = MathHelper.floor_double(ox + p[0]), y = MathHelper.floor_double(oy + p[1]), z = MathHelper.floor_double(oz + p[2]);
         int brightness = world.getLightBrightnessForSkyBlocks(x, y, z, 0);
         if (brightness == 0) brightness = world.getLightBrightnessForSkyBlocks(bx, by, bz, 0);
         t.setBrightness(brightness);
@@ -306,13 +360,14 @@ public class RenderPicture extends TileEntitySpecialRenderer {
      * Выбирает, что показывать: текущий слайд, если он уже стилизован, иначе — то, что было на экране раньше
      * (чтобы при смене слайда или настроек картинка не пропадала на время обработки).
      */
-    private static PictureManager.Variant currentVariant(TilePictureFrame tile) {
+    private static PictureManager.Variant currentVariant(EntityPicture picture) {
+        PictureFrame tile = picture.frame;
         String key = tile.getSourceKey();
-        if (key == null || tile.getWorldObj() == null) return null;
-        if (!tile.hasSharedFiles() && tile.source != TilePictureFrame.SOURCE_YANDEX) ImageSync.autoOffer(tile);
+        if (key == null) return null;
+        if (!tile.hasSharedFiles() && tile.source != PictureFrame.SOURCE_YANDEX) ImageSync.autoOffer(picture);
 
         PictureManager.Source source = PictureManager.get(key);
-        long time = tile.getWorldObj().getTotalWorldTime();
+        long time = picture.worldObj.getTotalWorldTime();
         long seed = tile.getSlideSeed();
 
         PictureManager.Picture pic = source.slide(time, tile.interval, 0, seed);

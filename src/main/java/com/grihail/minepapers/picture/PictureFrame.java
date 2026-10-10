@@ -1,19 +1,16 @@
-package com.grihail.minepapers.tile;
+package com.grihail.minepapers.picture;
 
 import com.grihail.minepapers.network.SharedImage;
 
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.network.NetworkManager;
-import net.minecraft.network.Packet;
-import net.minecraft.network.play.server.S35PacketUpdateTileEntity;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.AxisAlignedBB;
 
 /**
- * Главный блок картины: хранит все настройки. Остальные клетки холста заняты блоками-частями
- * (BlockPictureFiller), которые дают картине настоящий хитбокс. Картинки грузятся только на клиенте.
+ * Настройки и место картины. Живёт внутри EntityPicture, а также служит "призраком" будущей картины
+ * (подсказка перед установкой, проверки) и разбором настроек из предмета.
+ * Место: (x, y, z) — клетка "рамки", от левого нижнего угла которой отсчитывается холст; facing — сторона (2..5),
+ * куда смотрит картина. Картинки грузятся только на клиенте.
  */
-public class TilePictureFrame extends TileEntity {
+public class PictureFrame {
 
     public static final int SOURCE_LOCAL = 0;
     public static final int SOURCE_YANDEX = 1;
@@ -51,6 +48,21 @@ public class TilePictureFrame extends TileEntity {
     public static final int MAX_FILES = 256;
     public static final byte[] NO_FILES = new byte[0];
 
+    // ---------- Место ----------
+
+    public int x, y, z;
+    /** Сторона (0..5, как у граней блока), куда смотрит картина: 0 — с потолка вниз, 1 — с пола вверх, 2..5 — со стен. */
+    public int facing = 3;
+    /** На полу и потолке: куда смотрел игрок при установке (0 — юг, 1 — запад, 2 — север, 3 — восток), там верх картинки. */
+    public int rotation;
+    /**
+     * Где задняя сторона картины относительно границы клетки рамки, в блоках вдоль нормали (0 или меньше):
+     * картина лежит ровно на грани, по которой кликнули, — на полублоке, ковре, боковине забора.
+     */
+    public float surface;
+
+    // ---------- Настройки ----------
+
     public int source = SOURCE_LOCAL;
     /**
      * Картинки локального источника, выложенные на сервер: подряд идущие SHA-1 (по 20 байт).
@@ -73,7 +85,7 @@ public class TilePictureFrame extends TileEntity {
     public float height = 1f;
     public boolean sizeInPixels = false;
 
-    /** Смещение левого нижнего угла холста от левого нижнего угла рамки: вправо и вверх */
+    /** Смещение левого нижнего угла холста от левого нижнего угла клетки рамки: вправо и вверх */
     public float offsetX = 0f;
     public float offsetY = 0f;
     public boolean offsetInPixels = false;
@@ -92,20 +104,18 @@ public class TilePictureFrame extends TileEntity {
     /** Клиентский кэш последнего нарисованного варианта картинки (см. client.RenderPicture). На сервере не используется. */
     public Object clientRenderState;
 
-    @Override
-    public boolean canUpdate() {
-        return false;
+    /** Сторона (0..5), в которую смотрит картина. */
+    public int getFacing() {
+        return facing >= 0 && facing <= 5 ? facing : 3;
     }
 
-    /** Сторона (2..5), в которую смотрит картина. */
-    public int getFacing() {
-        int meta = worldObj != null ? getBlockMetadata() : blockMetadata;
-        return meta >= 2 && meta <= 5 ? meta : 3;
+    public int getRotation() {
+        return rotation & 3;
     }
 
     /** Своё зерно случайного порядка слайдшоу у каждой рамки (одинаковое у всех игроков). */
     public long getSlideSeed() {
-        return xCoord * 73856093L ^ yCoord * 19349663L ^ zCoord * 83492791L;
+        return x * 73856093L ^ y * 19349663L ^ z * 83492791L;
     }
 
     /** Ключ источника картинок, по которому клиент кэширует загруженные изображения. */
@@ -165,6 +175,26 @@ public class TilePictureFrame extends TileEntity {
         }
     }
 
+    public void writePlacement(NBTTagCompound tag) {
+        tag.setInteger("FX", x);
+        tag.setInteger("FY", y);
+        tag.setInteger("FZ", z);
+        tag.setByte("Facing", (byte) getFacing());
+        tag.setByte("Rot", (byte) getRotation());
+        tag.setFloat("Surface", surface);
+    }
+
+    public void readPlacement(NBTTagCompound tag) {
+        x = tag.getInteger("FX");
+        y = tag.getInteger("FY");
+        z = tag.getInteger("FZ");
+        facing = tag.getByte("Facing");
+        facing = getFacing();
+        rotation = tag.getByte("Rot") & 3;
+        float s = tag.getFloat("Surface");
+        surface = s >= -1f && s <= 0f ? s : 0f;
+    }
+
     public void writeSettings(NBTTagCompound tag) {
         tag.setByte("Src", (byte) source);
         tag.setString("Local", localPath);
@@ -204,7 +234,7 @@ public class TilePictureFrame extends TileEntity {
         width = clamp(w, MIN_SIZE_BLOCKS * sizeScale, MAX_SIZE_BLOCKS * sizeScale);
         height = clamp(h, MIN_SIZE_BLOCKS * sizeScale, MAX_SIZE_BLOCKS * sizeScale);
 
-        // Холст должен перекрывать клетку самой рамки хотя бы на пиксель — иначе картине не на чем держаться.
+        // Холст должен перекрывать клетку рамки (где кликнули при установке) хотя бы на пиксель.
         offsetInPixels = tag.getBoolean("PosPx");
         float offsetScale = offsetInPixels ? 16f : 1f;
         float minX = (PIXEL - getWidthBlocks()) * offsetScale, maxX = (1 - PIXEL) * offsetScale;
@@ -226,8 +256,21 @@ public class TilePictureFrame extends TileEntity {
     public boolean isCustomized() {
         NBTTagCompound mine = new NBTTagCompound(), def = new NBTTagCompound();
         writeSettings(mine);
-        new TilePictureFrame().writeSettings(def);
+        new PictureFrame().writeSettings(def);
         return !mine.equals(def);
+    }
+
+    /** Копия с тем же местом, но настройками из tag (для проверок до применения). */
+    public PictureFrame withSettings(NBTTagCompound tag) {
+        PictureFrame copy = new PictureFrame();
+        copy.x = x;
+        copy.y = y;
+        copy.z = z;
+        copy.facing = facing;
+        copy.rotation = rotation;
+        copy.surface = surface;
+        copy.readSettings(tag);
+        return copy;
     }
 
     private static String limit(String s) {
@@ -241,39 +284,5 @@ public class TilePictureFrame extends TileEntity {
     private static float clamp(float v, float min, float max) {
         if (Float.isNaN(v)) return min > 0 ? min : Math.min(0, max);
         return Math.max(min, Math.min(max, v));
-    }
-
-    @Override
-    public void writeToNBT(NBTTagCompound tag) {
-        super.writeToNBT(tag);
-        writeSettings(tag);
-    }
-
-    @Override
-    public void readFromNBT(NBTTagCompound tag) {
-        super.readFromNBT(tag);
-        readSettings(tag);
-    }
-
-    @Override
-    public Packet getDescriptionPacket() {
-        NBTTagCompound tag = new NBTTagCompound();
-        writeSettings(tag);
-        return new S35PacketUpdateTileEntity(xCoord, yCoord, zCoord, 1, tag);
-    }
-
-    @Override
-    public void onDataPacket(NetworkManager net, S35PacketUpdateTileEntity pkt) {
-        readSettings(pkt.func_148857_g());
-    }
-
-    @Override
-    public AxisAlignedBB getRenderBoundingBox() {
-        return FrameGeometry.canvasBox(this).expand(0.1, 0.1, 0.1);
-    }
-
-    @Override
-    public double getMaxRenderDistanceSquared() {
-        return 128.0 * 128.0;
     }
 }

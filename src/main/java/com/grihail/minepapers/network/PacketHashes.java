@@ -2,7 +2,7 @@ package com.grihail.minepapers.network;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.server.ServerImages;
-import com.grihail.minepapers.tile.TilePictureFrame;
+import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
@@ -40,7 +40,7 @@ public abstract class PacketHashes implements IMessage {
         if (n < 0 || n % SharedImage.HASH_BYTES != 0 || n > MAX_HASHES * SharedImage.HASH_BYTES
             || n > buf.readableBytes()) {
             buf.skipBytes(buf.readableBytes());
-            return TilePictureFrame.NO_FILES;
+            return PictureFrame.NO_FILES;
         }
         byte[] hashes = new byte[n];
         buf.readBytes(hashes);

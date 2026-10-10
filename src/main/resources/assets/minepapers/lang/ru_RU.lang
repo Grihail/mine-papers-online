@@ -1,5 +1,6 @@
 tile.minepapers.picture_frame.name=Рамка для картин
 tile.minepapers.picture_frame_part.name=Часть картины
+entity.minepapers.picture.name=Картина
 
 minepapers.gui.title=Настройка картины
 minepapers.gui.source.0=Источник: config/minepapers
@@ -49,6 +50,7 @@ minepapers.gui.status.unknown=Нажмите «Готово» или «Обно�
 minepapers.gui.status.loading=Загрузка...
 minepapers.gui.status.count=Найдено картинок: %d
 minepapers.gui.status.error=Ошибка: %s
+minepapers.gui.status.overlap=Картина заденет блок или другую картину — измените размер или смещение
 
 minepapers.tooltip.configured=Настроенная картина
 minepapers.tooltip.source.0=config/minepapers
