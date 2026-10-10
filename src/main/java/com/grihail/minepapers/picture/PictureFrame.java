@@ -43,7 +43,7 @@ public class PictureFrame {
     public static final float PIXEL = 1f / 16f;
     public static final float MIN_SIZE_BLOCKS = PIXEL;
     public static final float MAX_SIZE_BLOCKS = 64f;
-    public static final int MIN_PPB = 2;
+    public static final int MIN_PPB = 1;
     public static final int MAX_PPB = 256;
     public static final int MAX_STRING = 512;
     /** Сколько картинок из локальной папки можно выложить на сервер для одной рамки. */
