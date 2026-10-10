@@ -19,16 +19,11 @@ import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
 
-/**
- * Картина — сущность, как ванильные картины и рамки: не занимает клеток, поэтому блоки и другие картины
- * могут стоять вплотную и в той же клетке. Хитбокс — весь холст, сквозь него можно пройти.
- * Опора не нужна: картина держится, даже если убрать блок за ней.
- * Настройки синхронизируются с клиентами через DataWatcher (предмет с настройками в NBT).
- */
+/** Картина — сущность, как ванильные картины и рамки: не занимает клеток, поэтому блоки и другие картины могут стоять вплотную и в той же клетке. Хитбокс — весь холст, сквозь него можно пройти. Опора не нужна: картина держится, даже если убрать блок за ней. Настройки синхронизируются с клиентами через DataWatcher (предмет с настройками в NBT). */
 public class EntityPicture extends Entity implements IEntityAdditionalSpawnData {
 
     private static final int WATCH_SETTINGS = 10;
-    /** Прочность как у деревянного блока: ломается с той же скоростью, что и прежняя картина-блок. */
+    /** Прочность как у деревянного блока. */
     public static final float HARDNESS = 0.5f;
 
     public final PictureFrame frame = new PictureFrame();
@@ -78,8 +73,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         posX = (box.minX + box.maxX) / 2;
         posY = (box.minY + box.maxY) / 2;
         posZ = (box.minZ + box.maxZ) / 2;
-        // Поиск сущностей смотрит только на соседние чанки в пределах MAX_ENTITY_RADIUS от их центра —
-        // большой картине нужен радиус побольше, иначе по её краю не попасть (так советует сам Forge).
+        // Поиск сущностей смотрит только на соседние чанки в пределах MAX_ENTITY_RADIUS от их центра — большой картине нужен радиус побольше, иначе по её краю не попасть (так советует сам Forge).
         double radius = Math.max(box.maxX - box.minX, Math.max(box.maxY - box.minY, box.maxZ - box.minZ)) / 2 + 1;
         if (radius > World.MAX_ENTITY_RADIUS) World.MAX_ENTITY_RADIUS = radius;
     }
@@ -144,10 +138,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         return true;
     }
 
-    /**
-     * Удар игрока. В выживании картину "копают" (см. client.PictureControls), поэтому удар ничего не делает;
-     * в творческом режиме ломается сразу, как блок.
-     */
+    /** Удар игрока. В выживании картину "копают" (см. client.PictureControls), поэтому удар ничего не делает; в творческом режиме ломается сразу, как блок. */
     @Override
     public boolean hitByEntity(Entity attacker) {
         // На клиенте сюда попадает только удар самого игрока (PlayerControllerMP.attackEntity).

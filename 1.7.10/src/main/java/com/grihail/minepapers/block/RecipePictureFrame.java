@@ -8,10 +8,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.world.World;
 
-/**
- * Рецепты без формы, как копирование карт:
- * одна настроенная рамка — сброс до пустой; настроенная + пустые — столько же копий настроенной.
- */
+/** Рецепты без формы, как копирование карт: одна настроенная рамка — сброс до пустой; настроенная + пустые — столько же копий настроенной. */
 public class RecipePictureFrame implements IRecipe {
 
     private static boolean isConfigured(ItemStack stack) {

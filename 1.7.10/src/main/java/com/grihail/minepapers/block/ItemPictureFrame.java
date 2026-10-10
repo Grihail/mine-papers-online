@@ -19,21 +19,14 @@ import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-/**
- * Предмет картины: вешает картину-сущность; в подсказке видно, какие настройки в нём сохранены.
- * Остаётся ItemBlock своего блока, чтобы старые предметы в мирах и инвентарях не пропали.
- */
+/** Предмет картины: вешает картину-сущность; в подсказке видно, какие настройки в нём сохранены. Остаётся ItemBlock своего блока, чтобы старые предметы в мирах и инвентарях не пропали. */
 public class ItemPictureFrame extends ItemBlock {
 
     public ItemPictureFrame(Block block) {
         super(block);
     }
 
-    /**
-     * Будущая картина при клике по грани side блока (x, y, z), с настройками из предмета.
-     * Лежит ровно на этой грани — на настоящей поверхности блока (полублок, ковёр, боковина забора), а не на границе
-     * клетки. На полу и потолке верх картинки — в ту сторону, куда смотрит игрок (yaw).
-     */
+    /** Будущая картина при клике по грани side блока (x, y, z), с настройками из предмета. Лежит ровно на этой грани — на настоящей поверхности блока (полублок, ковёр, боковина забора), а не на границе клетки. На полу и потолке верх картинки — в ту сторону, куда смотрит игрок (yaw). */
     public static PictureFrame ghostAt(World world, int x, int y, int z, int side, float yaw, ItemStack stack) {
         if (side < 0 || side > 5) return null;
         Block block = world.getBlock(x, y, z);
@@ -58,10 +51,7 @@ public class ItemPictureFrame extends ItemBlock {
         return ghost;
     }
 
-    /**
-     * Установка картины-сущности. Клетки она не занимает, поэтому рядом и в той же клетке может быть что угодно;
-     * нельзя только провести холст сквозь блоки и другие картины.
-     */
+    /** Установка картины-сущности. Клетки она не занимает, поэтому рядом и в той же клетке может быть что угодно; нельзя только провести холст сквозь блоки и другие картины. */
     @Override
     public boolean onItemUse(ItemStack stack, EntityPlayer player, World world, int x, int y, int z, int side,
                              float hitX, float hitY, float hitZ) {
@@ -80,7 +70,7 @@ public class ItemPictureFrame extends ItemBlock {
         return true;
     }
 
-    /** Проверка на клиенте перед отправкой клика на сервер (у ItemBlock она требовала свободную клетку). */
+    /** Проверка на клиенте перед отправкой клика на сервер. */
     @Override
     @SideOnly(Side.CLIENT)
     public boolean func_150936_a(World world, int x, int y, int z, int side, EntityPlayer player, ItemStack stack) {

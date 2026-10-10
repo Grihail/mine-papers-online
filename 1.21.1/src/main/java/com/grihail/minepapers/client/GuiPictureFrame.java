@@ -254,10 +254,7 @@ public class GuiPictureFrame extends Screen {
         onClose();
     }
 
-    /**
-     * Хитбокс должен быть известен серверу, поэтому "0 = авто" превращаем в конкретный размер
-     * по пропорциям текущей картинки (если она ещё не загружена — квадрат). Округляем до пикселя.
-     */
+    /** Хитбокс должен быть известен серверу, поэтому "0 = авто" превращаем в конкретный размер по пропорциям текущей картинки (если она ещё не загружена — квадрат). Округляем до пикселя. */
     private float[] resolveSize(Float w, Float h) {
         boolean px = cbSizePx.selected();
         float unit = px ? 16f : 1f;
@@ -328,7 +325,7 @@ public class GuiPictureFrame extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    /** Tab переключает только поля ввода текущего источника, как раньше. */
+    /** Tab переключает только поля ввода текущего источника. */
     private void focusNext() {
         List<EditBox> active = new ArrayList<EditBox>();
         for (EditBox f : fields) {

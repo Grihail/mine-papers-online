@@ -11,10 +11,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.World;
 
-/**
- * Невидимая часть большой картины из старых сохранений (когда картины были блоками).
- * Её убирает картина при превращении в сущность; оставшиеся без картины исчезают сами.
- */
+/** Невидимая часть большой картины из старых сохранений (когда картины были блоками). Её убирает картина при превращении в сущность; оставшиеся без картины исчезают сами. */
 public class BlockPictureFiller extends Block {
 
     public BlockPictureFiller() {

@@ -45,11 +45,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 
-/**
- * Загрузка и кэширование картинок на клиенте.
- * Все публичные методы вызываются только из клиентского (рендер) потока;
- * скачивание, декодирование и стилизация идут в фоновых потоках.
- */
+/** Загрузка и кэширование картинок на клиенте. Все публичные методы вызываются только из клиентского (рендер) потока; скачивание, декодирование и стилизация идут в фоновых потоках. */
 public final class PictureManager {
 
     private static final Logger LOG = LogUtils.getLogger();
@@ -86,10 +82,7 @@ public final class PictureManager {
         return MinePapers.NAME + "/" + MinePapers.VERSION;
     }
 
-    /**
-     * Миниатюра первой картинки источника для иконки предмета (null, пока не готова или если не вышло).
-     * Источник загружается только до тех пор, пока миниатюра не посчитана, дальше его можно выгрузить.
-     */
+    /** Миниатюра первой картинки источника для иконки предмета (null, пока не готова или если не вышло). Источник загружается только до тех пор, пока миниатюра не посчитана, дальше его можно выгрузить. */
     public static Variant thumbnail(String sourceKey, ImageStylizer.Layout layout) {
         String key = sourceKey + "|" + layout.key;
         Thumb thumb = THUMBS.computeIfAbsent(key, k -> new Thumb());
@@ -258,12 +251,7 @@ public final class PictureManager {
             });
         }
 
-        /**
-         * Картинка для текущего момента слайдшоу (null, если список ещё не готов).
-         * Порядок случайный, но считается от игрового времени и seed рамки — у всех игроков одинаковый.
-         * @param offset 0 — текущий слайд, 1 — следующий (для предзагрузки)
-         * @param seed   своё значение у каждой рамки, чтобы рамки с одной папкой не показывали одно и то же
-         */
+        /** Картинка для текущего момента слайдшоу (null, если список ещё не готов). Порядок случайный, но считается от игрового времени и seed рамки — у всех игроков одинаковый. @param offset 0 — текущий слайд, 1 — следующий (для предзагрузки) @param seed   своё значение у каждой рамки, чтобы рамки с одной папкой не показывали одно и то же */
         public Picture slide(long worldTime, int intervalSeconds, int offset, long seed) {
             lastUsed = System.currentTimeMillis();
             List<Picture> list = pictures;
@@ -281,10 +269,7 @@ public final class PictureManager {
             return list == null || list.isEmpty() ? null : list.get(0);
         }
 
-        /**
-         * Каждый "круг" из n слайдов — своя случайная перестановка: за круг каждая картинка показывается
-         * ровно один раз, а на стыке кругов одна и та же картинка не повторяется дважды подряд.
-         */
+        /** Каждый "круг" из n слайдов — своя случайная перестановка: за круг каждая картинка показывается ровно один раз, а на стыке кругов одна и та же картинка не повторяется дважды подряд. */
         private int shuffledIndex(long slot, int n, long seed) {
             if (n == 2) return (int) (slot % 2);
             long cycle = slot / n;
@@ -408,10 +393,7 @@ public final class PictureManager {
             return v;
         }
 
-        /**
-         * Запускает стилизацию в фоне; вариант не запоминается в картинке (этим занимается вызывающий).
-         * @param keepPixels сохранить пиксели и после загрузки в видеопамять (для объёмной иконки предмета)
-         */
+        /** Запускает стилизацию в фоне; вариант не запоминается в картинке (этим занимается вызывающий). @param keepPixels сохранить пиксели и после загрузки в видеопамять (для объёмной иконки предмета) */
         Variant newVariant(ImageStylizer.Layout layout, boolean keepPixels) {
             Variant created = new Variant(this, keepPixels);
             int[] px = pixels;
@@ -534,8 +516,7 @@ public final class PictureManager {
         }
     }
 
-    // =====================================================================
-    // Локальные файлы
+    // ===================================================================== Локальные файлы
 
     /** Файлы-картинки локального источника ("local:" или "folder:") в порядке показа. */
     static List<File> sourceFiles(String key) throws IOException {
@@ -601,11 +582,7 @@ public final class PictureManager {
         return new Picture(file.getName(), () -> file);
     }
 
-    /**
-     * Распаковывает картинку. Огромные изображения (например 7000x5000) читаются сразу прореженными,
-     * чтобы не держать в памяти сотни мегабайт ради текстуры, которая всё равно будет маленькой.
-     * @param origSize сюда записывается исходный размер {ширина, высота}
-     */
+    /** Распаковывает картинку. Огромные изображения (например 7000x5000) читаются сразу прореженными, чтобы не держать в памяти сотни мегабайт ради текстуры, которая всё равно будет маленькой. @param origSize сюда записывается исходный размер {ширина, высота} */
     static BufferedImage decode(Object input, int[] origSize) throws IOException {
         int[] header = null;
         if (input instanceof byte[] bytes) {
@@ -644,8 +621,7 @@ public final class PictureManager {
         }
     }
 
-    // =====================================================================
-    // Яндекс Диск (публичный API, авторизация не нужна)
+    // ===================================================================== Яндекс Диск (публичный API, авторизация не нужна)
 
     private static List<Picture> listYandex(String publicUrl) throws IOException {
         JsonObject root = getJson(YANDEX_API + "?public_key=" + encode(publicUrl) + "&limit=1000&sort=name");
@@ -696,8 +672,7 @@ public final class PictureManager {
         });
     }
 
-    // =====================================================================
-    // Прямая ссылка на картинку
+    // ===================================================================== Прямая ссылка на картинку
 
     private static List<Picture> listUrl(String url) throws IOException {
         String lower = url.toLowerCase(Locale.ROOT);
@@ -723,8 +698,7 @@ public final class PictureManager {
         return list;
     }
 
-    // =====================================================================
-    // HTTP / утилиты
+    // ===================================================================== HTTP / утилиты
 
     private static JsonObject getJson(String url) throws IOException {
         HttpURLConnection conn = open(url);

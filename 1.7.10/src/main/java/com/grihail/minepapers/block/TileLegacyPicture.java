@@ -10,10 +10,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 
-/**
- * Картина-блок из старого сохранения. При первом тике на сервере превращается в картину-сущность
- * с теми же настройками и убирает свои невидимые части.
- */
+/** Картина-блок из старого сохранения. При первом тике на сервере превращается в картину-сущность с теми же настройками и убирает свои невидимые части. */
 public class TileLegacyPicture extends TileEntity {
 
     private NBTTagCompound saved = new NBTTagCompound();

@@ -24,10 +24,7 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
-/**
- * Рисует картину целиком: холст, рамку (по выбранному виду), саму картинку и трещины, пока её ломают.
- * Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. FrameGeometry.
- */
+/** Рисует картину целиком: холст, рамку (по выбранному виду), саму картинку и трещины, пока её ломают. Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. FrameGeometry. */
 public class RenderPicture extends EntityRenderer<EntityPicture> {
 
     private static final double PX = PictureFrame.PIXEL;
@@ -147,13 +144,9 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Части картины
+    // --------------------------------------------------------------------- Части картины
 
-    /**
-     * Картинка с плавным освещением, как у ванильных блоков: свет считается в каждой вершине сетки
-     * (среднее по соседним клеткам) и плавно перетекает по поверхности — без "ступенек" по блокам.
-     */
+    /** Картинка с плавным освещением, как у ванильных блоков: свет считается в каждой вершине сетки (среднее по соседним клеткам) и плавно перетекает по поверхности — без "ступенек" по блокам. */
     private void picture(double u0, double v0, double u1, double v1, double d) {
         lightCache.clear();
         colorR = colorG = colorB = colorA = 1f;
@@ -218,10 +211,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         }
     }
 
-    /**
-     * Торцы холста от d0 до d1, обшитые деревом рамки (вид "Панель" и внешние торцы реалистичной рамки).
-     * Берём древесину из середины текстуры рамки: полоса шириной в толщину торца.
-     */
+    /** Торцы холста от d0 до d1, обшитые деревом рамки (вид "Панель" и внешние торцы реалистичной рамки). Берём древесину из середины текстуры рамки: полоса шириной в толщину торца. */
     private void edges(TextureAtlasSprite icon, double u0, double v0, double u1, double v1, double d0, double d1) {
         double rows = (d1 - d0) * 16;
         // верх и низ
@@ -232,10 +222,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         alongV(icon, v0, v1, u1, d0, d1, 6, rows, 0.05, 0.8f);
     }
 
-    /**
-     * Реалистичная рамка: брусья шириной 2 пикселя заходят на холст и выступают на пиксель над картинкой;
-     * лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы.
-     */
+    /** Реалистичная рамка: брусья шириной 2 пикселя заходят на холст и выступают на пиксель над картинкой; лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы. */
     private void realisticFrame(TextureAtlasSprite icon, double u0, double v0, double u1, double v1) {
         double b = Math.min(2 * PX, Math.min((u1 - u0) / 2, (v1 - v0) / 2));
         double top = 2 * PX; // лицевая плоскость рамки
@@ -315,8 +302,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Вершины и свет
+    // --------------------------------------------------------------------- Вершины и свет
 
     /** Пиксель спрайта (0..16) -> координата в атласе. */
     private static double texU(TextureAtlasSprite sprite, double px) {
@@ -327,10 +313,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         return sprite.getV((float) (px / 16));
     }
 
-    /**
-     * Нормаль у всех вершин — вверх: так ванильный шейдер сущностей не затемняет картину в зависимости от стороны
-     * света, а затенение граней делаем сами (light), как у блоков.
-     */
+    /** Нормаль у всех вершин — вверх: так ванильный шейдер сущностей не затемняет картину в зависимости от стороны света, а затенение граней делаем сами (light), как у блоков. */
     private void vertex(double u, double v, double d, double tu, double tv) {
         double[] p = FrameGeometry.toBlock(facing, rotation, u, v, d);
         out.addVertex(pose, (float) p[0], (float) p[1], (float) p[2])
@@ -363,10 +346,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
 
     // ---------------------------------------------------------------------
 
-    /**
-     * Выбирает, что показывать: текущий слайд, если он уже стилизован, иначе — то, что было на экране раньше
-     * (чтобы при смене слайда или настроек картинка не пропадала на время обработки).
-     */
+    /** Выбирает, что показывать: текущий слайд, если он уже стилизован, иначе — то, что было на экране раньше (чтобы при смене слайда или настроек картинка не пропадала на время обработки). */
     private static PictureManager.Variant currentVariant(EntityPicture picture) {
         PictureFrame tile = picture.frame;
         String key = tile.getSourceKey();

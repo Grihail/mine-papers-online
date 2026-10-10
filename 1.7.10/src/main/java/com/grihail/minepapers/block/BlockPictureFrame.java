@@ -18,11 +18,7 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.IIcon;
 import net.minecraft.world.World;
 
-/**
- * Блок картины. Сама картина — сущность (picture.EntityPicture); блок остался, потому что к нему привязан
- * предмет картины (ItemPictureFrame) и на нём зарегистрированы текстуры рамки, холста и трещин.
- * В мире он встречается только в старых сохранениях: TileLegacyPicture превращает его в картину-сущность.
- */
+/** Блок картины. Сама картина — сущность (picture.EntityPicture); блок остался, потому что к нему привязан предмет картины (ItemPictureFrame) и на нём зарегистрированы текстуры рамки, холста и трещин. В мире он встречается только в старых сохранениях: TileLegacyPicture превращает его в картину-сущность. */
 public class BlockPictureFrame extends BlockContainer {
 
     /** Ключ настроек в NBT предмета. */

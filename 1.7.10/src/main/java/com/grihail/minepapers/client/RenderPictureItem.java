@@ -15,11 +15,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 import net.minecraftforge.client.IItemRenderer;
 
-/**
- * Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри
- * (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель.
- * Ненастроенные рамки рисуются обычной иконкой, без этого класса.
- */
+/** Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель. Ненастроенные рамки рисуются обычной иконкой, без этого класса. */
 public class RenderPictureItem implements IItemRenderer {
 
     private static final int ICON = 16;
@@ -82,8 +78,7 @@ public class RenderPictureItem implements IItemRenderer {
             t.draw();
         }
 
-        // 2. Картинка. В рамке — на фоне холста, как в мире. У граффити холста нет: прозрачный фон картинки
-        //    остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы.
+        // 2. Картинка. В рамке — на фоне холста, как в мире. У граффити холста нет: прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы.
         if (thumb != null) {
             if (ring > 0) {
                 mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
@@ -137,10 +132,7 @@ public class RenderPictureItem implements IItemRenderer {
         mc.getTextureManager().bindTexture(TextureMap.locationItemsTexture);
     }
 
-    /**
-     * Объёмная пластинка по пикселям текстуры (прозрачные пиксели — дыры, торцы повторяют форму), как у ванильных
-     * предметов. Прямоугольник (x0, y0)–(x1, y1) — в пикселях иконки, (u0, v0)–(u1, v1) — его часть текстуры.
-     */
+    /** Объёмная пластинка по пикселям текстуры (прозрачные пиксели — дыры, торцы повторяют форму), как у ванильных предметов. Прямоугольник (x0, y0)–(x1, y1) — в пикселях иконки, (u0, v0)–(u1, v1) — его часть текстуры. */
     private void extruded(double x0, double y0, double x1, double y1,
                           double u0, double v0, double u1, double v1, int texW, int texH) {
         GL11.glPushMatrix();
@@ -217,10 +209,7 @@ public class RenderPictureItem implements IItemRenderer {
             icon.getInterpolatedU(x1), icon.getInterpolatedV(y1), 0);
     }
 
-    /**
-     * Прямоугольник в пикселях иконки (x вправо, y вниз). layer > 0 — чуть ближе к зрителю, чтобы не мерцать.
-     * face 0 — лицевая сторона, 1 — задняя (в инвентаре только лицевая).
-     */
+    /** Прямоугольник в пикселях иконки (x вправо, y вниз). layer > 0 — чуть ближе к зрителю, чтобы не мерцать. face 0 — лицевая сторона, 1 — задняя (в инвентаре только лицевая). */
     private void rect(int face, double x0, double y0, double x1, double y1,
                       double u0, double v0, double u1, double v1, int layer) {
         float z;

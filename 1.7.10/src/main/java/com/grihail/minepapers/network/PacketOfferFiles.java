@@ -9,10 +9,7 @@ import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 
-/**
- * Клиент -> сервер: картинки локального источника рамки (origin — путь, как он записан в рамке).
- * Сервер в ответ просит недостающие (PacketHashes.Need), а когда они все у него, записывает список в рамку.
- */
+/** Клиент -> сервер: картинки локального источника рамки (origin — путь, как он записан в рамке). Сервер в ответ просит недостающие (PacketHashes.Need), а когда они все у него, записывает список в рамку. */
 public class PacketOfferFiles implements IMessage {
 
     private int entityId;

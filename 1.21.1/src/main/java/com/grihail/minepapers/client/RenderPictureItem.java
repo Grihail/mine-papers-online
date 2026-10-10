@@ -16,12 +16,7 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
-/**
- * Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри
- * (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель.
- * Ненастроенные рамки рисуются обычной моделью предмета (см. models/item/picture_frame.json).
- * Рисует в кубе 0..1, как модели предметов item/generated: пластинка между z = 7.5/16 и 8.5/16.
- */
+/** Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель. Ненастроенные рамки рисуются обычной моделью предмета (см. models/item/picture_frame.json). Рисует в кубе 0..1, как модели предметов item/generated: пластинка между z = 7.5/16 и 8.5/16. */
 public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
 
     private static final int ICON = 16;
@@ -76,8 +71,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
             if (!flat) sides(skin.sprite, x0, y0, x1, y1);
         }
 
-        // 2. Картинка. В рамке — на фоне холста, как в мире. У граффити холста нет: прозрачный фон картинки
-        //    остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы.
+        // 2. Картинка. В рамке — на фоне холста, как в мире. У граффити холста нет: прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы.
         color(1f, 1f, 1f);
         if (thumb != null) {
             if (ring > 0) {
@@ -123,10 +117,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         boolean at(int x, int y);
     }
 
-    /**
-     * Объёмная пластинка по пикселям текстуры (прозрачные пиксели — дыры, торцы повторяют форму), как у ванильных
-     * предметов. Прямоугольник (x0, y0)–(x1, y1) — в пикселях иконки, (u0, v0)–(u1, v1) — его часть текстуры.
-     */
+    /** Объёмная пластинка по пикселям текстуры (прозрачные пиксели — дыры, торцы повторяют форму), как у ванильных предметов. Прямоугольник (x0, y0)–(x1, y1) — в пикселях иконки, (u0, v0)–(u1, v1) — его часть текстуры. */
     private void extruded(double x0, double y0, double x1, double y1, double u0, double v0, double u1, double v1,
                           int texW, int texH, Opaque opaque) {
         rect(0, x0, y0, x1, y1, u0, v0, u1, v1, 0);
@@ -205,10 +196,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         rect(face, x0, y0, x1, y1, texU(icon, x0), texV(icon, y0), texU(icon, x1), texV(icon, y1), 0);
     }
 
-    /**
-     * Прямоугольник в пикселях иконки (x вправо, y вниз). layer > 0 — чуть ближе к зрителю, чтобы не мерцать.
-     * face 0 — лицевая сторона, 1 — задняя (в инвентаре только лицевая).
-     */
+    /** Прямоугольник в пикселях иконки (x вправо, y вниз). layer > 0 — чуть ближе к зрителю, чтобы не мерцать. face 0 — лицевая сторона, 1 — задняя (в инвентаре только лицевая). */
     private void rect(int face, double x0, double y0, double x1, double y1,
                       double u0, double v0, double u1, double v1, int layer) {
         float nz = face == 0 ? 1f : -1f;

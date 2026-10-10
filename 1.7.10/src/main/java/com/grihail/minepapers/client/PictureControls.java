@@ -30,19 +30,12 @@ import net.minecraftforge.client.event.DrawBlockHighlightEvent;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 
-/**
- * Управление картинами на клиенте — чтобы картина-сущность ощущалась как прежняя картина-блок:
- * дотягиваемся до неё так же далеко, как до блоков; ломаем с той же скоростью и с трещинами;
- * при наведении — обводка хитбокса; с картиной в руке — контур будущей картины.
- */
+/** Управление картинами на клиенте — чтобы картина-сущность ощущалась как блок: дотягиваемся до неё так же далеко, как до блоков; ломаем с той же скоростью и с трещинами; при наведении — обводка хитбокса; с картиной в руке — контур будущей картины. */
 public class PictureControls {
 
     // ---------- Куда смотрит игрок ----------
 
-    /**
-     * Ближайшая картина на луче взгляда в пределах досягаемости блоков (4.5, в творческом 5), если перед ней
-     * нет блока. Ванильный выбор цели дотягивается до сущностей только на 3 блока.
-     */
+    /** Ближайшая картина на луче взгляда в пределах досягаемости блоков (4.5, в творческом 5), если перед ней нет блока. Ванильный выбор цели дотягивается до сущностей только на 3 блока. */
     static MovingObjectPosition pick(float partialTicks) {
         Minecraft mc = Minecraft.getMinecraft();
         EntityLivingBase view = mc.renderViewEntity;
@@ -81,10 +74,7 @@ public class PictureControls {
         return best == null ? null : new MovingObjectPosition(best, bestHit);
     }
 
-    /**
-     * Мышь обрабатывается после ванильного выбора цели, но до кликов — подставляем картину, до которой
-     * ванильный выбор не дотянулся. Тогда ПКМ откроет настройки, колёсико даст копию, ЛКМ начнёт ломать.
-     */
+    /** Мышь обрабатывается после ванильного выбора цели, но до кликов — подставляем картину, до которой ванильный выбор не дотянулся. Тогда ПКМ откроет настройки, колёсико даст копию, ЛКМ начнёт ломать. */
     @SubscribeEvent
     public void onMouse(MouseEvent event) {
         Minecraft mc = Minecraft.getMinecraft();
@@ -173,8 +163,7 @@ public class PictureControls {
         drawGhost(ghost, canPlace, event.partialTicks);
     }
 
-    /** Обводка хитбокса картины под прицелом — как у блоков. Здесь, а не в DrawBlockHighlightEvent: его не бывает,
-     * если за картиной нет блока в пределах досягаемости. */
+    /** Обводка хитбокса картины под прицелом — как у блоков. Здесь, а не в DrawBlockHighlightEvent: его не бывает, если за картиной нет блока в пределах досягаемости. */
     @SubscribeEvent
     public void onRenderWorldLast(RenderWorldLastEvent event) {
         MovingObjectPosition hit = pick(event.partialTicks);

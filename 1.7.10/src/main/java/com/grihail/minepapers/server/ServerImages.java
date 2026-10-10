@@ -39,10 +39,7 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
 
-/**
- * Картинки с компьютеров игроков, выложенные на сервер (папка minepapers в папке мира).
- * Всё, кроме приёма пакетов, работает в серверном потоке: обработчики пакетов только ставят задачи в очередь.
- */
+/** Картинки с компьютеров игроков, выложенные на сервер (папка minepapers в папке мира). Всё, кроме приёма пакетов, работает в серверном потоке: обработчики пакетов только ставят задачи в очередь. */
 public final class ServerImages {
 
     private static final Logger LOG = LogManager.getLogger(MinePapers.MODID);
@@ -98,8 +95,7 @@ public final class ServerImages {
         return entity instanceof EntityPicture && !entity.isDead ? (EntityPicture) entity : null;
     }
 
-    // ---------------------------------------------------------------------
-    // Выкладывание
+    // --------------------------------------------------------------------- Выкладывание
 
     public static void offer(EntityPlayerMP player, int entityId, String origin, byte[] hashes) {
         EntityPicture picture = pictureById(player.worldObj, entityId);
@@ -188,8 +184,7 @@ public final class ServerImages {
         picture.settingsChanged();
     }
 
-    // ---------------------------------------------------------------------
-    // Скачивание
+    // --------------------------------------------------------------------- Скачивание
 
     public static void request(EntityPlayerMP player, byte[] hashes) {
         Peer peer = peer(player);
@@ -230,8 +225,7 @@ public final class ServerImages {
         peer.current = null;
     }
 
-    // ---------------------------------------------------------------------
-    // Хранилище
+    // --------------------------------------------------------------------- Хранилище
 
     private static File dir() {
         if (dir == null) {

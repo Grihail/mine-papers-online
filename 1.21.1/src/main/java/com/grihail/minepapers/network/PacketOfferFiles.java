@@ -10,10 +10,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/**
- * Клиент -> сервер: картинки локального источника рамки (origin — путь, как он записан в рамке).
- * Сервер в ответ просит недостающие (PacketHashes.Need), а когда они все у него, записывает список в рамку.
- */
+/** Клиент -> сервер: картинки локального источника рамки (origin — путь, как он записан в рамке). Сервер в ответ просит недостающие (PacketHashes.Need), а когда они все у него, записывает список в рамку. */
 public record PacketOfferFiles(int entityId, String origin, byte[] hashes) implements CustomPacketPayload {
 
     public static final Type<PacketOfferFiles> TYPE = new Type<>(MinePapers.id("offer_files"));

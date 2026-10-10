@@ -15,10 +15,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/**
- * Клиент -> сервер: игрок начал "копать" картину (START) или докопал (FINISH).
- * Сервер ломает картину, только если с начала прошло не меньше времени, чем нужно этому игроку с его инструментом.
- */
+/** Клиент -> сервер: игрок начал "копать" картину (START) или докопал (FINISH). Сервер ломает картину, только если с начала прошло не меньше времени, чем нужно этому игроку с его инструментом. */
 public record PacketBreakPicture(int entityId, byte action) implements CustomPacketPayload {
 
     public static final byte START = 0, FINISH = 1;

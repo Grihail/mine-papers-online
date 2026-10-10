@@ -51,7 +51,7 @@ public class MinePapers {
     private static final DeferredRegister.DataComponents COMPONENTS = DeferredRegister.createDataComponents(
         Registries.DATA_COMPONENT_TYPE, MODID);
 
-    /** Настройки картины в предмете (в 1.7.10 — NBT-ключ MinePapersFrame). */
+    /** Настройки картины в предмете. */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<CompoundTag>> FRAME_SETTINGS =
         COMPONENTS.registerComponentType("frame",
             b -> b.persistent(CompoundTag.CODEC).networkSynchronized(ByteBufCodecs.COMPOUND_TAG));
@@ -95,7 +95,7 @@ public class MinePapers {
         return ResourceLocation.fromNamespaceAndPath(MODID, path);
     }
 
-    /** Картины и рамки в 1.21 лежат во вкладке "Функциональные блоки". */
+    /** Рядом с ванильными картинами и рамками — во вкладке "Функциональные блоки". */
     private static void fillCreativeTab(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) event.accept(FRAME.get());
     }

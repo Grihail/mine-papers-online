@@ -52,11 +52,7 @@ public class ItemPictureFrame extends Item {
         return stack;
     }
 
-    /**
-     * Будущая картина при клике по грани side блока pos, с настройками из предмета.
-     * Лежит ровно на этой грани — на настоящей поверхности блока (полублок, ковёр, боковина забора), а не на границе
-     * клетки. На полу и потолке верх картинки — в ту сторону, куда смотрит игрок (yaw).
-     */
+    /** Будущая картина при клике по грани side блока pos, с настройками из предмета. Лежит ровно на этой грани — на настоящей поверхности блока (полублок, ковёр, боковина забора), а не на границе клетки. На полу и потолке верх картинки — в ту сторону, куда смотрит игрок (yaw). */
     public static PictureFrame ghostAt(Level level, BlockPos pos, Direction side, float yaw, ItemStack stack) {
         VoxelShape shape = level.getBlockState(pos).getShape(level, pos);
         AABB bounds = shape.isEmpty() ? new AABB(0, 0, 0, 1, 1, 1) : shape.bounds();
@@ -80,10 +76,7 @@ public class ItemPictureFrame extends Item {
         return ghost;
     }
 
-    /**
-     * Установка картины-сущности. Клетки она не занимает, поэтому рядом и в той же клетке может быть что угодно;
-     * нельзя только провести холст сквозь блоки и другие картины.
-     */
+    /** Установка картины-сущности. Клетки она не занимает, поэтому рядом и в той же клетке может быть что угодно; нельзя только провести холст сквозь блоки и другие картины. */
     @Override
     public InteractionResult useOn(UseOnContext context) {
         Level level = context.getLevel();

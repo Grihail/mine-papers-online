@@ -13,10 +13,7 @@ import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 
-/**
- * Клиент -> сервер: игрок начал "копать" картину (START) или докопал (FINISH).
- * Сервер ломает картину, только если с начала прошло не меньше времени, чем нужно этому игроку с его инструментом.
- */
+/** Клиент -> сервер: игрок начал "копать" картину (START) или докопал (FINISH). Сервер ломает картину, только если с начала прошло не меньше времени, чем нужно этому игроку с его инструментом. */
 public class PacketBreakPicture implements IMessage {
 
     public static final byte START = 0, FINISH = 1;

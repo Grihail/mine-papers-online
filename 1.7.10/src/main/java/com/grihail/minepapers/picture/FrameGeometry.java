@@ -10,13 +10,7 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
 
-/**
- * Геометрия картины в "координатах стены":
- * u — вправо (как видит смотрящий на картину), v — вверх, d — от стены к зрителю.
- * Начало координат — левый нижний угол клетки рамки у стены, 1 = один блок.
- * Холст занимает u ∈ [offsetX, offsetX + width], v ∈ [offsetY, offsetY + height].
- * "Стеной" может быть и пол, и потолок: тогда верх картинки смотрит туда, куда смотрел игрок при установке.
- */
+/** Геометрия картины в "координатах стены": u — вправо (как видит смотрящий на картину), v — вверх, d — от стены к зрителю. Начало координат — левый нижний угол клетки рамки у стены, 1 = один блок. Холст занимает u ∈ [offsetX, offsetX + width], v ∈ [offsetY, offsetY + height]. "Стеной" может быть и пол, и потолок: тогда верх картинки смотрит туда, куда смотрел игрок при установке. */
 public final class FrameGeometry {
 
     private FrameGeometry() {}
@@ -79,10 +73,7 @@ public final class FrameGeometry {
         return hitsBlocks(world, candidate) || overlapping(world, candidate, self) != null;
     }
 
-    /**
-     * Холст проходит сквозь коллизию блока. Блоки без коллизии (факелы, трава, цветы) не мешают,
-     * касаться граней (стены за картиной) можно.
-     */
+    /** Холст проходит сквозь коллизию блока. Блоки без коллизии (факелы, трава, цветы) не мешают, касаться граней (стены за картиной) можно. */
     public static boolean hitsBlocks(World world, PictureFrame candidate) {
         double e = 1e-4;
         AxisAlignedBB box = canvasBox(candidate).contract(e, e, e);
@@ -103,10 +94,7 @@ public final class FrameGeometry {
         return false;
     }
 
-    /**
-     * Другая картина, чей холст пересекается с холстом candidate, или null. Касаться краями можно.
-     * @param self сама картина, если меняются её настройки (с собой не сравниваем); null — при установке новой
-     */
+    /** Другая картина, чей холст пересекается с холстом candidate, или null. Касаться краями можно. @param self сама картина, если меняются её настройки (с собой не сравниваем); null — при установке новой */
     public static EntityPicture overlapping(World world, PictureFrame candidate, Entity self) {
         double e = 1e-4; // погрешность float в размерах и смещениях
         AxisAlignedBB box = canvasBox(candidate).contract(e, e, e);
@@ -119,11 +107,7 @@ public final class FrameGeometry {
         return null;
     }
 
-    /**
-     * Картины на перпендикулярных поверхностях (две стены, стена и пол...) встречаются во внутреннем углу:
-     * их толщины делят угловой столбик. Это разрешено, только если край каждой упирается ровно в поверхность
-     * другой. Параллельные картины, крест-накрест и торчащие сквозь другую — по-прежнему пересечение.
-     */
+    /** Картины на перпендикулярных поверхностях (две стены, стена и пол...) встречаются во внутреннем углу: их толщины делят угловой столбик. Это разрешено, только если край каждой упирается ровно в поверхность другой. Параллельные картины, крест-накрест и торчащие сквозь другую — по-прежнему пересечение. */
     private static boolean cornerJoint(PictureFrame a, AxisAlignedBB aBox, PictureFrame b, AxisAlignedBB bBox) {
         int aAxis = normalAxis(a), bAxis = normalAxis(b);
         if (aAxis == bAxis) return false;

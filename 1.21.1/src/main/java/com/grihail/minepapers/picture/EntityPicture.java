@@ -32,17 +32,12 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.entity.IEntityWithComplexSpawn;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/**
- * Картина — сущность, как ванильные картины и рамки: не занимает клеток, поэтому блоки и другие картины
- * могут стоять вплотную и в той же клетке. Хитбокс — весь холст, сквозь него можно пройти.
- * Опора не нужна: картина держится, даже если убрать блок за ней.
- * Настройки синхронизируются с клиентами через SynchedEntityData.
- */
+/** Картина — сущность, как ванильные картины и рамки: не занимает клеток, поэтому блоки и другие картины могут стоять вплотную и в той же клетке. Хитбокс — весь холст, сквозь него можно пройти. Опора не нужна: картина держится, даже если убрать блок за ней. Настройки синхронизируются с клиентами через SynchedEntityData. */
 public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
 
     private static final EntityDataAccessor<CompoundTag> SETTINGS =
         SynchedEntityData.defineId(EntityPicture.class, EntityDataSerializers.COMPOUND_TAG);
-    /** Прочность как у деревянного блока: ломается с той же скоростью, что и прежняя картина-блок. */
+    /** Прочность как у деревянного блока. */
     public static final float HARDNESS = 0.5f;
 
     public final PictureFrame frame = new PictureFrame();
@@ -159,10 +154,7 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
         return InteractionResult.sidedSuccess(level().isClientSide);
     }
 
-    /**
-     * Удар игрока. В выживании картину "копают" (см. client.PictureControls), поэтому удар ничего не делает;
-     * в творческом режиме ломается сразу, как блок.
-     */
+    /** Удар игрока. В выживании картину "копают" (см. client.PictureControls), поэтому удар ничего не делает; в творческом режиме ломается сразу, как блок. */
     @Override
     public boolean skipAttackInteraction(Entity attacker) {
         if (level().isClientSide && attacker instanceof Player player && player.isCreative()) {
@@ -194,10 +186,7 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
         }
     }
 
-    /**
-     * Доля поломки за тик — та же формула, что у деревянного блока прочностью HARDNESS:
-     * топор быстрее, в воде и в прыжке медленнее.
-     */
+    /** Доля поломки за тик — та же формула, что у деревянного блока прочностью HARDNESS: топор быстрее, в воде и в прыжке медленнее. */
     public float breakRate(Player player) {
         return player.getDigSpeed(Blocks.OAK_PLANKS.defaultBlockState(), null) / HARDNESS / 30f;
     }

@@ -42,10 +42,7 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/**
- * Картинки с компьютеров игроков, выложенные на сервер (папка minepapers в папке мира).
- * Всё работает в серверном потоке: обработчики пакетов NeoForge вызываются в нём.
- */
+/** Картинки с компьютеров игроков, выложенные на сервер (папка minepapers в папке мира). Всё работает в серверном потоке: обработчики пакетов NeoForge вызываются в нём. */
 public final class ServerImages {
 
     private static final Logger LOG = LogUtils.getLogger();
@@ -96,8 +93,7 @@ public final class ServerImages {
         return entity instanceof EntityPicture picture && !picture.isRemoved() ? picture : null;
     }
 
-    // ---------------------------------------------------------------------
-    // Выкладывание
+    // --------------------------------------------------------------------- Выкладывание
 
     public static void offer(ServerPlayer player, int entityId, String origin, byte[] hashes) {
         server = player.server;
@@ -187,8 +183,7 @@ public final class ServerImages {
         picture.settingsChanged();
     }
 
-    // ---------------------------------------------------------------------
-    // Скачивание
+    // --------------------------------------------------------------------- Скачивание
 
     public static void request(ServerPlayer player, byte[] hashes) {
         server = player.server;
@@ -230,8 +225,7 @@ public final class ServerImages {
         peer.current = null;
     }
 
-    // ---------------------------------------------------------------------
-    // Хранилище
+    // --------------------------------------------------------------------- Хранилище
 
     private static Path dir() {
         if (dir == null) {

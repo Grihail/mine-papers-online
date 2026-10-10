@@ -10,10 +10,7 @@ import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 
-/**
- * Рецепты без формы, как копирование карт:
- * одна настроенная рамка — сброс до пустой; настроенная + пустые — столько же копий настроенной.
- */
+/** Рецепты без формы, как копирование карт: одна настроенная рамка — сброс до пустой; настроенная + пустые — столько же копий настроенной. */
 public class RecipePictureFrame extends CustomRecipe {
 
     public RecipePictureFrame(CraftingBookCategory category) {

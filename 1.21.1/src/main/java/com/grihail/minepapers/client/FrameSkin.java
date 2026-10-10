@@ -19,11 +19,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
-/**
- * Текстура рамки: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы),
- * у остальных предметов — их иконка. Не нашли предмет или текстуру — обычная рамка.
- * В 1.21 текстуры блоков и предметов лежат в одном атласе, поэтому рамка рисуется одним типом отрисовки.
- */
+/** Текстура рамки: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы), у остальных предметов — их иконка. Не нашли предмет или текстуру — обычная рамка. */
 public final class FrameSkin {
 
     public static final ResourceLocation BORDER = MinePapers.id("block/frame_border");
@@ -31,7 +27,7 @@ public final class FrameSkin {
     /** Обычная иконка предмета — пейзаж в деревянной рамке. */
     public static final ResourceLocation ICON = MinePapers.id("item/picture_frame");
 
-    /** Поиск текстуры у модели дороже, чем в 1.7.10, поэтому кэшируем; сбрасывается при перезагрузке ресурсов. */
+    /** Найденные текстуры рамок; сбрасываются при перезагрузке ресурсов. */
     private static final Map<String, FrameSkin> CACHE = new HashMap<String, FrameSkin>();
 
     public final TextureAtlasSprite sprite;

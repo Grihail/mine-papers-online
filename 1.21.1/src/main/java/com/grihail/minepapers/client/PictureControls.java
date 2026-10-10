@@ -33,11 +33,7 @@ import net.neoforged.neoforge.client.event.RenderHighlightEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/**
- * Управление картинами на клиенте — чтобы картина-сущность ощущалась как блок:
- * дотягиваемся до неё так же далеко, как до блоков; ломаем с той же скоростью и с трещинами;
- * при наведении — обводка хитбокса; с картиной в руке — контур будущей картины.
- */
+/** Управление картинами на клиенте — чтобы картина-сущность ощущалась как блок: дотягиваемся до неё так же далеко, как до блоков; ломаем с той же скоростью и с трещинами; при наведении — обводка хитбокса; с картиной в руке — контур будущей картины. */
 public class PictureControls {
 
     /** Как у блоков в творческом режиме: при зажатой кнопке следующая картина ломается не раньше чем через 6 тиков. */
@@ -45,10 +41,7 @@ public class PictureControls {
 
     // ---------- Куда смотрит игрок ----------
 
-    /**
-     * Ближайшая картина на луче взгляда в пределах досягаемости блоков, если перед ней нет блока.
-     * Ванильный выбор цели дотягивается до сущностей только на 3 блока.
-     */
+    /** Ближайшая картина на луче взгляда в пределах досягаемости блоков, если перед ней нет блока. Ванильный выбор цели дотягивается до сущностей только на 3 блока. */
     static EntityHitResult pick(float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         Entity view = mc.getCameraEntity();
@@ -84,11 +77,7 @@ public class PictureControls {
         return best == null ? null : new EntityHitResult(best, bestHit);
     }
 
-    /**
-     * Клик мышью: подставляем картину, до которой ванильный выбор не дотянулся. Тогда ПКМ откроет настройки,
-     * колёсико даст копию. ЛКМ ванилью не обрабатываем — иначе она ломала бы блок за картиной:
-     * в выживании картину копает onClientTick, в творческом она ломается сразу.
-     */
+    /** Клик мышью: подставляем картину, до которой ванильный выбор не дотянулся. Тогда ПКМ откроет настройки, колёсико даст копию. ЛКМ ванилью не обрабатываем — иначе она ломала бы блок за картиной: в выживании картину копает onClientTick, в творческом она ломается сразу. */
     @SubscribeEvent
     public void onInteraction(InputEvent.InteractionKeyMappingTriggered event) {
         Minecraft mc = Minecraft.getInstance();
@@ -180,10 +169,7 @@ public class PictureControls {
         drawGhost(event.getPoseStack(), event.getMultiBufferSource(), event.getCamera().getPosition(), ghost, canPlace);
     }
 
-    /**
-     * Обводка хитбокса картины под прицелом — как у блоков. Здесь, а не в RenderHighlightEvent: его не бывает,
-     * если за картиной нет блока в пределах досягаемости.
-     */
+    /** Обводка хитбокса картины под прицелом — как у блоков. Здесь, а не в RenderHighlightEvent: его не бывает, если за картиной нет блока в пределах досягаемости. */
     @SubscribeEvent
     public void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
