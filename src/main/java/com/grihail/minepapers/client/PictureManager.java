@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
@@ -239,6 +240,8 @@ public final class PictureManager {
                         List<Picture> list;
                         if (key.startsWith("yandex:")) {
                             list = listYandex(key.substring("yandex:".length()));
+                        } else if (key.startsWith("url:")) {
+                            list = listUrl(key.substring("url:".length()));
                         } else if (key.startsWith("shared:")) {
                             list = listShared(key.substring("shared:".length()));
                         } else {
@@ -704,6 +707,33 @@ public final class PictureManager {
     }
 
     // =====================================================================
+    // Прямая ссылка на картинку
+
+    private static List<Picture> listUrl(final String url) throws IOException {
+        String lower = url.toLowerCase(Locale.ROOT);
+        if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
+            throw new SourceException("minepapers.error.badUrl");
+        }
+        // Скачиваем сразу: если по ссылке нет файла или это не картинка, в окне настроек будет понятная ошибка.
+        byte[] data = download(url);
+        ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(data));
+        try {
+            if (in == null || !ImageIO.getImageReaders(in).hasNext()) throw new SourceException("minepapers.error.notImage");
+        } finally {
+            if (in != null) in.close();
+        }
+        // Первый показ берёт уже скачанное, после выгрузки из памяти картинка скачивается заново.
+        final AtomicReference<byte[]> first = new AtomicReference<byte[]>(data);
+        String name = url.substring(url.lastIndexOf('/') + 1);
+        List<Picture> list = new ArrayList<Picture>();
+        list.add(new Picture(name.isEmpty() ? url : name, () -> {
+            byte[] cached = first.getAndSet(null);
+            return cached != null ? cached : download(url);
+        }));
+        return list;
+    }
+
+    // =====================================================================
     // HTTP / утилиты
 
     private static JsonObject getJson(String url) throws IOException {
@@ -724,6 +754,7 @@ public final class PictureManager {
     private static byte[] download(String url) throws IOException {
         HttpURLConnection conn = open(url);
         int code = conn.getResponseCode();
+        if (code == 404) throw new SourceException("minepapers.error.notFound");
         if (code >= 400) throw new IOException("HTTP " + code);
         return readBytes(conn.getInputStream(), MAX_DOWNLOAD_BYTES);
     }

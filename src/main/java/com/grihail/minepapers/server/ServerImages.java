@@ -105,7 +105,7 @@ public final class ServerImages {
         EntityPicture picture = pictureById(player.worldObj, entityId);
         PictureFrame frame = picture != null ? picture.frame : null;
         if (frame == null || hashes.length == 0 || hashes.length > PictureFrame.MAX_FILES * SharedImage.HASH_BYTES
-            || !origin.equals(frame.getOriginKey()) || frame.source == PictureFrame.SOURCE_YANDEX
+            || !origin.equals(frame.getOriginKey()) || frame.isNetworkSource()
             || !canEdit(player, frame)) {
             return;
         }

@@ -45,7 +45,7 @@ public class GuiPictureFrame extends GuiScreen {
     private int borderMeta;
     private GuiButton btnSource, btnPrev, btnNext, btnFolder, btnFit, btnStyle, btnMode, btnBorder;
     private GuiCheckBox cbSizePx, cbPosPx;
-    private GuiTextField fPath, fUrl, fFolder, fInterval, fWidth, fHeight, fOffX, fOffY, fPpb;
+    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPpb;
     private final List<GuiTextField> fields = new ArrayList<GuiTextField>();
     private int left, right, top;
     private boolean overlap;
@@ -90,6 +90,7 @@ public class GuiPictureFrame extends GuiScreen {
         btnNext = addButton(new GuiButton(ID_NEXT, left + GUI_WIDTH - 20, top + 34, 20, 20, ">"));
         fUrl = field(left, top + 35, GUI_WIDTH, 512, tile.yandexUrl);
         fFolder = field(left, top + 35, GUI_WIDTH, 512, tile.folderPath);
+        fImage = field(left, top + 35, GUI_WIDTH, 512, tile.imageUrl);
         btnFolder = addButton(new GuiButton(ID_FOLDER, left, top + 57, 120, 20, I18n.format("minepapers.gui.openFolder")));
 
         // Левая колонка: размер, смещение, интервал
@@ -151,11 +152,12 @@ public class GuiPictureFrame extends GuiScreen {
         if (f == fPath) return source == PictureFrame.SOURCE_LOCAL;
         if (f == fUrl) return source == PictureFrame.SOURCE_YANDEX;
         if (f == fFolder) return source == PictureFrame.SOURCE_FOLDER;
+        if (f == fImage) return source == PictureFrame.SOURCE_URL;
         return true;
     }
 
     private String currentKey() {
-        return PictureFrame.makeSourceKey(source, fPath.getText(), fUrl.getText(), fFolder.getText());
+        return PictureFrame.makeSourceKey(source, fPath.getText(), fUrl.getText(), fFolder.getText(), fImage.getText());
     }
 
     /** Что на самом деле показывает рамка: если источник не меняли и картинки уже на сервере — их. */
@@ -274,6 +276,7 @@ public class GuiPictureFrame extends GuiScreen {
         tile.localPath = fPath.getText().trim();
         tile.yandexUrl = fUrl.getText().trim();
         tile.folderPath = fFolder.getText().trim();
+        tile.imageUrl = fImage.getText().trim();
         Float interval = parse(fInterval.getText());
         if (interval != null) tile.interval = Math.round(interval);
         tile.sizeInPixels = cbSizePx.isChecked();
@@ -439,8 +442,8 @@ public class GuiPictureFrame extends GuiScreen {
         drawCenteredString(fontRendererObj, I18n.format("minepapers.gui.title"), width / 2, top - 14, 0xFFFFFF);
 
         label(I18n.format("minepapers.gui.path." + source), left, top + 24);
-        if (source == PictureFrame.SOURCE_YANDEX) {
-            fontRendererObj.drawString(I18n.format("minepapers.gui.hint.1"), left, top + 60, 0x808080);
+        if (source == PictureFrame.SOURCE_YANDEX || source == PictureFrame.SOURCE_URL) {
+            fontRendererObj.drawString(I18n.format("minepapers.gui.hint." + source), left, top + 60, 0x808080);
         }
 
         label(I18n.format("minepapers.gui.size"), left, top + 84);

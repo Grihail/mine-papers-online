@@ -364,7 +364,7 @@ public class RenderPicture extends Render {
         PictureFrame tile = picture.frame;
         String key = tile.getSourceKey();
         if (key == null) return null;
-        if (!tile.hasSharedFiles() && tile.source != PictureFrame.SOURCE_YANDEX) ImageSync.autoOffer(picture);
+        if (!tile.hasSharedFiles() && !tile.isNetworkSource()) ImageSync.autoOffer(picture);
 
         PictureManager.Source source = PictureManager.get(key);
         long time = picture.worldObj.getTotalWorldTime();

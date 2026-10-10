@@ -200,7 +200,7 @@ public final class ImageSync {
      */
     public static void offer(EntityPicture picture) {
         final String origin = picture.frame.getOriginKey();
-        if (origin == null || picture.frame.source == PictureFrame.SOURCE_YANDEX) return;
+        if (origin == null || picture.frame.isNetworkSource()) return;
         final int entityId = picture.getEntityId();
         jobOrigin = origin;
         jobStage = STAGE_PREPARING;

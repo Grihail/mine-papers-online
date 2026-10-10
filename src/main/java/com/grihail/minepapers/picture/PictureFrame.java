@@ -15,7 +15,9 @@ public class PictureFrame {
     public static final int SOURCE_LOCAL = 0;
     public static final int SOURCE_YANDEX = 1;
     public static final int SOURCE_FOLDER = 2;
-    public static final int SOURCE_COUNT = 3;
+    /** Одна картинка по прямой ссылке (http/https). */
+    public static final int SOURCE_URL = 3;
+    public static final int SOURCE_COUNT = 4;
 
     /** Режимы вписывания картинки в холст — как CSS object-fit. */
     public static final int FIT_FILL = 0;
@@ -77,6 +79,8 @@ public class PictureFrame {
     public String yandexUrl = "";
     /** Абсолютный путь к папке (или файлу) на компьютере игрока */
     public String folderPath = "";
+    /** Прямая ссылка на картинку */
+    public String imageUrl = "";
     /** Интервал слайдшоу в секундах */
     public int interval = 10;
 
@@ -132,21 +136,38 @@ public class PictureFrame {
 
     /** Источник, как его задал игрок (путь на его компьютере или ссылка) — без учёта копий на сервере. */
     public String getOriginKey() {
-        return makeSourceKey(source, localPath, yandexUrl, folderPath);
+        return makeSourceKey(source, localPath, yandexUrl, folderPath, imageUrl);
     }
 
     public boolean hasSharedFiles() {
-        return source != SOURCE_YANDEX && files.length > 0;
+        return !isNetworkSource() && files.length > 0;
     }
 
-    public static String makeSourceKey(int source, String localPath, String yandexUrl, String folderPath) {
+    /** Картинки из интернета (Яндекс Диск, прямая ссылка): каждый игрок скачивает их сам, выкладывать на сервер не нужно. */
+    public boolean isNetworkSource() {
+        return source == SOURCE_YANDEX || source == SOURCE_URL;
+    }
+
+    public static String makeSourceKey(int source, String localPath, String yandexUrl, String folderPath, String imageUrl) {
         switch (source) {
             case SOURCE_YANDEX:
                 return yandexUrl.trim().isEmpty() ? null : "yandex:" + yandexUrl.trim();
             case SOURCE_FOLDER:
                 return folderPath.trim().isEmpty() ? null : "folder:" + folderPath.trim();
+            case SOURCE_URL:
+                return imageUrl.trim().isEmpty() ? null : "url:" + imageUrl.trim();
             default:
                 return localPath.trim().isEmpty() ? null : "local:" + localPath.trim();
+        }
+    }
+
+    /** Путь или ссылка текущего источника (для подсказки предмета). */
+    public String getSourcePath() {
+        switch (source) {
+            case SOURCE_YANDEX: return yandexUrl;
+            case SOURCE_FOLDER: return folderPath;
+            case SOURCE_URL: return imageUrl;
+            default: return localPath;
         }
     }
 
@@ -200,6 +221,7 @@ public class PictureFrame {
         tag.setString("Local", localPath);
         tag.setString("Url", yandexUrl);
         tag.setString("Folder", folderPath);
+        tag.setString("ImageUrl", imageUrl);
         tag.setInteger("Interval", interval);
         tag.setFloat("W", width);
         tag.setFloat("H", height);
@@ -222,6 +244,7 @@ public class PictureFrame {
         localPath = limit(tag.getString("Local"));
         yandexUrl = limit(tag.getString("Url"));
         folderPath = limit(tag.getString("Folder"));
+        imageUrl = limit(tag.getString("ImageUrl"));
         interval = range(tag.getInteger("Interval"), 1, 86400);
 
         // Размер всегда явный: от него зависит хитбокс. Старое "0 = авто" превращаем в квадрат.

@@ -97,8 +97,7 @@ public class ItemPictureFrame extends ItemBlock {
         s.readSettings(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG));
 
         lines.add(EnumChatFormatting.GOLD + StatCollector.translateToLocal("minepapers.tooltip.configured"));
-        String path = s.source == PictureFrame.SOURCE_YANDEX ? s.yandexUrl
-            : s.source == PictureFrame.SOURCE_FOLDER ? s.folderPath : s.localPath;
+        String path = s.getSourcePath();
         if (path.length() > 40) path = "..." + path.substring(path.length() - 37);
         lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocal("minepapers.tooltip.source." + s.source)
             + (path.isEmpty() ? "" : ": " + EnumChatFormatting.WHITE + path));
