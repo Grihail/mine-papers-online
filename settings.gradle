@@ -10,3 +10,6 @@ pluginManagement {
 }
 
 rootProject.name = 'MinePapersOnline'
+
+// Каждая версия Minecraft — отдельный подпроект в папке с её номером.
+include '1.7.10'

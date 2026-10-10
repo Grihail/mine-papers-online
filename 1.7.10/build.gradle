@@ -1,0 +1,26 @@
+plugins {
+    id 'com.gtnewhorizons.retrofuturagradle'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+repositories {
+    // Зеркало Forge отдаёт Scala-библиотеки 1.7.10 очень медленно — берём их с Maven Central.
+    exclusiveContent {
+        forRepository { mavenCentral() }
+        filter {
+            includeModule 'org.scala-lang', 'scala-library'
+            includeModule 'org.scala-lang', 'scala-compiler'
+            includeModule 'org.scala-lang', 'scala-reflect'
+        }
+    }
+}
+
+minecraft {
+    mcVersion = '1.7.10'
+    username = 'Developer'
+}
