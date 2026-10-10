@@ -1,0 +1,15 @@
+[
+  {
+    "modid": "minepapers",
+    "name": "Mine Papers Online",
+    "description": "Рамка для своих картин: локальные файлы из config/minepapers или слайдшоу из публичной папки Яндекс Диска.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "authorList": ["Grihail"],
+    "credits": "",
+    "url": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]

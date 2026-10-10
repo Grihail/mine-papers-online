@@ -1,0 +1,45 @@
+plugins {
+    id 'java'
+    id 'com.gtnewhorizons.retrofuturagradle' version '2.0.2'
+}
+
+group = 'com.grihail.minepapers'
+version = '1.0.0'
+
+base {
+    archivesName = 'MinePapersOnline-1.7.10'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    // Зеркало Forge отдаёт Scala-библиотеки 1.7.10 очень медленно — берём их с Maven Central.
+    exclusiveContent {
+        forRepository { mavenCentral() }
+        filter {
+            includeModule 'org.scala-lang', 'scala-library'
+            includeModule 'org.scala-lang', 'scala-compiler'
+            includeModule 'org.scala-lang', 'scala-reflect'
+        }
+    }
+}
+
+minecraft {
+    mcVersion = '1.7.10'
+    username = 'Developer'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('mcmod.info') {
+        expand 'version': project.version, 'mcversion': '1.7.10'
+    }
+}
