@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.grihail.minepapers'
-version = '1.0.0'
+version = '1.1.0'
 
 base {
     archivesName = 'MinePapersOnline-1.7.10'

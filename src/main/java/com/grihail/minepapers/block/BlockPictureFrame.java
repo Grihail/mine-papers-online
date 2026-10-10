@@ -24,7 +24,6 @@ import net.minecraft.util.IIcon;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
-import net.minecraftforge.common.util.ForgeDirection;
 
 /**
  * Главный блок картины. Метаданные = сторона (2..5), в которую картина смотрит.
@@ -71,26 +70,11 @@ public class BlockPictureFrame extends BlockContainer {
         return true;
     }
 
-    // ---------- Установка: на боковую грань любого блока ----------
-
-    /** Позади рамки есть хоть какой-то блок (стекло, забор, листва — что угодно, кроме воздуха). */
-    private static boolean hasSupport(World world, int x, int y, int z, int facing) {
-        ForgeDirection dir = ForgeDirection.getOrientation(facing);
-        return !world.isAirBlock(x - dir.offsetX, y, z - dir.offsetZ);
-    }
+    // ---------- Установка: на боковую грань любого блока; опора не нужна — картина может парить в воздухе ----------
 
     @Override
     public boolean canPlaceBlockOnSide(World world, int x, int y, int z, int side) {
-        return side >= 2 && side <= 5 && hasSupport(world, x, y, z, side)
-            && world.getBlock(x, y, z).isReplaceable(world, x, y, z);
-    }
-
-    @Override
-    public boolean canPlaceBlockAt(World world, int x, int y, int z) {
-        for (int side = 2; side <= 5; side++) {
-            if (hasSupport(world, x, y, z, side)) return true;
-        }
-        return false;
+        return side >= 2 && side <= 5 && world.getBlock(x, y, z).isReplaceable(world, x, y, z);
     }
 
     @Override
@@ -110,14 +94,6 @@ public class BlockPictureFrame extends BlockContainer {
         if (!world.isRemote) {
             FrameStructure.place(world, frame);
             world.markBlockForUpdate(x, y, z);
-        }
-    }
-
-    @Override
-    public void onNeighborBlockChange(World world, int x, int y, int z, Block neighbor) {
-        int facing = world.getBlockMetadata(x, y, z);
-        if (!world.isRemote && (facing < 2 || facing > 5 || !hasSupport(world, x, y, z, facing))) {
-            world.func_147480_a(x, y, z, true); // ломаем с дропом (настройки сохранятся в предмете)
         }
     }
 
