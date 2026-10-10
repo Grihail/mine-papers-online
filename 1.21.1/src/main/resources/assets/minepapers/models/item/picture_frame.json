@@ -1,0 +1,14 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "minepapers:item/picture_frame"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "minepapers:configured": 1
+      },
+      "model": "minepapers:item/picture_frame_configured"
+    }
+  ]
+}

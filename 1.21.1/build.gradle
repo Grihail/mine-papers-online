@@ -1,0 +1,28 @@
+plugins {
+    id 'net.neoforged.moddev'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+neoForge {
+    version = '21.1.259'
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+        }
+    }
+
+    mods {
+        minepapers {
+            sourceSet sourceSets.main
+        }
+    }
+}

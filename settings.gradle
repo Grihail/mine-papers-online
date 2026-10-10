@@ -13,3 +13,4 @@ rootProject.name = 'MinePapersOnline'
 
 // Каждая версия Minecraft — отдельный подпроект в папке с её номером.
 include '1.7.10'
+include '1.21.1'

@@ -1,0 +1,24 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "All Rights Reserved"
+
+[[mods]]
+modId = "minepapers"
+version = "${version}"
+displayName = "Mine Papers Online"
+authors = "Grihail"
+description = '''Рамка для своих картин: локальные файлы из config/minepapers или слайдшоу из публичной папки Яндекс Диска.'''
+
+[[dependencies.minepapers]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.minepapers]]
+modId = "minecraft"
+type = "required"
+versionRange = "[${mcversion},1.21.2)"
+ordering = "NONE"
+side = "BOTH"

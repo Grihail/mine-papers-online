@@ -1,6 +1,7 @@
 plugins {
     // Плагины сборки объявляются здесь, а применяются в подпроектах версий.
     id 'com.gtnewhorizons.retrofuturagradle' version '2.0.2' apply false
+    id 'net.neoforged.moddev' version '2.0.148' apply false
 }
 
 // Общие настройки для всех подпроектов версий Minecraft (папки 1.7.10/, ...).
@@ -22,7 +23,7 @@ subprojects {
     processResources {
         inputs.property 'version', project.version
         inputs.property 'mcversion', project.name
-        filesMatching('mcmod.info') {
+        filesMatching(['mcmod.info', 'META-INF/neoforge.mods.toml']) {
             expand 'version': project.version, 'mcversion': project.name
         }
     }
