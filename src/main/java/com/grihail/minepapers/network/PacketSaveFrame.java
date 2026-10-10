@@ -1,7 +1,6 @@
 package com.grihail.minepapers.network;
 
 import com.grihail.minepapers.picture.EntityPicture;
-import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
@@ -43,12 +42,6 @@ public class PacketSaveFrame implements IMessage {
         EntityPicture picture = ServerImages.pictureById(player.worldObj, msg.entityId);
         if (picture == null || !ServerImages.canEdit(player, picture.frame)) return;
         PictureFrame frame = picture.frame;
-        // Новый размер/смещение не должны проводить холст сквозь блоки и другие картины —
-        // иначе оставляем как было и заново рассылаем прежние настройки (клиент их уже поменял у себя).
-        if (FrameGeometry.isBlocked(player.worldObj, frame.withSettings(msg.settings), picture)) {
-            picture.settingsChanged();
-            return;
-        }
         String origin = frame.getOriginKey();
         byte[] files = frame.files;
         frame.readSettings(msg.settings);

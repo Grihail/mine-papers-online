@@ -53,7 +53,6 @@ minepapers.gui.status.unknown=Нажмите «Готово» или «Обно�
 minepapers.gui.status.loading=Загрузка...
 minepapers.gui.status.count=Найдено картинок: %d
 minepapers.gui.status.error=Ошибка: %s
-minepapers.gui.status.overlap=Картина заденет блок или другую картину — измените размер или смещение
 
 minepapers.tooltip.configured=Настроенная картина
 minepapers.tooltip.source.0=config/minepapers

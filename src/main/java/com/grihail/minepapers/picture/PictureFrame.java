@@ -283,19 +283,6 @@ public class PictureFrame {
         return !mine.equals(def);
     }
 
-    /** Копия с тем же местом, но настройками из tag (для проверок до применения). */
-    public PictureFrame withSettings(NBTTagCompound tag) {
-        PictureFrame copy = new PictureFrame();
-        copy.x = x;
-        copy.y = y;
-        copy.z = z;
-        copy.facing = facing;
-        copy.rotation = rotation;
-        copy.surface = surface;
-        copy.readSettings(tag);
-        return copy;
-    }
-
     private static String limit(String s) {
         return s.length() > MAX_STRING ? s.substring(0, MAX_STRING) : s;
     }

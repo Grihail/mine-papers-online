@@ -13,7 +13,6 @@ import org.lwjgl.opengl.GL12;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.EntityPicture;
-import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.client.config.GuiCheckBox;
@@ -48,7 +47,6 @@ public class GuiPictureFrame extends GuiScreen {
     private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPpb;
     private final List<GuiTextField> fields = new ArrayList<GuiTextField>();
     private int left, right, top;
-    private boolean overlap;
 
     public GuiPictureFrame(EntityPicture picture) {
         this.picture = picture;
@@ -168,7 +166,6 @@ public class GuiPictureFrame extends GuiScreen {
 
     @Override
     protected void actionPerformed(GuiButton button) {
-        overlap = false;
         switch (button.id) {
             case ID_SOURCE:
                 source = (source + 1) % PictureFrame.SOURCE_COUNT;
@@ -270,8 +267,6 @@ public class GuiPictureFrame extends GuiScreen {
     }
 
     private void save() {
-        NBTTagCompound old = new NBTTagCompound();
-        tile.writeSettings(old);
         tile.source = source;
         tile.localPath = fPath.getText().trim();
         tile.yandexUrl = fUrl.getText().trim();
@@ -298,13 +293,6 @@ public class GuiPictureFrame extends GuiScreen {
         NBTTagCompound tag = new NBTTagCompound();
         tile.writeSettings(tag);
         tile.readSettings(tag);
-
-        // Картины не проходят сквозь блоки и друг друга: если новый размер или смещение задевают — окно остаётся.
-        overlap = FrameGeometry.isBlocked(picture.worldObj, tile, picture);
-        if (overlap) {
-            tile.readSettings(old);
-            return;
-        }
 
         picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
         MinePapers.network.sendToServer(new PacketSaveFrame(picture));
@@ -376,7 +364,6 @@ public class GuiPictureFrame extends GuiScreen {
 
     @Override
     protected void keyTyped(char c, int key) {
-        overlap = false;
         if (key == Keyboard.KEY_ESCAPE) {
             mc.displayGuiScreen(null);
             return;
@@ -457,9 +444,7 @@ public class GuiPictureFrame extends GuiScreen {
             if (isActive(f)) f.drawTextBox();
         }
 
-        String status = overlap ? I18n.format("minepapers.gui.status.overlap") : statusText();
-        fontRendererObj.drawString(fontRendererObj.trimStringToWidth(status, GUI_WIDTH), left, top + 179,
-            overlap ? 0xFF6060 : 0xFFFF80);
+        fontRendererObj.drawString(fontRendererObj.trimStringToWidth(statusText(), GUI_WIDTH), left, top + 179, 0xFFFF80);
         super.drawScreen(mouseX, mouseY, partialTicks);
         drawBorderIcon();
 
