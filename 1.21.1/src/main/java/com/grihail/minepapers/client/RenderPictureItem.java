@@ -43,8 +43,9 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         PictureFrame s = new PictureFrame();
         s.readSettings(settings);
 
-        // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (у граффити рамки нет).
-        int ring = s.mode == PictureFrame.MODE_DECAL ? 0 : RING;
+        // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (у граффити и пластины рамки нет).
+        boolean plate = s.mode == PictureFrame.MODE_PLATE;
+        int ring = s.mode == PictureFrame.MODE_DECAL || plate ? 0 : RING;
         int inner = ICON - 2 * ring;
         double w = s.getWidthBlocks(), h = s.getHeightBlocks();
         int iw = w >= h ? inner : Math.max(1, (int) Math.round(inner * w / h));
@@ -71,7 +72,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
             if (!flat) sides(skin.sprite, x0, y0, x1, y1);
         }
 
-        // 2. Картинка. В рамке — на фоне холста, как в мире. У граффити холста нет: прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы.
+        // 2. Картинка. В рамке — на фоне холста, как в мире. У граффити холста нет: прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы. Пластина — цельная, торцы только по краю.
         color(1f, 1f, 1f);
         if (thumb != null) {
             if (ring > 0) {
@@ -86,7 +87,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 int[] px = thumb.pixels;
                 int tw = thumb.width;
                 extruded(a, c, b, d, 0, 0, 1, 1, thumb.width, thumb.height,
-                    (x, y) -> (px[y * tw + x] >>> 24) != 0);
+                    (x, y) -> plate || (px[y * tw + x] >>> 24) != 0);
             } else {
                 for (int face = 0; face < faces(); face++) rect(face, a, c, b, d, 0, 0, 1, 1, 1);
             }

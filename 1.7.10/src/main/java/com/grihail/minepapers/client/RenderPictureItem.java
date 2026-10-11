@@ -44,8 +44,8 @@ public class RenderPictureItem implements IItemRenderer {
         PictureFrame s = new PictureFrame();
         s.readSettings(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG));
 
-        // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (у граффити рамки нет).
-        int ring = s.mode == PictureFrame.MODE_DECAL ? 0 : RING;
+        // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (у граффити и пластины рамки нет).
+        int ring = s.mode == PictureFrame.MODE_DECAL || s.mode == PictureFrame.MODE_PLATE ? 0 : RING;
         int inner = ICON - 2 * ring;
         double w = s.getWidthBlocks(), h = s.getHeightBlocks();
         int iw = w >= h ? inner : Math.max(1, (int) Math.round(inner * w / h));

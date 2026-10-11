@@ -86,12 +86,16 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         poseStack.translate(ox - at.x, oy - at.y, oz - at.z);
         pose = poseStack.last();
 
-        // 1. Холст и рамка (обычная или с текстурой предмета) — всё из атласа блоков
-        if (mode != PictureFrame.MODE_DECAL || !hasPicture) {
+        // 1. Холст и рамка (обычная или с текстурой предмета) — всё из атласа блоков. У граффити и пластины холст только вместо картинки, пока её нет.
+        boolean plate = mode == PictureFrame.MODE_PLATE;
+        if (mode != PictureFrame.MODE_DECAL && !plate || !hasPicture) {
             out = buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS));
             setTint(1f, 1f, 1f);
-            canvas(FrameSkin.sprite(FrameSkin.CANVAS), u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
-            if (mode != PictureFrame.MODE_DECAL) {
+            TextureAtlasSprite canvasSprite = FrameSkin.sprite(FrameSkin.CANVAS);
+            canvas(canvasSprite, u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
+            if (plate) {
+                edges(canvasSprite, u0, v0, u1, v1, 0, PX);
+            } else if (mode != PictureFrame.MODE_DECAL) {
                 FrameSkin skin = FrameSkin.of(tile.borderItem);
                 setTint(skin.r, skin.g, skin.b);
                 if (mode == PictureFrame.MODE_PANEL) {
@@ -102,14 +106,19 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
             }
         }
 
-        // 2. Картинка (граффити — прижата к стене смещением полигонов, без мерцания)
+        // 2. Картинка (граффити — прижата к стене смещением полигонов, без мерцания; пластина — объёмная, сама по себе)
         if (hasPicture) {
             boolean decal = mode == PictureFrame.MODE_DECAL;
-            double d = decal ? DECAL_DEPTH : PX + 0.002;
+            double d = decal ? DECAL_DEPTH : plate ? PX : PX + 0.002;
             out = buffers.getBuffer(decal ? PictureRenderTypes.decal(shown.getTexture())
                 : RenderType.entityTranslucent(shown.getTexture()));
             setTint(1f, 1f, 1f);
-            picture(u0 + shown.x0, v0 + shown.y0, u0 + shown.x1, v0 + shown.y1, d);
+            double pu0 = u0 + shown.x0, pv0 = v0 + shown.y0, pu1 = u0 + shown.x1, pv1 = v0 + shown.y1;
+            picture(pu0, pv0, pu1, pv1, d);
+            if (plate) {
+                picture(pu0, pv0, pu1, pv1, 0);
+                plateEdges(shown, pu0, pv0, pu1, pv1);
+            }
         }
 
         // 3. Трещины, пока картину ломают — ванильные текстуры разрушения, как у блоков
@@ -191,6 +200,42 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         int result = n == 0 ? LevelRenderer.getLightColor(level, framePos) : (sky / n) << 16 | (block / n);
         lightCache.put(key, result);
         return result;
+    }
+
+    /** Торцы пластины: крайние пиксели картинки, растянутые на всю толщину. */
+    private void plateEdges(PictureManager.Variant shown, double u0, double v0, double u1, double v1) {
+        // Середина крайнего пикселя текстуры, чтобы не захватить соседний.
+        double hu = 0.5 / shown.width, hv = 0.5 / shown.height;
+        plateU(u0, u1, v1, hv, 0.05, 1.0f);
+        plateU(u0, u1, v0, 1 - hv, -0.05, 0.55f);
+        plateV(v0, v1, u0, hu, -0.05, 0.8f);
+        plateV(v0, v1, u1, 1 - hu, 0.05, 0.8f);
+    }
+
+    /** Горизонтальный торец пластины (плоскость v = const), по блокам — свет у каждого свой. */
+    private void plateU(double u0, double u1, double v, double tv, double dv, float shade) {
+        for (double s = u0; s < u1 - 1e-6; s = Math.floor(s) + 1) {
+            double e = Math.min(Math.floor(s) + 1, u1);
+            light((s + e) / 2, v + dv, PX / 2, shade);
+            double ta = (s - u0) / (u1 - u0), tb = (e - u0) / (u1 - u0);
+            vertex(s, v, 0, ta, tv);
+            vertex(e, v, 0, tb, tv);
+            vertex(e, v, PX, tb, tv);
+            vertex(s, v, PX, ta, tv);
+        }
+    }
+
+    /** Вертикальный торец пластины (плоскость u = const). */
+    private void plateV(double v0, double v1, double u, double tu, double du, float shade) {
+        for (double s = v0; s < v1 - 1e-6; s = Math.floor(s) + 1) {
+            double e = Math.min(Math.floor(s) + 1, v1);
+            light(u + du, (s + e) / 2, PX / 2, shade);
+            double ta = 1 - (s - v0) / (v1 - v0), tb = 1 - (e - v0) / (v1 - v0);
+            vertex(u, s, 0, tu, ta);
+            vertex(u, e, 0, tu, tb);
+            vertex(u, e, PX, tu, tb);
+            vertex(u, s, PX, tu, ta);
+        }
     }
 
     /** Холст, текстура повторяется по сетке блоков. */

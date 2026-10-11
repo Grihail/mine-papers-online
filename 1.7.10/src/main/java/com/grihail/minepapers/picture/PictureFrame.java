@@ -33,7 +33,8 @@ public class PictureFrame {
     public static final int MODE_PANEL = 0;     // холст-панель, торцы обшиты рамкой
     public static final int MODE_REALISTIC = 1; // настоящая рамка: заходит на картину и выступает над ней
     public static final int MODE_DECAL = 2;     // граффити: без рамки, вплотную к стене
-    public static final int MODE_COUNT = 3;
+    public static final int MODE_PLATE = 3;     // пластина: сама картинка толщиной в пиксель, торцы — её крайние пиксели
+    public static final int MODE_COUNT = 4;
 
     public static final float PIXEL = 1f / 16f;
     public static final float MIN_SIZE_BLOCKS = PIXEL;
