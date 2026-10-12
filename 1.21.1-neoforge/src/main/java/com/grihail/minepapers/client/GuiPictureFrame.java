@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -14,6 +15,7 @@ import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.PictureConfig;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.Links;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.ChatFormatting;
@@ -30,7 +32,11 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
@@ -57,6 +63,13 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private int source, fitMode, style, mode;
     private boolean sizePx, posPx, padPx;
     private boolean saved;
+    /** Замок закрыт (картина заприватится при закрытии окна). */
+    private boolean locked;
+    /** Чужая заприваченная картина: без вкладок, только заголовок и описание. */
+    private final boolean readOnly;
+    private final UUID me;
+    private final String myName;
+    private GuiWidgets.Lock btnLock;
 
     private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
     /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
@@ -88,6 +101,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         this.sizePx = tile.sizeInPixels;
         this.posPx = tile.offsetInPixels;
         this.padPx = tile.paddingInPixels;
+        this.me = inventory.player.getUUID();
+        this.myName = inventory.player.getGameProfile().getName();
+        this.locked = tile.isLocked();
+        this.readOnly = !tile.mayEdit(me);
         this.imageWidth = WIDTH;
         this.imageHeight = HEIGHT;
         this.inventoryLabelY = imageHeight - 94;
@@ -122,6 +139,12 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             Component.translatable("minepapers.gui.copy"), GuiWidgets.ICON_COPY_U, this::copyConfig));
         btnPaste = addRenderableWidget(new GuiWidgets.Small(x + imageWidth + 2, y + 26, 20, 20,
             Component.translatable("minepapers.gui.paste"), GuiWidgets.ICON_PASTE_U, this::pasteConfig));
+        // Ниже — замок привата. Чужой замок не нажимается, только показывает владельца.
+        btnLock = addRenderableWidget(new GuiWidgets.Lock(x + imageWidth + 2, y + 126, () -> {
+            locked = !locked;
+            updateWidgets();
+        }));
+        btnLock.active = !readOnly;
 
         // Источник
         for (int i = 0; i < PictureFrame.SOURCE_COUNT; i++) {
@@ -200,7 +223,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
         // Описание
         fTitle = field(TAB_INFO, x + 8, y + 29, 160, PictureFrame.MAX_TITLE, tile.title);
-        fDesc = area(TAB_INFO, x + 8, y + 59, 82, tile.description);
+        fDesc = area(TAB_INFO, x + 8, y + 59, 82, tile.description, true);
 
         if (old != null && old.size() == fields.size()) {
             for (int i = 0; i < fields.size(); i++) setValue(fields.get(i), old.get(i));
@@ -242,8 +265,20 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     /** Многострочное поле для пути, ссылки или описания: длинный текст переносится, его можно выделять мышью. */
     private MultiLineEditBox area(int onTab, int x, int y, int h, String text) {
+        return area(onTab, x, y, h, text, false);
+    }
+
+    /** links — подчёркивать внешние ссылки (описание). */
+    private MultiLineEditBox area(int onTab, int x, int y, int h, String text, boolean links) {
         // Поля всех источников лежат друг на друге, а ванильное поле принимает мышь и скрытым — отключаем это.
         MultiLineEditBox a = new MultiLineEditBox(font, x, y, 160, h, Component.empty(), Component.empty()) {
+            @Override
+            protected void renderContents(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+                super.renderContents(g, mouseX, mouseY, partialTick);
+                if (links) underlineLinks(g, getValue(), getX() + innerPadding(), getY() + innerPadding(),
+                    width - totalInnerPadding());
+            }
+
             @Override
             public boolean mouseClicked(double mouseX, double mouseY, int button) {
                 return visible && super.mouseClicked(mouseX, mouseY, button);
@@ -263,6 +298,23 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         a.setValue(text);
         fields.add(a);
         return add(a, onTab);
+    }
+
+    /** Подчёркивание ссылок поверх текста многострочного поля: строки переносятся так же, как в самом поле (MultilineTextField), и идут с шагом 9 пикселей. */
+    private void underlineLinks(GuiGraphics g, String value, int x, int y, int width) {
+        List<int[]> spans = Links.find(value);
+        if (spans.isEmpty()) return;
+        List<int[]> lines = new ArrayList<int[]>();
+        font.getSplitter().splitLines(value, width, Style.EMPTY, false, (style, start, end) -> lines.add(new int[] { start, end }));
+        for (int i = 0; i < lines.size(); i++) {
+            int start = lines.get(i)[0], end = lines.get(i)[1];
+            for (int[] s : spans) {
+                int a = Math.max(start, s[0]), b = Math.min(end, s[1]);
+                if (a >= b) continue;
+                int x0 = x + font.width(value.substring(start, a)), x1 = x + font.width(value.substring(start, b));
+                g.fill(x0, y + i * 9 + 8, x1, y + i * 9 + 9, 0xFFE0E0E0);
+            }
+        }
     }
 
     private static String valueOf(AbstractWidget f) {
@@ -290,10 +342,17 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private void updateWidgets() {
         for (Map.Entry<AbstractWidget, Integer> e : widgetTab.entrySet()) {
             AbstractWidget w = e.getKey();
-            w.visible = e.getValue() == tab && isActive(w);
+            w.visible = !readOnly && e.getValue() == tab && isActive(w);
             if (!w.visible && getFocused() == w) setFocused(null);
         }
-        for (GuiWidgets.Tab t : tabs) t.selected = t.index == tab;
+        for (GuiWidgets.Tab t : tabs) {
+            t.selected = t.index == tab;
+            t.visible = !readOnly;
+        }
+        btnCopy.visible = btnPaste.visible = !readOnly;
+        btnLock.owner = !locked ? null : tile.owner != null ? tile.owner : me;
+        btnLock.ownerName = !locked ? "" : tile.owner != null ? tile.ownerName : myName;
+        btnLock.mine = !readOnly;
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.value == source;
         for (GuiWidgets.Toggle t : fitButtons) t.checked = t.value == fitMode;
         for (GuiWidgets.Radio r : modeRadios) r.checked = r.value == mode;
@@ -302,7 +361,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         cbPosPx.checked = posPx;
         cbPadPx.checked = padPx;
         // Слоты материалов есть всегда (их содержимое синхронизирует сервер), но видны и кликаются только на своей вкладке.
-        menu.showMaterials(tab == TAB_FRAME);
+        menu.showMaterials(!readOnly && tab == TAB_FRAME);
     }
 
     /** Поле пути показываем только для выбранного источника, кнопки config/minepapers — только для него. */
@@ -451,7 +510,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Настройки применяются при любом закрытии окна: Esc, E, Enter или сервер закрыл его сам. */
     @Override
     public void removed() {
-        if (!saved && minecraft.getConnection() != null && !picture.isRemoved()) save();
+        if (!saved && !readOnly && minecraft.getConnection() != null && !picture.isRemoved()) save();
         saved = true;
         super.removed();
     }
@@ -462,6 +521,14 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
         tile.title = fTitle.getValue().trim();
         tile.description = fDesc.getValue().trim();
+        // Владельца решает сервер (PacketSaveFrame); здесь — только просьба закрыть или открыть замок.
+        if (locked && tile.owner == null) {
+            tile.owner = me;
+            tile.ownerName = myName;
+        } else if (!locked) {
+            tile.owner = null;
+            tile.ownerName = "";
+        }
         tile.source = source;
         tile.localPath = line(fPath);
         tile.yandexUrl = line(fUrl);
@@ -617,6 +684,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     @Override
     protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+        if (readOnly) {
+            GuiWidgets.panel(g, leftPos, topPos, imageWidth, imageHeight);
+            return;
+        }
         // Как в творческом режиме: невыбранные вкладки уходят под окно, выбранная лежит поверх и сливается с ним.
         for (GuiWidgets.Tab t : tabs) {
             if (!t.selected) t.drawBody(g);
@@ -636,8 +707,27 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
-        text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
         g.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, GuiWidgets.TEXT, false);
+        if (readOnly) {
+            // Чужая заприваченная картина: заголовок и под ним описание, только для чтения.
+            int y = 6;
+            String title = tile.title.isEmpty() ? I18n.get("minepapers.gui.untitled") : tile.title;
+            for (FormattedCharSequence line : font.split(Component.literal(title), 160)) {
+                g.drawString(font, line, 8, y, GuiWidgets.TEXT, false);
+                y += 10;
+            }
+            y += 4;
+            descY = y;
+            descLines.clear();
+            for (FormattedCharSequence line : font.split(withLinks(tile.description), 160)) {
+                if (y > inventoryLabelY - 12) break;
+                g.drawString(font, line, 8, y, GuiWidgets.HINT, false);
+                descLines.add(line);
+                y += 10;
+            }
+            return;
+        }
+        text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
         switch (tab) {
             case TAB_SOURCE: {
                 text(g, I18n.get("minepapers.gui.path." + source), 8, 42);
@@ -664,7 +754,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 text(g, I18n.get("minepapers.gui.ppb"), 8, 135);
                 break;
             case TAB_INFO:
-                text(g, I18n.get("minepapers.gui.title"), 8, 18);
+                text(g, I18n.get("minepapers.gui.titleLabel"), 8, 18);
                 text(g, I18n.get("minepapers.gui.description"), 8, 48);
                 break;
             case TAB_FRAME: {
@@ -696,6 +786,46 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         super.render(g, mouseX, mouseY, partialTick);
         renderTooltip(g, mouseX, mouseY);
         if (menu.getCarried().isEmpty() && hoveredSlot == null) drawTooltips(g, mouseX, mouseY);
+        Style link = linkAt(mouseX, mouseY);
+        if (link != null) g.renderComponentHoverEffect(font, link, mouseX, mouseY);
+    }
+
+    // ---------- Ссылки в описании ----------
+
+    /** Строки описания в окне чужой картины (для кликов по ссылкам) и y первой из них в окне. */
+    private final List<FormattedCharSequence> descLines = new ArrayList<FormattedCharSequence>();
+    private int descY;
+
+    /** Описание, в котором ссылки подчёркнуты и кликабельны: клик открывает ванильный вопрос "Открыть ссылку?" (как в чате). */
+    private static Component withLinks(String text) {
+        MutableComponent result = Component.empty();
+        int at = 0;
+        for (int[] s : Links.find(text)) {
+            result.append(text.substring(at, s[0]));
+            String url = text.substring(s[0], s[1]);
+            result.append(Component.literal(url).withStyle(style -> style.withUnderlined(true)
+                .withColor(GuiWidgets.HOVER)
+                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(url)))));
+            at = s[1];
+        }
+        return result.append(text.substring(at));
+    }
+
+    /** Ссылка под мышью (только в окне чужой картины) или null. */
+    private Style linkAt(double mouseX, double mouseY) {
+        if (!readOnly) return null;
+        int row = (int) Math.floor((mouseY - topPos - descY) / 10);
+        if (row < 0 || row >= descLines.size() || mouseY - topPos - descY - row * 10 >= 9) return null;
+        Style style = font.getSplitter().componentStyleAtWidth(descLines.get(row), (int) (mouseX - leftPos - 8));
+        return style != null && style.getClickEvent() != null ? style : null;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        Style link = button == 0 ? linkAt(mouseX, mouseY) : null;
+        if (link != null && handleComponentClicked(link)) return true;
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void drawTooltips(GuiGraphics g, int mouseX, int mouseY) {
@@ -729,7 +859,17 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 return;
             }
         }
-        if (btnCopy.isHovered()) {
+        if (btnLock.isHovered()) {
+            if (btnLock.owner == null) {
+                titledTooltip(g, "minepapers.gui.lock", "minepapers.gui.lock.tip", mouseX, mouseY);
+            } else {
+                // Ник владельца, а ему самому — как снять приват.
+                List<Component> lines = new ArrayList<Component>();
+                lines.add(Component.translatable("minepapers.gui.owner", btnLock.ownerName));
+                if (!readOnly) lines.add(Component.translatable("minepapers.gui.unlock.tip").withStyle(ChatFormatting.GRAY));
+                g.renderComponentTooltip(font, lines, mouseX, mouseY);
+            }
+        } else if (btnCopy.isHovered()) {
             titledTooltip(g, "minepapers.gui.copy", "minepapers.gui.copy.tip", mouseX, mouseY);
         } else if (btnPaste.isHovered()) {
             titledTooltip(g, "minepapers.gui.paste", "minepapers.gui.paste.tip", mouseX, mouseY);

@@ -1,5 +1,8 @@
 package com.grihail.minepapers.client;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.lwjgl.opengl.GL11;
 
 import com.grihail.minepapers.MinePapers;
@@ -8,11 +11,13 @@ import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ItemRenderer;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.IItemRenderer;
 
 /** Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель. Ненастроенные рамки рисуются обычной иконкой, без этого класса. */
@@ -22,6 +27,7 @@ public class RenderPictureItem implements IItemRenderer {
     /** Ширина рамки на иконке в пикселях. */
     private static final int RING = 2;
     private static final float THICKNESS = 1f / 16f;
+    private static final ResourceLocation GLINT = new ResourceLocation("textures/misc/enchanted_item_glint.png");
 
     private boolean flat;
     private Tessellator t;
@@ -67,6 +73,8 @@ public class RenderPictureItem implements IItemRenderer {
         GL11.glDisable(GL11.GL_CULL_FACE);
         if (type == ItemRenderType.ENTITY) GL11.glTranslatef(-0.5f, -0.25f, THICKNESS / 2);
 
+        surfaces.clear();
+
         // 1. Рамка (и торцы пластинки)
         if (ring > 0) {
             FrameSkin skin = FrameSkin.border(s.border);
@@ -105,6 +113,7 @@ public class RenderPictureItem implements IItemRenderer {
                 double tv0 = (thumb.y1 - py1) / (thumb.y1 - thumb.y0), tv1 = (thumb.y1 - py0) / (thumb.y1 - thumb.y0);
                 if (ring == 0 && !flat) {
                     extruded(a, c, b, d, 0, 0, 1, 1, thumb.width, thumb.height);
+                    surface(a, c, b, d, 0);
                 } else {
                     t.startDrawingQuads();
                     t.setColorOpaque_F(1f, 1f, 1f);
@@ -136,10 +145,59 @@ public class RenderPictureItem implements IItemRenderer {
             }
         }
 
+        if (stack.hasEffect(0)) glint(mc);
+
         GL11.glPopMatrix();
         GL11.glColor4f(1f, 1f, 1f, 1f);
         if (cull) GL11.glEnable(GL11.GL_CULL_FACE);
         mc.getTextureManager().bindTexture(TextureMap.locationItemsTexture);
+    }
+
+    /** Все нарисованные лицевые прямоугольники {сторона, x0, y0, x1, y1, слой}: блеск повторяет их один в один. Проверка глубины у блеска — "равно", и одинаковая глубина гарантирована только у тех же самых вершин; один большой прямоугольник поверх рамки из девяти частей мерцал бы. */
+    private final List<double[]> surfaces = new ArrayList<double[]>();
+    /** Записывать прямоугольники (выключено, пока рисуется сам блеск). */
+    private boolean recording = true;
+
+    /** Плоскость, нарисованная не через rect() (объёмная пластинка ванильным ItemRenderer), — обе её стороны. */
+    private void surface(double x0, double y0, double x1, double y1, int layer) {
+        for (int face = 0; face < faces(); face++) surfaces.add(new double[] { face, x0, y0, x1, y1, layer });
+    }
+
+    /** Блеск зачарования (заприваченная картина). Свой рендерер предмета ванильного блеска не получает, поэтому рисуем его как ванильный (ItemRenderer.renderItem): два бегущих слоя текстуры блеска поверх уже нарисованных плоскостей (глубина "равно"), с одними координатами по всей иконке. */
+    private void glint(Minecraft mc) {
+        mc.getTextureManager().bindTexture(GLINT);
+        boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
+        GL11.glDepthFunc(GL11.GL_EQUAL);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL11.GL_LIGHTING);
+        GL11.glEnable(GL11.GL_BLEND);
+        OpenGlHelper.glBlendFunc(GL11.GL_SRC_COLOR, GL11.GL_ONE, GL11.GL_ONE, GL11.GL_ZERO);
+        float k = 0.76f;
+        GL11.glColor4f(0.5f * k, 0.25f * k, 0.8f * k, 1f);
+        GL11.glMatrixMode(GL11.GL_TEXTURE);
+        for (int pass = 0; pass < 2; pass++) {
+            long period = pass == 0 ? 3000L : 4873L;
+            float shift = (Minecraft.getSystemTime() % period) / (float) period * 8f;
+            GL11.glPushMatrix();
+            GL11.glScalef(0.125f, 0.125f, 0.125f);
+            GL11.glTranslatef(pass == 0 ? shift : -shift, 0f, 0f);
+            GL11.glRotatef(pass == 0 ? -50f : 10f, 0f, 0f, 1f);
+            t.startDrawingQuads();
+            recording = false;
+            for (double[] r : surfaces) {
+                rect((int) r[0], r[1], r[2], r[3], r[4], r[1] / ICON, r[2] / ICON, r[3] / ICON, r[4] / ICON, (int) r[5]);
+            }
+            recording = true;
+            t.draw();
+            GL11.glPopMatrix();
+        }
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        if (!blend) GL11.glDisable(GL11.GL_BLEND);
+        GL11.glEnable(GL11.GL_LIGHTING);
+        GL11.glDepthMask(true);
+        GL11.glDepthFunc(GL11.GL_LEQUAL);
+        GL11.glColor4f(1f, 1f, 1f, 1f);
     }
 
     /** Объёмная пластинка по пикселям текстуры (прозрачные пиксели — дыры, торцы повторяют форму), как у ванильных предметов. Прямоугольник (x0, y0)–(x1, y1) — в пикселях иконки, (u0, v0)–(u1, v1) — его часть текстуры. */
@@ -222,6 +280,7 @@ public class RenderPictureItem implements IItemRenderer {
     /** Прямоугольник в пикселях иконки (x вправо, y вниз). layer > 0 — чуть ближе к зрителю, чтобы не мерцать. face 0 — лицевая сторона, 1 — задняя (в инвентаре только лицевая). */
     private void rect(int face, double x0, double y0, double x1, double y1,
                       double u0, double v0, double u1, double v1, int layer) {
+        if (recording) surfaces.add(new double[] { face, x0, y0, x1, y1, layer });
         float z;
         if (flat) {
             z = layer * 0.01f;

@@ -13,7 +13,7 @@ import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 
-/** Рецепты без формы, как копирование карт: одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. Events). */
+/** Рецепты без формы, как копирование карт (заприваченные картины в них не участвуют): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. Events). */
 public class RecipePictureFrame implements IRecipe {
 
     private static boolean isConfigured(ItemStack stack) {
@@ -31,6 +31,7 @@ public class RecipePictureFrame implements IRecipe {
             if (stack.getItem() != frame) return null;
             if (isConfigured(stack)) {
                 if (configured != null) return null; // две настроенные — непонятно, чью копировать
+                if (ItemPictureFrame.isLocked(stack)) return null; // заприваченную не разбирают и не копируют
                 configured = stack;
             } else {
                 empty[0]++;

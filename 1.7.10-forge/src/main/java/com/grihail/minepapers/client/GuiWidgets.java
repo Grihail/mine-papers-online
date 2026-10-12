@@ -1,10 +1,18 @@
 package com.grihail.minepapers.client;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import org.lwjgl.opengl.GL11;
 
 import com.grihail.minepapers.MinePapers;
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.AbstractClientPlayer;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.util.ResourceLocation;
@@ -20,8 +28,8 @@ final class GuiWidgets {
     private static final ResourceLocation BEACON = new ResourceLocation("textures/gui/container/beacon.png");
 
     /** Иконки вписывания и источников 16x16 — в ряд с (0, 32) и (0, 48), по порядку PictureFrame.FIT_* и SOURCE_*. */
-    /** Копировать и вставить 10x10 — в ряду иконок (v = 0). */
-    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144;
+    /** Копировать, вставить, открытый и закрытый замок 10x10 — в ряду иконок (v = 0). */
+    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186;
     static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
@@ -207,7 +215,7 @@ final class GuiWidgets {
         @Override
         void draw(Minecraft mc, boolean hovered) {
             bind(BUTTONS);
-            int v = hovered ? 86 : 66;
+            int v = !enabled ? 46 : hovered ? 86 : 66;
             int x = xPosition, y = yPosition, w = width, h = height;
             int left = w / 2, right = w - left, top = h - 3;
             blit(x, y, 0, v, left, top);
@@ -222,5 +230,77 @@ final class GuiWidgets {
                     hovered ? 0xFFFFA0 : 0xE0E0E0);
             }
         }
+    }
+
+    /** Замок привата 20x20: открыт — открытый замок; закрыт — у владельца закрытый замок (его картина), у остальных — голова владельца (лицо с его скина). */
+    static class Lock extends Small {
+
+        /** Владелец закрытого замка; null — открыт. */
+        UUID owner;
+        String ownerName = "";
+        /** Смотрит сам владелец. */
+        boolean mine;
+
+        Lock(int id, int x, int y) {
+            super(id, x, y, 20, 20, "", -1);
+        }
+
+        @Override
+        void draw(Minecraft mc, boolean hovered) {
+            super.draw(mc, hovered);
+            if (owner == null || mine) {
+                icon(xPosition + 5, yPosition + 5, owner == null ? ICON_UNLOCKED_U : ICON_LOCKED_U, 0, 10, 10);
+            } else {
+                face(skin(owner, ownerName), xPosition + 2, yPosition + 2, 16);
+            }
+        }
+    }
+
+    /** Лицо со скина 64x32 (8x8 в (8, 8)) и поверх — слой шапки (40, 8). */
+    private static void face(ResourceLocation skin, int x, int y, int size) {
+        bind(skin);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        skinRect(x, y, size, 8);
+        skinRect(x, y, size, 40);
+        GL11.glDisable(GL11.GL_BLEND);
+    }
+
+    private static void skinRect(int x, int y, int size, int u) {
+        double u0 = u / 64.0, u1 = (u + 8) / 64.0, v0 = 8 / 32.0, v1 = 16 / 32.0;
+        Tessellator t = Tessellator.instance;
+        t.startDrawingQuads();
+        t.addVertexWithUV(x, y + size, 0, u0, v1);
+        t.addVertexWithUV(x + size, y + size, 0, u1, v1);
+        t.addVertexWithUV(x + size, y, 0, u1, v0);
+        t.addVertexWithUV(x, y, 0, u0, v0);
+        t.draw();
+    }
+
+    /** Скины владельцев: пока настоящий не загружен — Стив. */
+    private static final Map<UUID, ResourceLocation> SKINS = new HashMap<UUID, ResourceLocation>();
+
+    /** Скин игрока: если он рядом — его, иначе профиль запрашивается у сервиса Mojang (в фоне, как у голов игроков) и скин подгружается. */
+    static ResourceLocation skin(final UUID id, String name) {
+        final Minecraft mc = Minecraft.getMinecraft();
+        EntityPlayer near = mc.theWorld != null ? mc.theWorld.func_152378_a(id) : null;
+        if (near instanceof AbstractClientPlayer) return ((AbstractClientPlayer) near).getLocationSkin();
+        ResourceLocation known = SKINS.get(id);
+        if (known != null) return known;
+        SKINS.put(id, AbstractClientPlayer.locationStevePng);
+        final GameProfile bare = new GameProfile(id, name);
+        Thread thread = new Thread(() -> {
+            try {
+                final GameProfile profile = mc.func_152347_ac().fillProfileProperties(bare, false);
+                mc.func_152344_a(() -> mc.func_152342_ad().func_152790_a(profile, (type, location) -> {
+                    if (type == MinecraftProfileTexture.Type.SKIN) SKINS.put(id, location);
+                }, false));
+            } catch (RuntimeException ignored) {
+                // нет сети или сервиса профилей — остаётся Стив
+            }
+        }, "MinePapers skin");
+        thread.setDaemon(true);
+        thread.start();
+        return AbstractClientPlayer.locationStevePng;
     }
 }

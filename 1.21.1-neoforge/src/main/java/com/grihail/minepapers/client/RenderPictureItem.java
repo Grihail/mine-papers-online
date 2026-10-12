@@ -1,5 +1,8 @@
 package com.grihail.minepapers.client;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -62,6 +65,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         pose = poseStack.last();
         light = packedLight;
         RenderType atlas = RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS);
+        surfaces.clear();
 
         // 1. Рамка (и торцы пластинки)
         if (ring > 0) {
@@ -121,8 +125,25 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 }
             }
         }
+        if (stack.hasFoil()) glint(buffers);
         out = null;
         pose = null;
+    }
+
+    /** Все нарисованные лицевые прямоугольники {сторона, x0, y0, x1, y1, слой}: блеск повторяет их один в один. Проверка глубины у блеска — "равно", и одинаковая глубина гарантирована только у тех же самых вершин; один большой прямоугольник поверх рамки из девяти частей мерцал бы. */
+    private final List<double[]> surfaces = new ArrayList<double[]>();
+    /** Записывать прямоугольники (выключено, пока рисуется сам блеск). */
+    private boolean recording = true;
+
+
+    /** Блеск зачарования (заприваченная картина) — как у щита и трезубца: свой слой поверх уже нарисованных плоскостей (проверка глубины "равно"), с одними координатами текстуры по всей иконке. Иначе каждая часть (атлас блоков, картинка) получила бы свой масштаб узора. */
+    private void glint(MultiBufferSource buffers) {
+        out = buffers.getBuffer(RenderType.entityGlintDirect());
+        recording = false;
+        for (double[] r : surfaces) {
+            rect((int) r[0], r[1], r[2], r[3], r[4], r[1] / ICON, r[2] / ICON, r[3] / ICON, r[4] / ICON, (int) r[5]);
+        }
+        recording = true;
     }
 
     /** Непрозрачен ли пиксель (x, y) текстуры (строки сверху вниз). */
@@ -212,6 +233,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
     /** Прямоугольник в пикселях иконки (x вправо, y вниз). layer > 0 — чуть ближе к зрителю, чтобы не мерцать. face 0 — лицевая сторона, 1 — задняя (в инвентаре только лицевая). */
     private void rect(int face, double x0, double y0, double x1, double y1,
                       double u0, double v0, double u1, double v1, int layer) {
+        if (recording) surfaces.add(new double[] { face, x0, y0, x1, y1, layer });
         float nz = face == 0 ? 1f : -1f;
         float z = face == 0 ? FRONT + layer * 0.001f : BACK - layer * 0.001f;
         vertex(x0, y1, z, u0, v1, 0f, 0f, nz);

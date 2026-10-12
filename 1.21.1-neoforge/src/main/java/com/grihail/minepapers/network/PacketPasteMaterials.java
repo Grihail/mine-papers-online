@@ -49,7 +49,7 @@ public record PacketPasteMaterials(int entityId, CompoundTag materials) implemen
     public static void handle(PacketPasteMaterials msg, IPayloadContext ctx) {
         ServerPlayer player = (ServerPlayer) ctx.player();
         EntityPicture picture = ServerImages.pictureById(player.level(), msg.entityId);
-        if (picture == null || !ServerImages.canEdit(player, picture)) return;
+        if (picture == null || !ServerImages.canChange(player, picture)) return;
         PictureFrame.Material[] slots = picture.frame.materials();
         MutableComponent missing = null;
         for (int i = 0; i < slots.length && i < PictureConfig.MATERIALS.length; i++) {

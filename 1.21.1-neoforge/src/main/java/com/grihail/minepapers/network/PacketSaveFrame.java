@@ -1,5 +1,7 @@
 package com.grihail.minepapers.network;
 
+import java.util.UUID;
+
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.PictureFrame;
@@ -36,10 +38,12 @@ public record PacketSaveFrame(int entityId, CompoundTag settings) implements Cus
     public static void handle(PacketSaveFrame msg, IPayloadContext ctx) {
         ServerPlayer player = (ServerPlayer) ctx.player();
         EntityPicture picture = ServerImages.pictureById(player.level(), msg.entityId);
-        if (picture == null || !ServerImages.canEdit(player, picture)) return;
+        if (picture == null || !ServerImages.canChange(player, picture)) return;
         PictureFrame frame = picture.frame;
         String origin = frame.getOriginKey();
         byte[] files = frame.files;
+        UUID owner = frame.owner;
+        String ownerName = frame.ownerName;
         // Материалы рамки и холста — настоящие предметы, их меняют только слоты окна (ContainerPictureFrame).
         CompoundTag materials = new CompoundTag();
         frame.writeSettings(materials);
@@ -47,6 +51,17 @@ public record PacketSaveFrame(int entityId, CompoundTag settings) implements Cus
         // Список картинок на сервере меняет только сервер (PacketOfferFiles), клиенту здесь не верим.
         frame.files = origin != null && origin.equals(frame.getOriginKey()) ? files : PictureFrame.NO_FILES;
         for (PictureFrame.Material m : frame.materials()) m.read(materials);
+        // Владельца клиент только просит: замок закрыт — картина становится его (если ничья), открыт — снова ничья. Чужое имя подставить нельзя.
+        boolean lock = frame.owner != null;
+        frame.owner = owner;
+        frame.ownerName = ownerName;
+        if (lock && owner == null) {
+            frame.owner = player.getUUID();
+            frame.ownerName = player.getGameProfile().getName();
+        } else if (!lock) {
+            frame.owner = null; // сюда доходит только владелец или когда картина ничья (canChange)
+            frame.ownerName = "";
+        }
         picture.settingsChanged();
     }
 }

@@ -36,8 +36,8 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
         }
         PictureFrame.Material[] materials = picture.frame.materials();
         for (int i = 0; i < materials.length; i++) {
-            addSlot(new MaterialSlot(new MaterialContainer(picture, materials[i]), materials[i], MATERIAL_X,
-                MATERIAL_Y + i * MATERIAL_STEP));
+            addSlot(new MaterialSlot(new MaterialContainer(picture, materials[i]), materials[i], inventory.player,
+                picture.frame, MATERIAL_X, MATERIAL_Y + i * MATERIAL_STEP));
         }
     }
 
@@ -94,17 +94,28 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
     private static class MaterialSlot extends Slot {
 
         private final PictureFrame.Material material;
+        /** Чужую заприваченную картину менять нельзя: слоты только для владельца. */
+        private final Player player;
+        private final PictureFrame frame;
         /** Виден ли слот (меняет только окно на клиенте). */
         boolean shown = true;
 
-        MaterialSlot(Container container, PictureFrame.Material material, int x, int y) {
+        MaterialSlot(Container container, PictureFrame.Material material, Player player, PictureFrame frame, int x, int y) {
             super(container, 0, x, y);
             this.material = material;
+            this.player = player;
+            this.frame = frame;
         }
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return !stack.isEmpty() && !stack.is(MinePapers.FRAME.get()) && material.accepts(stack);
+            return !stack.isEmpty() && !stack.is(MinePapers.FRAME.get()) && material.accepts(stack)
+                && frame.mayEdit(player.getUUID());
+        }
+
+        @Override
+        public boolean mayPickup(Player player) {
+            return frame.mayEdit(player.getUUID());
         }
 
         @Override

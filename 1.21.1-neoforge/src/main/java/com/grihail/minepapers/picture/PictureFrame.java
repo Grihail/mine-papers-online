@@ -1,5 +1,7 @@
 package com.grihail.minepapers.picture;
 
+import java.util.UUID;
+
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.SharedImage;
 
@@ -101,6 +103,19 @@ public class PictureFrame {
     /** Заголовок и описание картины (вкладка "Описание"), видны в подсказке предмета. */
     public String title = "";
     public String description = "";
+
+    /** Владелец заприваченной картины (null — картину может менять любой) и его ник — для подсказок. Меняет только сервер (PacketSaveFrame), в конфиг JSON не попадает. */
+    public UUID owner;
+    public String ownerName = "";
+
+    public boolean isLocked() {
+        return owner != null;
+    }
+
+    /** Может ли игрок менять настройки и материалы картины. */
+    public boolean mayEdit(UUID player) {
+        return owner == null || owner.equals(player);
+    }
 
     /** Как картинка вписывается в холст (масштабирование всегда от центра) */
     public int fitMode = FIT_COVER;
@@ -359,6 +374,10 @@ public class PictureFrame {
         tag.putBoolean("PadPx", paddingInPixels);
         if (!title.isEmpty()) tag.putString("Title", title);
         if (!description.isEmpty()) tag.putString("Desc", description);
+        if (owner != null) {
+            tag.putUUID("Owner", owner);
+            tag.putString("OwnerName", ownerName);
+        }
         tag.putByte("Fit", (byte) fitMode);
         tag.putShort("PPB", (short) pixelsPerBlock);
         tag.putByte("Style", (byte) style);
@@ -399,6 +418,8 @@ public class PictureFrame {
 
         title = limit(tag.getString("Title").replace("\r", "").replace("\n", " "), MAX_TITLE);
         description = limit(tag.getString("Desc").replace("\r", ""), MAX_STRING);
+        owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+        ownerName = owner != null ? limit(tag.getString("OwnerName"), MAX_TITLE) : "";
 
         fitMode = tag.contains("Fit") ? range(tag.getByte("Fit"), 0, FIT_COUNT - 1) : FIT_COVER;
         pixelsPerBlock = tag.contains("PPB") ? range(tag.getShort("PPB"), MIN_PPB, MAX_PPB) : 128;

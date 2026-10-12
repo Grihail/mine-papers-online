@@ -81,6 +81,19 @@ public class ItemPictureFrame extends ItemBlock {
         return ghost != null && !FrameGeometry.isBlocked(world, ghost, null);
     }
 
+    /** Картина запривачена (в настройках есть владелец). */
+    public static boolean isLocked(ItemStack stack) {
+        return stack != null && stack.hasTagCompound()
+            && PictureFrame.parseUuid(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG).getString("Owner")) != null;
+    }
+
+    /** Заприваченная картина блестит, как зачарованный предмет. */
+    @Override
+    @SideOnly(Side.CLIENT)
+    public boolean hasEffect(ItemStack stack, int pass) {
+        return isLocked(stack) || super.hasEffect(stack, pass);
+    }
+
     /** Блоки из слотов материалов (рамка, холст), лежащие в картине-предмете. */
     public static List<ItemStack> storedMaterials(ItemStack stack) {
         List<ItemStack> stored = new ArrayList<ItemStack>();
@@ -123,6 +136,10 @@ public class ItemPictureFrame extends ItemBlock {
         } else if (s.glowLevel() > 0) {
             lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted("minepapers.tooltip.glow",
                 s.glowLevel()));
+        }
+        if (s.isLocked()) {
+            lines.add(EnumChatFormatting.LIGHT_PURPLE + StatCollector.translateToLocalFormatted("minepapers.tooltip.owner",
+                s.ownerName));
         }
     }
 

@@ -52,7 +52,7 @@ public class PacketPasteMaterials implements IMessage {
 
     private static void apply(EntityPlayerMP player, PacketPasteMaterials msg) {
         EntityPicture picture = ServerImages.pictureById(player.worldObj, msg.entityId);
-        if (picture == null || msg.materials == null || !ServerImages.canEdit(player, picture.frame)) return;
+        if (picture == null || msg.materials == null || !ServerImages.canChange(player, picture.frame)) return;
         PictureFrame.Material[] slots = picture.frame.materials();
         IChatComponent missing = null;
         for (int i = 0; i < slots.length && i < PictureConfig.MATERIALS.length; i++) {

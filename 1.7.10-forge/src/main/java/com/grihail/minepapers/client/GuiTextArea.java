@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.lwjgl.input.Keyboard;
+
+import com.grihail.minepapers.picture.Links;
 import org.lwjgl.opengl.GL11;
 
 import net.minecraft.client.Minecraft;
@@ -345,10 +347,16 @@ class GuiTextArea extends GuiTextField {
         List<Integer> starts = lineStarts();
         int a = selStart(), b = selEnd(), visible = visibleLines();
         clampScroll(starts);
+        // В описании внешние ссылки подчёркнуты.
+        List<int[]> links = multiline ? Links.find(text) : java.util.Collections.<int[]>emptyList();
         for (int line = scroll; line < starts.size() && line < scroll + visible; line++) {
             int start = starts.get(line), end = lineEnd(starts, line);
             int lx = x + PAD_X, ly = y + PAD_Y + (line - scroll) * LINE;
             font.drawStringWithShadow(text.substring(start, end), lx, ly, 0xE0E0E0);
+            for (int[] link : links) {
+                int ls = Math.max(link[0], start), le = Math.min(link[1], end);
+                if (ls < le) drawRect(lx + width(start, ls), ly + 8, lx + width(start, le), ly + 9, 0xFFE0E0E0);
+            }
             int s = Math.max(a, start), e = Math.min(b, end);
             if (s < e) highlight(lx + width(start, s), ly - 1, lx + width(start, e), ly + font.FONT_HEIGHT);
         }

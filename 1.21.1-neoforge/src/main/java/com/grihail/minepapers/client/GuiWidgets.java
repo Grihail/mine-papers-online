@@ -1,5 +1,10 @@
 package com.grihail.minepapers.client;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
 import org.joml.Matrix4f;
 
 import com.grihail.minepapers.MinePapers;
@@ -14,10 +19,15 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.world.level.block.entity.SkullBlockEntity;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -26,8 +36,8 @@ final class GuiWidgets {
 
     /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48). */
     static final ResourceLocation ICONS = MinePapers.id("textures/gui/picture_frame.png");
-    /** Копировать и вставить 10x10 — в ряду иконок (v = 0). */
-    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144;
+    /** Копировать, вставить и открытый замок 10x10 — в ряду иконок (v = 0). */
+    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186;
     static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
@@ -195,6 +205,54 @@ final class GuiWidgets {
             icon(g, getX(), getY(), checked ? 30 : 20, RADIO_V, 10, 10);
             g.drawString(font(), getMessage(), getX() + 13, getY() + 1, isHovered() ? HOVER : TEXT, false);
         }
+    }
+
+    /** Замок привата 20x20: открыт — открытый замок; закрыт — у владельца закрытый замок (его картина), у остальных — голова владельца (лицо с его скина). */
+    static class Lock extends Widget {
+
+        /** Владелец закрытого замка; null — открыт. */
+        UUID owner;
+        String ownerName = "";
+        /** Смотрит сам владелец. */
+        boolean mine;
+
+        Lock(int x, int y, Runnable action) {
+            super(x, y, 20, 20, Component.empty(), action);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            g.blitSprite(BUTTON.get(active, isHovered()), getX(), getY(), width, height);
+            if (owner == null || mine) {
+                icon(g, getX() + 5, getY() + 5, owner == null ? ICON_UNLOCKED_U : ICON_LOCKED_U, 0, 10, 10);
+            } else {
+                PlayerFaceRenderer.draw(g, skin(owner), getX() + 2, getY() + 2, 16);
+            }
+        }
+    }
+
+    /** Скины владельцев: пока настоящий не загружен — стандартный (Стив, Алекс...). */
+    private static final Map<UUID, PlayerSkin> SKINS = new HashMap<UUID, PlayerSkin>();
+
+    /** Скин игрока: если он на сервере — из списка игроков, иначе его профиль запрашивается (как у голов игроков) и скин подгружается. */
+    static PlayerSkin skin(UUID id) {
+        Minecraft mc = Minecraft.getInstance();
+        PlayerInfo info = mc.getConnection() != null ? mc.getConnection().getPlayerInfo(id) : null;
+        if (info != null) return info.getSkin();
+        PlayerSkin known = SKINS.get(id);
+        if (known != null) return known;
+        PlayerSkin fallback = DefaultPlayerSkin.get(id);
+        SKINS.put(id, fallback);
+        try {
+            SkullBlockEntity.fetchGameProfile(id)
+                .thenCompose(p -> p.map(mc.getSkinManager()::getOrLoad).orElseGet(() -> CompletableFuture.completedFuture(null)))
+                .thenAccept(s -> {
+                    if (s != null) mc.execute(() -> SKINS.put(id, s));
+                });
+        } catch (RuntimeException ignored) {
+            // нет сервиса профилей (офлайн) — остаётся стандартный скин
+        }
+        return fallback;
     }
 
     /** Маленькая ванильная кнопка (спрайт тянется по девяти частям): с текстом или с иконкой 10x10 (iconU >= 0). */

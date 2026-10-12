@@ -86,6 +86,11 @@ public final class ServerImages {
         return player.distanceToSqr(picture.position()) <= reach * reach;
     }
 
+    /** Менять настройки, материалы и картинки: рядом с картиной и она не запривачена другим игроком. Открыть окно (только заголовок и описание) и сломать картину может любой рядом — см. canEdit. */
+    public static boolean canChange(ServerPlayer player, EntityPicture picture) {
+        return canEdit(player, picture) && picture.frame.mayEdit(player.getUUID());
+    }
+
     public static EntityPicture pictureById(Level level, int entityId) {
         Entity entity = level != null ? level.getEntity(entityId) : null;
         return entity instanceof EntityPicture picture && !picture.isRemoved() ? picture : null;
@@ -99,7 +104,7 @@ public final class ServerImages {
         PictureFrame frame = picture != null ? picture.frame : null;
         if (frame == null || hashes.length == 0 || hashes.length > PictureFrame.MAX_FILES * SharedImage.HASH_BYTES
             || !origin.equals(frame.getOriginKey()) || frame.isNetworkSource()
-            || !canEdit(player, picture)) {
+            || !canChange(player, picture)) {
             return;
         }
         ResourceKey<Level> dim = player.level().dimension();

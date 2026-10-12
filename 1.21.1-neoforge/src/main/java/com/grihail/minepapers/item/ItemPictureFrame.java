@@ -42,6 +42,17 @@ public class ItemPictureFrame extends Item {
         return stack.get(MinePapers.FRAME_SETTINGS.get());
     }
 
+    /** Картина запривачена (в настройках есть владелец). */
+    public static boolean isLocked(CompoundTag settings) {
+        return settings != null && settings.hasUUID("Owner");
+    }
+
+    /** Заприваченная картина блестит, как зачарованный предмет. */
+    @Override
+    public boolean isFoil(ItemStack stack) {
+        return isLocked(settings(stack)) || super.isFoil(stack);
+    }
+
     /** Предмет картины; настройки сохраняются, если картину настраивали. */
     public static ItemStack makeStack(PictureFrame frame) {
         ItemStack stack = new ItemStack(MinePapers.FRAME.get());
@@ -128,6 +139,9 @@ public class ItemPictureFrame extends Item {
             lines.add(Component.translatable("minepapers.tooltip.glow.self").withStyle(ChatFormatting.GRAY));
         } else if (glow > 0) {
             lines.add(Component.translatable("minepapers.tooltip.glow", glow).withStyle(ChatFormatting.GRAY));
+        }
+        if (s.isLocked()) {
+            lines.add(Component.translatable("minepapers.tooltip.owner", s.ownerName).withStyle(ChatFormatting.LIGHT_PURPLE));
         }
     }
 

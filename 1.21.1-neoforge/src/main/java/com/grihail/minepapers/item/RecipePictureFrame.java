@@ -16,7 +16,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
-/** Рецепты без формы, как копирование карт: одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. Events). */
+/** Рецепты без формы, как копирование карт (заприваченные картины в них не участвуют): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. Events). */
 public class RecipePictureFrame extends CustomRecipe {
 
     public RecipePictureFrame(CraftingBookCategory category) {
@@ -31,8 +31,10 @@ public class RecipePictureFrame extends CustomRecipe {
             ItemStack stack = input.getItem(i);
             if (stack.isEmpty()) continue;
             if (!stack.is(MinePapers.FRAME.get())) return null;
-            if (ItemPictureFrame.settings(stack) != null) {
+            CompoundTag settings = ItemPictureFrame.settings(stack);
+            if (settings != null) {
                 if (configured != null) return null; // две настроенные — непонятно, чью копировать
+                if (ItemPictureFrame.isLocked(settings)) return null; // заприваченную не разбирают и не копируют
                 configured = stack;
             } else {
                 empty[0]++;

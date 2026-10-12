@@ -90,6 +90,11 @@ public final class ServerImages {
         return dx * dx + dy * dy + dz * dz <= EDIT_DISTANCE * EDIT_DISTANCE;
     }
 
+    /** Менять настройки, материалы и картинки: рядом с картиной и она не запривачена другим игроком. Открыть окно (только заголовок и описание) и сломать картину может любой рядом — см. canEdit. */
+    public static boolean canChange(EntityPlayerMP player, PictureFrame frame) {
+        return canEdit(player, frame) && frame.mayEdit(player.getUniqueID());
+    }
+
     public static EntityPicture pictureById(World world, int entityId) {
         Entity entity = world != null ? world.getEntityByID(entityId) : null;
         return entity instanceof EntityPicture && !entity.isDead ? (EntityPicture) entity : null;
@@ -102,7 +107,7 @@ public final class ServerImages {
         PictureFrame frame = picture != null ? picture.frame : null;
         if (frame == null || hashes.length == 0 || hashes.length > PictureFrame.MAX_FILES * SharedImage.HASH_BYTES
             || !origin.equals(frame.getOriginKey()) || frame.isNetworkSource()
-            || !canEdit(player, frame)) {
+            || !canChange(player, frame)) {
             return;
         }
         for (Iterator<Offer> it = OFFERS.iterator(); it.hasNext();) {

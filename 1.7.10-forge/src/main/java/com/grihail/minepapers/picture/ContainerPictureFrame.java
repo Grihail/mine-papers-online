@@ -34,8 +34,8 @@ public class ContainerPictureFrame extends Container {
         }
         PictureFrame.Material[] materials = picture.frame.materials();
         for (int i = 0; i < materials.length; i++) {
-            addSlotToContainer(new MaterialSlot(new MaterialInventory(picture, materials[i]), materials[i], MATERIAL_X,
-                MATERIAL_Y + i * MATERIAL_STEP));
+            addSlotToContainer(new MaterialSlot(new MaterialInventory(picture, materials[i]), materials[i],
+                inventory.player, picture.frame, MATERIAL_X, MATERIAL_Y + i * MATERIAL_STEP));
         }
     }
 
@@ -80,15 +80,27 @@ public class ContainerPictureFrame extends Container {
     private static class MaterialSlot extends Slot {
 
         private final PictureFrame.Material material;
+        /** Чужую заприваченную картину менять нельзя: слоты только для владельца. */
+        private final EntityPlayer player;
+        private final PictureFrame frame;
 
-        MaterialSlot(IInventory inventory, PictureFrame.Material material, int x, int y) {
+        MaterialSlot(IInventory inventory, PictureFrame.Material material, EntityPlayer player, PictureFrame frame, int x,
+                     int y) {
             super(inventory, 0, x, y);
             this.material = material;
+            this.player = player;
+            this.frame = frame;
         }
 
         @Override
         public boolean isItemValid(ItemStack stack) {
-            return stack != null && stack.getItem() != Item.getItemFromBlock(MinePapers.frame) && material.accepts(stack);
+            return stack != null && stack.getItem() != Item.getItemFromBlock(MinePapers.frame) && material.accepts(stack)
+                && frame.mayEdit(player.getUniqueID());
+        }
+
+        @Override
+        public boolean canTakeStack(EntityPlayer player) {
+            return frame.mayEdit(player.getUniqueID());
         }
 
         @Override
