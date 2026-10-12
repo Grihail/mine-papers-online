@@ -31,7 +31,7 @@ import net.neoforged.neoforge.client.event.RenderHighlightEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/** Управление картинами на клиенте — чтобы картина-сущность ощущалась как блок: дотягиваемся до неё так же далеко, как до блоков; ломаем с той же скоростью и с трещинами; при наведении — обводка хитбокса; с картиной в руке — контур будущей картины. */
+/** Управление картинами на клиенте — чтобы картина-сущность ощущалась как блок: дотягиваемся до неё так же далеко, как до блоков; ломаем с той же скоростью (без трещин: на больших картинах они слишком дорогие); при наведении — обводка хитбокса; с картиной в руке — контур будущей картины. */
 public class PictureControls {
 
     /** Как у блоков в творческом режиме: при зажатой кнопке следующая картина ломается не раньше чем через 6 тиков. */
@@ -113,7 +113,6 @@ public class PictureControls {
         if (breaking == null) return;
 
         progress += breaking.breakRate(mc.player);
-        breaking.breakProgress = Math.max(progress, 0.001f);
         mc.player.swing(InteractionHand.MAIN_HAND);
         if (ticks++ % 4 == 0) {
             SoundType sound = SoundType.WOOD;
@@ -128,7 +127,6 @@ public class PictureControls {
     }
 
     private void stopBreaking() {
-        if (breaking != null) breaking.breakProgress = 0;
         breaking = null;
         progress = 0;
         ticks = 0;

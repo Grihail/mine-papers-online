@@ -2,12 +2,10 @@ package com.grihail.minepapers.client;
 
 import org.lwjgl.opengl.GL11;
 
-import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
 
-import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.Render;
 import net.minecraft.client.renderer.entity.RenderManager;
@@ -18,7 +16,7 @@ import net.minecraft.util.MathHelper;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 
-/** Рисует картину целиком: холст, рамку (по выбранному виду), саму картинку и трещины, пока её ломают. Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. FrameGeometry. */
+/** Рисует картину целиком: холст, рамку (по выбранному виду), саму картинку. Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. FrameGeometry. */
 public class RenderPicture extends Render {
 
     private static final double PX = PictureFrame.PIXEL;
@@ -132,12 +130,6 @@ public class RenderPicture extends Render {
             if (decal) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         }
 
-        // 3. Трещины, пока картину ломают — ванильные текстуры разрушения, как у блоков
-        if (picture.breakProgress > 0) {
-            double front = mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH + 0.001 : tile.getDepth() + 0.002;
-            cracks(Math.min(9, (int) (picture.breakProgress * 10)), u0, v0, u1, v1, front);
-        }
-
         // Возвращаем состояние OpenGL как было: моды вроде Angelica следят за ним и не любят "хвостов".
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_CULL_FACE);
@@ -145,34 +137,6 @@ public class RenderPicture extends Render {
         GL11.glColor4f(1f, 1f, 1f, 1f);
         bindTexture(TextureMap.locationBlocksTexture);
         GL11.glPopMatrix();
-    }
-
-    /** Трещины поверх всей лицевой стороны: смешивание как у ванильного разрушения блоков (RenderGlobal). */
-    private void cracks(int stage, double u0, double v0, double u1, double v1, double d) {
-        bindTexture(TextureMap.locationBlocksTexture);
-        OpenGlHelper.glBlendFunc(GL11.GL_DST_COLOR, GL11.GL_SRC_COLOR, 1, 0);
-        GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
-        GL11.glPolygonOffset(-3f, -3f);
-        t.startDrawingQuads();
-        t.setBrightness(0xF000F0);
-        t.setColorRGBA_F(1f, 1f, 1f, 0.5f);
-        IIcon icon = MinePapers.frame.crackIcons[stage];
-        for (int cu = (int) Math.floor(u0); cu < u1; cu++) {
-            for (int cv = (int) Math.floor(v0); cv < v1; cv++) {
-                double a = Math.max(u0, cu), b = Math.min(u1, cu + 1);
-                double c = Math.max(v0, cv), e = Math.min(v1, cv + 1);
-                if (b - a < 1e-6 || e - c < 1e-6) continue;
-                double ia = icon.getInterpolatedU((a - cu) * 16), ib = icon.getInterpolatedU((b - cu) * 16);
-                double ic = icon.getInterpolatedV((cv + 1 - c) * 16), ie = icon.getInterpolatedV((cv + 1 - e) * 16);
-                vertex(a, c, d, ia, ic);
-                vertex(b, c, d, ib, ic);
-                vertex(b, e, d, ib, ie);
-                vertex(a, e, d, ia, ie);
-            }
-        }
-        t.draw();
-        GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     // --------------------------------------------------------------------- Части картины

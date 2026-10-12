@@ -31,9 +31,6 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
     public static final float HARDNESS = 0.5f;
 
     public final PictureFrame frame = new PictureFrame();
-
-    /** Только на клиенте: насколько картину уже "откопали" (0..1) — для трещин. */
-    public float breakProgress;
     private ItemStack shownSettings;
 
     public EntityPicture(World world) {

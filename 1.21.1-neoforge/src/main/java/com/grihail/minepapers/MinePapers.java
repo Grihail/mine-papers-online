@@ -41,7 +41,7 @@ public class MinePapers {
 
     public static final String MODID = "minepapers";
     public static final String NAME = "Mine Papers Online";
-    public static String VERSION = "1.4.0";
+    public static String VERSION = "1.4.1";
 
     private static final Logger LOG = LogUtils.getLogger();
 

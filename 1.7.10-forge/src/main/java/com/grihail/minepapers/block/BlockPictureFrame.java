@@ -18,7 +18,7 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.IIcon;
 import net.minecraft.world.World;
 
-/** Блок картины. Сама картина — сущность (picture.EntityPicture); блок остался, потому что к нему привязан предмет картины (ItemPictureFrame) и на нём зарегистрированы текстуры рамки, холста и трещин. В мире он встречается только в старых сохранениях: TileLegacyPicture превращает его в картину-сущность. */
+/** Блок картины. Сама картина — сущность (picture.EntityPicture); блок остался, потому что к нему привязан предмет картины (ItemPictureFrame) и на нём зарегистрированы текстуры рамки и холста. В мире он встречается только в старых сохранениях: TileLegacyPicture превращает его в картину-сущность. */
 public class BlockPictureFrame extends BlockContainer {
 
     /** Ключ настроек в NBT предмета. */
@@ -27,9 +27,6 @@ public class BlockPictureFrame extends BlockContainer {
     /** Холст (окантовка — обычная иконка блока). */
     @SideOnly(Side.CLIENT)
     public IIcon canvasIcon;
-    /** Ванильные трещины разрушения (те же спрайты, что у блоков). */
-    @SideOnly(Side.CLIENT)
-    public IIcon[] crackIcons;
 
     public BlockPictureFrame() {
         super(Material.wood);
@@ -44,10 +41,7 @@ public class BlockPictureFrame extends BlockContainer {
     @SideOnly(Side.CLIENT)
     public void registerBlockIcons(IIconRegister reg) {
         blockIcon = reg.registerIcon(MinePapers.MODID + ":frame_border");
-        canvasIcon = reg.registerIcon(MinePapers.MODID + ":frame_canvas");
-        crackIcons = new IIcon[10];
-        for (int i = 0; i < crackIcons.length; i++) crackIcons[i] = reg.registerIcon("destroy_stage_" + i);
-    }
+        canvasIcon = reg.registerIcon(MinePapers.MODID + ":frame_canvas");    }
 
     /** В инвентаре — плоская иконка (textures/items/picture_frame.png). */
     @Override

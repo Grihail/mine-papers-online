@@ -50,9 +50,6 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
 
     public final PictureFrame frame = new PictureFrame();
 
-    /** Только на клиенте: насколько картину уже "откопали" (0..1) — для трещин. */
-    public float breakProgress;
-
     public EntityPicture(EntityType<? extends EntityPicture> type, Level level) {
         super(type, level);
         noPhysics = true;

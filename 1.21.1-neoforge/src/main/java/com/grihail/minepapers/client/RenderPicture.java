@@ -17,7 +17,6 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.ModelBakery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -26,7 +25,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-/** Рисует картину целиком: холст, рамку (по выбранному виду), саму картинку и трещины, пока её ломают. Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. FrameGeometry. */
+/** Рисует картину целиком: холст, рамку (по выбранному виду), саму картинку. Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. FrameGeometry. */
 public class RenderPicture extends EntityRenderer<EntityPicture> {
 
     private static final double PX = PictureFrame.PIXEL;
@@ -34,8 +33,6 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
     private static final double DECAL_DEPTH = 0.003;
     /** Длина одного повтора текстуры рамки вдоль ребра: 12 пикселей текстуры = 12/16 блока. */
     private static final double TILE = 12 * PX;
-    /** Полная яркость (небо и источники 15) — для трещин. */
-    private static final int FULL_BRIGHT = 0xF000F0;
 
     // Состояние текущей отрисовки (рендер однопоточный)
     private int facing, rotation;
@@ -127,15 +124,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
             }
         }
 
-        // 3. Трещины, пока картину ломают — ванильные текстуры разрушения, как у блоков
-        if (picture.breakProgress > 0) {
-            double front = mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH + 0.001 : tile.getDepth() + 0.002;
-            int stage = Math.min(9, (int) (picture.breakProgress * 10));
-            out = buffers.getBuffer(ModelBakery.DESTROY_TYPES.get(stage));
-            cracks(u0, v0, u1, v1, front);
-        }
-
-        // 4. Обводка хитбокса под прицелом — как у блоков. Здесь, а не в мировых координатах: так она повторяет картину,
+        // 3. Обводка хитбокса под прицелом — как у блоков. Здесь, а не в мировых координатах: так она повторяет картину,
         // даже если её позу меняет кто-то ещё (движущиеся конструкции других модов).
         if (PictureControls.isAimed(picture)) {
             AABB box = FrameGeometry.canvasBox(tile).inflate(0.002).move(-ox, -oy, -oz);
@@ -145,25 +134,6 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         poseStack.popPose();
         out = null;
         pose = null;
-    }
-
-    /** Трещины поверх всей лицевой стороны: текстура разрушения повторяется по сетке блоков. */
-    private void cracks(double u0, double v0, double u1, double v1, double d) {
-        light = FULL_BRIGHT;
-        colorR = colorG = colorB = colorA = 1f;
-        for (int cu = (int) Math.floor(u0); cu < u1; cu++) {
-            for (int cv = (int) Math.floor(v0); cv < v1; cv++) {
-                double a = Math.max(u0, cu), b = Math.min(u1, cu + 1);
-                double c = Math.max(v0, cv), e = Math.min(v1, cv + 1);
-                if (b - a < 1e-6 || e - c < 1e-6) continue;
-                double ia = a - cu, ib = b - cu;
-                double ic = cv + 1 - c, ie = cv + 1 - e;
-                vertex(a, c, d, ia, ic);
-                vertex(b, c, d, ib, ic);
-                vertex(b, e, d, ib, ie);
-                vertex(a, e, d, ia, ie);
-            }
-        }
     }
 
     // --------------------------------------------------------------------- Части картины

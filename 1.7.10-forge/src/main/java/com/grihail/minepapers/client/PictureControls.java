@@ -30,7 +30,7 @@ import net.minecraftforge.client.event.DrawBlockHighlightEvent;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 
-/** Управление картинами на клиенте — чтобы картина-сущность ощущалась как блок: дотягиваемся до неё так же далеко, как до блоков; ломаем с той же скоростью и с трещинами; при наведении — обводка хитбокса; с картиной в руке — контур будущей картины. */
+/** Управление картинами на клиенте — чтобы картина-сущность ощущалась как блок: дотягиваемся до неё так же далеко, как до блоков; ломаем с той же скоростью (без трещин: на больших картинах они слишком дорогие); при наведении — обводка хитбокса; с картиной в руке — контур будущей картины. */
 public class PictureControls {
 
     // ---------- Куда смотрит игрок ----------
@@ -118,7 +118,6 @@ public class PictureControls {
         if (breaking == null) return;
 
         progress += breaking.breakRate(mc.thePlayer);
-        breaking.breakProgress = Math.max(progress, 0.001f);
         mc.thePlayer.swingItem();
         if (ticks++ % 4 == 0) {
             Block.SoundType sound = MinePapers.frame.stepSound;
@@ -133,7 +132,6 @@ public class PictureControls {
     }
 
     private void stopBreaking() {
-        if (breaking != null) breaking.breakProgress = 0;
         breaking = null;
         progress = 0;
         ticks = 0;
