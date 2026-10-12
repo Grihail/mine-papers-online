@@ -83,15 +83,25 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 color(1f, 1f, 1f);
             }
             out = buffers.getBuffer(RenderType.entityTranslucent(thumb.getTexture()));
-            double a = cx0 + thumb.x0 / w * iw, b = cx0 + thumb.x1 / w * iw;
-            double c = cy0 + (h - thumb.y1) / h * ih, d = cy0 + (h - thumb.y0) / h * ih;
-            if (ring == 0 && !flat && thumb.pixels != null) {
-                int[] px = thumb.pixels;
-                int tw = thumb.width;
-                extruded(a, c, b, d, 0, 0, 1, 1, thumb.width, thumb.height,
-                    (x, y) -> plate || (px[y * tw + x] >>> 24) != 0);
-            } else {
-                for (int face = 0; face < faces(); face++) rect(face, a, c, b, d, 0, 0, 1, 1, 1);
+            // Настоящая рамка в мире заходит на холст: на иконке её кольцо и есть эта часть, внутри — только то, что видно из-под неё.
+            double ov = s.mode == PictureFrame.MODE_REALISTIC ? Math.min(2 * PictureFrame.PIXEL, Math.min(w, h) / 2) : 0;
+            if (w - 2 * ov < 1e-6 || h - 2 * ov < 1e-6) ov = 0;
+            double ww = w - 2 * ov, wh = h - 2 * ov;
+            double px0 = Math.max(thumb.x0, ov), px1 = Math.min(thumb.x1, w - ov);
+            double py0 = Math.max(thumb.y0, ov), py1 = Math.min(thumb.y1, h - ov);
+            if (px1 - px0 > 1e-6 && py1 - py0 > 1e-6) {
+                double a = cx0 + (px0 - ov) / ww * iw, b = cx0 + (px1 - ov) / ww * iw;
+                double c = cy0 + (h - ov - py1) / wh * ih, d = cy0 + (h - ov - py0) / wh * ih;
+                double tu0 = (px0 - thumb.x0) / (thumb.x1 - thumb.x0), tu1 = (px1 - thumb.x0) / (thumb.x1 - thumb.x0);
+                double tv0 = (thumb.y1 - py1) / (thumb.y1 - thumb.y0), tv1 = (thumb.y1 - py0) / (thumb.y1 - thumb.y0);
+                if (ring == 0 && !flat && thumb.pixels != null) {
+                    int[] px = thumb.pixels;
+                    int tw = thumb.width;
+                    extruded(a, c, b, d, 0, 0, 1, 1, thumb.width, thumb.height,
+                        (x, y) -> plate || (px[y * tw + x] >>> 24) != 0);
+                } else {
+                    for (int face = 0; face < faces(); face++) rect(face, a, c, b, d, tu0, tv0, tu1, tv1, 1);
+                }
             }
         } else {
             // Пока картинки нет — пейзаж с обычной иконки (у граффити — без её деревянной рамки)
