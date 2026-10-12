@@ -24,11 +24,13 @@ import net.minecraft.resources.ResourceLocation;
 /** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры и спрайты (сундук, вкладки творческого режима, кнопки, кнопки маяка), поэтому окно выглядит как родное и меняется вместе с ресурспаком. Из своей текстуры textures/gui/picture_frame.png — только иконки. */
 final class GuiWidgets {
 
-    /** Свои иконки: вкладки 16x16 в ряд с (0, 0), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48). */
+    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48). */
     static final ResourceLocation ICONS = MinePapers.id("textures/gui/picture_frame.png");
     /** Копировать и вставить 10x10 — в ряду иконок (v = 0). */
     static final int ICON_COPY_U = 134, ICON_PASTE_U = 144;
     static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48;
+    /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
+    static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
 
     private static final ResourceLocation CHEST = ResourceLocation.withDefaultNamespace("textures/gui/container/generic_54.png");
     private static final ResourceLocation TAB_SELECTED = vanilla("container/creative_inventory/tab_top_selected_2");
@@ -136,7 +138,7 @@ final class GuiWidgets {
         }
 
         void drawIcon(GuiGraphics g) {
-            icon(g, getX() + 8, getY() + 5, index * 16, 0, 16, 16);
+            icon(g, getX() + 8, getY() + 5, TAB_ICON_U[index], 0, 16, 16);
         }
     }
 

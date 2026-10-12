@@ -13,7 +13,7 @@ import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.util.ChatAllowedCharacters;
 
-/** Многострочное поле для длинных путей и ссылок: текст переносится по символам (в ссылках нет пробелов), выделение мышью и Shift+стрелками, двойной клик — выделить всё, Ctrl+A/C/X/V, прокрутка колёсиком. Наследует GuiTextField, чтобы окно работало с ним как с обычным полем; всё состояние — своё. */
+/** Многострочное поле для длинных путей и ссылок (и описания — с переводами строк по Enter): текст переносится по символам (в ссылках нет пробелов), выделение мышью и Shift+стрелками, двойной клик — выделить всё, Ctrl+A/C/X/V, прокрутка колёсиком. Наследует GuiTextField, чтобы окно работало с ним как с обычным полем; всё состояние — своё. */
 class GuiTextArea extends GuiTextField {
 
     private static final int PAD_X = 4, PAD_Y = 3, LINE = 10, DOUBLE_CLICK_MS = 250;
@@ -23,6 +23,8 @@ class GuiTextArea extends GuiTextField {
 
     private String text = "";
     private int maxLength = 32;
+    /** Enter переносит строку (для описания); у путей и ссылок переводов строк нет. */
+    private boolean multiline;
     /** Курсор и другой конец выделения (равны — выделения нет). */
     private int cursor, anchor;
     /** Первая видимая строка. */
@@ -41,11 +43,28 @@ class GuiTextArea extends GuiTextField {
         this.h = h;
     }
 
+    GuiTextArea multiline() {
+        multiline = true;
+        return this;
+    }
+
     // ---------- Текст ----------
+
+    /** Допустимые символы; переводы строк — только в многострочном режиме. */
+    private String filter(String s) {
+        if (!multiline) return ChatAllowedCharacters.filerAllowedCharacters(s);
+        StringBuilder b = new StringBuilder();
+        String[] lines = s.replace("\r", "").split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) b.append('\n');
+            b.append(ChatAllowedCharacters.filerAllowedCharacters(lines[i]));
+        }
+        return b.toString();
+    }
 
     @Override
     public void setText(String s) {
-        text = ChatAllowedCharacters.filerAllowedCharacters(s);
+        text = filter(s);
         if (text.length() > maxLength) text = text.substring(0, maxLength);
         cursor = anchor = text.length();
         scroll = 0;
@@ -82,7 +101,7 @@ class GuiTextArea extends GuiTextField {
 
     /** Заменить выделение строкой (пустая — просто удалить выделенное). */
     private void insert(String s) {
-        s = ChatAllowedCharacters.filerAllowedCharacters(s);
+        s = filter(s);
         int a = selStart(), b = selEnd();
         int room = maxLength - (text.length() - (b - a));
         if (s.length() > room) s = s.substring(0, Math.max(0, room));
@@ -92,12 +111,18 @@ class GuiTextArea extends GuiTextField {
 
     // ---------- Строки ----------
 
-    /** Начала строк при переносе по ширине поля. */
+    /** Начала строк при переносе по ширине поля и после переводов строк. */
     private List<Integer> lineStarts() {
         List<Integer> starts = new ArrayList<Integer>();
         starts.add(0);
         int width = 0, start = 0, max = w - 2 * PAD_X;
         for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                starts.add(i + 1);
+                start = i + 1;
+                width = 0;
+                continue;
+            }
             int cw = font.getCharWidth(text.charAt(i));
             if (width + cw > max && i > start) {
                 starts.add(i);
@@ -117,8 +142,11 @@ class GuiTextArea extends GuiTextField {
         return line;
     }
 
+    /** Конец строки — без завершающего перевода строки. */
     private int lineEnd(List<Integer> starts, int line) {
-        return line + 1 < starts.size() ? starts.get(line + 1) : text.length();
+        if (line + 1 >= starts.size()) return text.length();
+        int next = starts.get(line + 1);
+        return text.charAt(next - 1) == '\n' ? next - 1 : next;
     }
 
     private int visibleLines() {
@@ -194,6 +222,11 @@ class GuiTextArea extends GuiTextField {
                 case Keyboard.KEY_DELETE:
                     if (cursor == anchor && cursor < text.length()) anchor = ctrl ? wordRight(cursor) : cursor + 1;
                     insert("");
+                    break;
+                case Keyboard.KEY_RETURN:
+                case Keyboard.KEY_NUMPADENTER:
+                    if (!multiline) return false;
+                    insert("\n");
                     break;
                 case Keyboard.KEY_LEFT:
                     move(cursor != anchor && !shift ? selStart() : ctrl ? wordLeft(cursor) : cursor - 1, shift);

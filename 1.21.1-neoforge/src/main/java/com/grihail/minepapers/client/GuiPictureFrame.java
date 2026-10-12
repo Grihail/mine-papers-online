@@ -26,6 +26,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.nbt.CompoundTag;
@@ -40,7 +41,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 /** Окно настройки картины: вкладки слева, под настройками — инвентарь игрока. Настройки применяются при закрытии окна. */
 public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFrame> {
 
-    private static final int TAB_SOURCE = 0, TAB_SIZE = 1, TAB_STYLE = 2, TAB_FRAME = 3, TAB_COUNT = 4;
+    private static final int TAB_SOURCE = 0, TAB_SIZE = 1, TAB_STYLE = 2, TAB_FRAME = 3, TAB_INFO = 4, TAB_COUNT = 5;
 
     /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
     private static final int WIDTH = 176,
@@ -69,8 +70,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx;
 
     /** Путь и ссылки — многострочные поля (текст переносится), остальное — обычные. */
-    private MultiLineEditBox fPath, fUrl, fFolder, fImage;
-    private EditBox fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fPpb;
+    private MultiLineEditBox fPath, fUrl, fFolder, fImage, fDesc;
+    private EditBox fTitle, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fPpb;
     /** Все поля по порядку: значения переживают пересоздание виджетов при изменении размера окна. */
     private final List<AbstractWidget> fields = new ArrayList<AbstractWidget>();
 
@@ -131,10 +132,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                     updateWidgets();
                 }), TAB_SOURCE));
         }
-        fPath = area(x + 8, y + 52, tile.localPath);
-        fUrl = area(x + 8, y + 52, tile.yandexUrl);
-        fFolder = area(x + 8, y + 52, tile.folderPath);
-        fImage = area(x + 8, y + 52, tile.imageUrl);
+        fPath = area(TAB_SOURCE, x + 8, y + 52, 46, tile.localPath);
+        fUrl = area(TAB_SOURCE, x + 8, y + 52, 46, tile.yandexUrl);
+        fFolder = area(TAB_SOURCE, x + 8, y + 52, 46, tile.folderPath);
+        fImage = area(TAB_SOURCE, x + 8, y + 52, 46, tile.imageUrl);
         btnPrev = small(x + 8, y + 100, 14, 14, Component.literal("<"), -1, () -> cycleLocal(-1));
         btnNext = small(x + 24, y + 100, 14, 14, Component.literal(">"), -1, () -> cycleLocal(1));
         Component open = Component.translatable("minepapers.gui.openFolder");
@@ -197,6 +198,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         }
         fPpb = field(TAB_STYLE, x + 128, y + 132, 40, 3, String.valueOf(tile.pixelsPerBlock));
 
+        // Описание
+        fTitle = field(TAB_INFO, x + 8, y + 29, 160, PictureFrame.MAX_TITLE, tile.title);
+        fDesc = area(TAB_INFO, x + 8, y + 59, 82, tile.description);
+
         if (old != null && old.size() == fields.size()) {
             for (int i = 0; i < fields.size(); i++) setValue(fields.get(i), old.get(i));
         }
@@ -213,17 +218,32 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     }
 
     private EditBox field(int onTab, int x, int y, int w, int maxLength, String text) {
-        EditBox f = new EditBox(font, x, y, w, 14, Component.empty());
+        // Перетаскивание мышью выделяет текст: курсор идёт за мышью, другой конец выделения остаётся, где нажали.
+        EditBox f = new EditBox(font, x, y, w, 14, Component.empty()) {
+            private int anchor;
+
+            @Override
+            public void onClick(double mouseX, double mouseY) {
+                super.onClick(mouseX, mouseY);
+                if (!Screen.hasShiftDown()) anchor = getCursorPosition();
+            }
+
+            @Override
+            protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
+                super.onClick(Math.max(getX(), Math.min(getX() + getWidth() - 1, mouseX)), mouseY);
+                setHighlightPos(anchor);
+            }
+        };
         f.setMaxLength(maxLength);
         f.setValue(text);
         fields.add(f);
         return add(f, onTab);
     }
 
-    /** Многострочное поле для пути или ссылки: длинная ссылка переносится, текст можно выделять мышью. */
-    private MultiLineEditBox area(int x, int y, String text) {
+    /** Многострочное поле для пути, ссылки или описания: длинный текст переносится, его можно выделять мышью. */
+    private MultiLineEditBox area(int onTab, int x, int y, int h, String text) {
         // Поля всех источников лежат друг на друге, а ванильное поле принимает мышь и скрытым — отключаем это.
-        MultiLineEditBox a = new MultiLineEditBox(font, x, y, 160, 46, Component.empty(), Component.empty()) {
+        MultiLineEditBox a = new MultiLineEditBox(font, x, y, 160, h, Component.empty(), Component.empty()) {
             @Override
             public boolean mouseClicked(double mouseX, double mouseY, int button) {
                 return visible && super.mouseClicked(mouseX, mouseY, button);
@@ -242,7 +262,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         // Без ограничения длины: иначе под полем появляется счётчик символов и занимает место. Длину обрезает сама картина (PictureFrame.MAX_STRING).
         a.setValue(text);
         fields.add(a);
-        return add(a, TAB_SOURCE);
+        return add(a, onTab);
     }
 
     private static String valueOf(AbstractWidget f) {
@@ -352,6 +372,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private void copyConfig() {
         PictureConfig c = new PictureConfig();
         c.minecraft = SharedConstants.getCurrentVersion().getName();
+        c.title = fTitle.getValue().trim();
+        c.description = fDesc.getValue().trim();
         c.source = source;
         c.path = line(pathField(source));
         Float interval = parse(fInterval.getValue());
@@ -387,6 +409,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             chat(Component.translatable("minepapers.chat.badConfig").withStyle(ChatFormatting.RED));
             return;
         }
+        if (c.title != null) fTitle.setValue(c.title);
+        if (c.description != null) fDesc.setValue(c.description);
         if (c.source != null) source = c.source;
         if (c.path != null) pathField(source).setValue(c.path);
         if (c.interval != null) fInterval.setValue(String.valueOf(c.interval));
@@ -436,6 +460,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         CompoundTag before = new CompoundTag();
         tile.writeSettings(before);
 
+        tile.title = fTitle.getValue().trim();
+        tile.description = fDesc.getValue().trim();
         tile.source = source;
         tile.localPath = line(fPath);
         tile.yandexUrl = line(fUrl);
@@ -531,8 +557,13 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             onClose(); // сохранение — в removed()
+            return true;
+        }
+        // Enter окно не закрывает: в описании он переносит строку, в остальных полях ничего не делает.
+        if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
+            && !(getFocused() == fDesc && fDesc.visible && fDesc.isFocused())) {
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_TAB) {
@@ -631,6 +662,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 text(g, I18n.get("minepapers.gui.mode"), 8, 18);
                 text(g, I18n.get("minepapers.gui.style"), 8, 75);
                 text(g, I18n.get("minepapers.gui.ppb"), 8, 135);
+                break;
+            case TAB_INFO:
+                text(g, I18n.get("minepapers.gui.title"), 8, 18);
+                text(g, I18n.get("minepapers.gui.description"), 8, 48);
                 break;
             case TAB_FRAME: {
                 // Список материалов: слот, справа — что это и какой блок в нём лежит.

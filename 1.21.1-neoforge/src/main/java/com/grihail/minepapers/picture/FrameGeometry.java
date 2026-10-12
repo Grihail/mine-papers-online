@@ -64,6 +64,15 @@ public final class FrameGeometry {
         return new double[] { f.x + n[0] * s, f.y + n[1] * s, f.z + n[2] * s };
     }
 
+    /** Где висит подпись с заголовком (верх её строки), в мировых координатах: под картиной по центру, чуть впереди стены; у картины на полу — над ней. */
+    public static double[] labelPos(PictureFrame f) {
+        AABB box = canvasBox(f);
+        int[] n = normal(f);
+        double x = (box.minX + box.maxX) / 2, z = (box.minZ + box.maxZ) / 2;
+        if (f.getFacing() == 1) return new double[] { x, box.maxY + 0.45, z };
+        return new double[] { x + n[0] * 0.1, box.minY - 0.1, z + n[2] * 0.1 };
+    }
+
     /** Весь холст в мировых координатах — он же хитбокс картины. */
     public static AABB canvasBox(PictureFrame f) {
         double u0 = f.getOffsetXBlocks(), v0 = f.getOffsetYBlocks();

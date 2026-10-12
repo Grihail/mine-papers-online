@@ -105,6 +105,10 @@ public class ItemPictureFrame extends ItemBlock {
         s.readSettings(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG));
 
         lines.add(EnumChatFormatting.GOLD + StatCollector.translateToLocal("minepapers.tooltip.configured"));
+        if (!s.title.isEmpty()) lines.add(EnumChatFormatting.WHITE + s.title);
+        for (String line : PictureFrame.wrap(s.description, 40)) {
+            lines.add(EnumChatFormatting.GRAY + "" + EnumChatFormatting.ITALIC + line);
+        }
         String path = s.getSourcePath();
         if (path.length() > 40) path = "..." + path.substring(path.length() - 37);
         lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocal("minepapers.tooltip.source." + s.source)

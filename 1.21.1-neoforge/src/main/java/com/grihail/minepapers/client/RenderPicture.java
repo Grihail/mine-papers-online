@@ -9,6 +9,10 @@ import com.grihail.minepapers.picture.PictureFrame;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
+import org.joml.Matrix4f;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -18,6 +22,7 @@ import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.InventoryMenu;
@@ -134,6 +139,29 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         poseStack.popPose();
         out = null;
         pose = null;
+
+        // 4. Под прицелом — заголовок картины, как имя переименованного предмета в рамке.
+        if (!tile.title.isEmpty() && PictureControls.isAimed(picture) && Minecraft.renderNames()) {
+            double[] p = FrameGeometry.labelPos(tile);
+            titleLabel(Component.literal(tile.title), p[0] - at.x, p[1] - at.y, p[2] - at.z, poseStack, buffers, packedLight);
+        }
+    }
+
+    /** Подпись над миром, как ванильная табличка с именем (EntityRenderer.renderNameTag): тёмная подложка, текст виден и сквозь стены (тускло). */
+    private void titleLabel(Component text, double x, double y, double z, PoseStack poseStack, MultiBufferSource buffers,
+                            int packedLight) {
+        poseStack.pushPose();
+        poseStack.translate(x, y, z);
+        poseStack.mulPose(entityRenderDispatcher.cameraOrientation());
+        poseStack.scale(0.025f, -0.025f, 0.025f);
+        Matrix4f matrix = poseStack.last().pose();
+        int background = (int) (Minecraft.getInstance().options.getBackgroundOpacity(0.25f) * 255f) << 24;
+        Font font = getFont();
+        float left = -font.width(text) / 2f;
+        font.drawInBatch(text, left, 0, 0x20FFFFFF, false, matrix, buffers, Font.DisplayMode.SEE_THROUGH, background,
+            packedLight);
+        font.drawInBatch(text, left, 0, 0xFFFFFFFF, false, matrix, buffers, Font.DisplayMode.NORMAL, 0, packedLight);
+        poseStack.popPose();
     }
 
     // --------------------------------------------------------------------- Части картины

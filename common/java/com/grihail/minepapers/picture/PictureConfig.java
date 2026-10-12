@@ -27,6 +27,7 @@ public final class PictureConfig {
 
     /** Версия игры, в которой конфиг скопирован: по ней понятно, в каких названиях записаны предметы (до 1.13 и после — разные, см. translate). */
     public String minecraft;
+    public String title, description;
     public Integer source;
     public String path;
     public Integer interval;
@@ -60,6 +61,8 @@ public final class PictureConfig {
         root.addProperty("mod", "minepapers");
         root.addProperty("format", 1);
         if (minecraft != null) root.addProperty("minecraft", minecraft);
+        if (title != null) root.addProperty("title", title);
+        if (description != null) root.addProperty("description", description);
 
         JsonObject src = new JsonObject();
         if (source != null) src.addProperty("type", name(SOURCES, source));
@@ -128,12 +131,15 @@ public final class PictureConfig {
         }
         if (parsed == null || !parsed.isJsonObject()) throw new IllegalArgumentException("not an object");
         JsonObject root = parsed.getAsJsonObject();
-        if (!root.has("source") && !root.has("size") && !root.has("look") && !root.has("materials")) {
+        if (!root.has("source") && !root.has("size") && !root.has("look") && !root.has("materials")
+            && !root.has("title") && !root.has("description")) {
             throw new IllegalArgumentException("not a picture config");
         }
         PictureConfig c = new PictureConfig();
         try {
             c.minecraft = string(root, "minecraft");
+            c.title = string(root, "title");
+            c.description = string(root, "description");
             JsonObject src = object(root, "source");
             if (src != null) {
                 c.source = value(src, "type", SOURCES);

@@ -36,7 +36,7 @@ import net.minecraft.util.IChatComponent;
 /** Окно настройки картины: вкладки слева, под настройками — инвентарь игрока. Настройки применяются при закрытии окна. */
 public class GuiPictureFrame extends GuiContainer {
 
-    private static final int TAB_SOURCE = 0, TAB_SIZE = 1, TAB_STYLE = 2, TAB_FRAME = 3, TAB_COUNT = 4;
+    private static final int TAB_SOURCE = 0, TAB_SIZE = 1, TAB_STYLE = 2, TAB_FRAME = 3, TAB_INFO = 4, TAB_COUNT = 5;
 
     /** id кнопок: вкладки — 0..3, группы переключателей — начало группы + значение. */
     private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_MODE = 30, ID_STYLE = 40,
@@ -69,10 +69,12 @@ public class GuiPictureFrame extends GuiContainer {
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
     private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx;
 
-    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fPpb;
+    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fPpb, fTitle, fDesc;
     private final List<GuiTextField> fields = new ArrayList<GuiTextField>();
     /** Поле -> {вкладка, x, y, ширина, высота}: видимость и подсказки при наведении. */
     private final Map<GuiTextField, int[]> fieldRect = new HashMap<GuiTextField, int[]>();
+    /** Однострочное поле, в котором зажали кнопку мыши: перетаскивание выделяет в нём текст. */
+    private GuiTextField dragField;
 
     private boolean statusError;
 
@@ -163,6 +165,11 @@ public class GuiPictureFrame extends GuiContainer {
         }
         fPpb = field(TAB_STYLE, x + 129, y + 133, 38, 3, String.valueOf(tile.pixelsPerBlock));
 
+        // Описание
+        fTitle = field(TAB_INFO, x + 9, y + 30, 158, PictureFrame.MAX_TITLE, tile.title);
+        fDesc = area(new GuiTextArea(fontRendererObj, x + 9, y + 60, 158, 80).multiline(), TAB_INFO, x + 9, y + 60, 158, 80,
+            tile.description);
+
         if (old != null && old.size() == fields.size()) {
             for (int i = 0; i < fields.size(); i++) fields.get(i).setText(old.get(i));
         }
@@ -194,7 +201,10 @@ public class GuiPictureFrame extends GuiContainer {
 
     /** Многострочное поле для пути или ссылки. */
     private GuiTextField area(int onTab, int x, int y, int w, int h, String text) {
-        GuiTextArea a = new GuiTextArea(fontRendererObj, x, y, w, h);
+        return area(new GuiTextArea(fontRendererObj, x, y, w, h), onTab, x, y, w, h, text);
+    }
+
+    private GuiTextField area(GuiTextArea a, int onTab, int x, int y, int w, int h, String text) {
         areas.add(a);
         return register(a, onTab, x, y, w, h, 512, text);
     }
@@ -365,6 +375,8 @@ public class GuiPictureFrame extends GuiContainer {
     private void copyConfig() {
         PictureConfig c = new PictureConfig();
         c.minecraft = "1.7.10";
+        c.title = fTitle.getText().trim();
+        c.description = fDesc.getText().trim();
         c.source = source;
         c.path = pathField(source).getText().trim();
         Float interval = parse(fInterval.getText());
@@ -400,6 +412,8 @@ public class GuiPictureFrame extends GuiContainer {
             chat(new ChatComponentTranslation("minepapers.chat.badConfig"), EnumChatFormatting.RED);
             return;
         }
+        if (c.title != null) fTitle.setText(c.title);
+        if (c.description != null) fDesc.setText(c.description);
         if (c.source != null) source = c.source;
         if (c.path != null) pathField(source).setText(c.path);
         if (c.interval != null) fInterval.setText(String.valueOf(c.interval));
@@ -439,6 +453,8 @@ public class GuiPictureFrame extends GuiContainer {
         NBTTagCompound before = new NBTTagCompound();
         tile.writeSettings(before);
 
+        tile.title = fTitle.getText().trim();
+        tile.description = fDesc.getText().trim();
         tile.source = source;
         tile.localPath = fPath.getText().trim();
         tile.yandexUrl = fUrl.getText().trim();
@@ -534,7 +550,7 @@ public class GuiPictureFrame extends GuiContainer {
 
     @Override
     protected void keyTyped(char c, int key) {
-        if (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
+        if (key == Keyboard.KEY_ESCAPE) {
             mc.thePlayer.closeScreen(); // сохранение — в onGuiClosed
             return;
         }
@@ -567,8 +583,11 @@ public class GuiPictureFrame extends GuiContainer {
 
     @Override
     protected void mouseClicked(int x, int y, int button) {
+        dragField = null;
         for (GuiTextField f : fields) {
-            if (isActive(f)) f.mouseClicked(x, y, button);
+            if (!isActive(f)) continue;
+            f.mouseClicked(x, y, button);
+            if (button == 0 && f.isFocused() && !(f instanceof GuiTextArea)) dragField = f;
         }
         // Кнопки обрабатываем сами: вкладки лежат за краем окна, а клик туда с предметом в руке GuiContainer счёл бы выбросом.
         if (button == 0) {
@@ -590,13 +609,28 @@ public class GuiPictureFrame extends GuiContainer {
         for (GuiTextArea a : areas) {
             if (isActive(a) && a.mouseDragged(mouseX, mouseY)) return;
         }
+        if (dragField != null && isActive(dragField) && dragField.isFocused()) {
+            selectTo(dragField, mouseX);
+            return;
+        }
         super.mouseClickMove(mouseX, mouseY, button, sinceClick);
+    }
+
+    /** Выделение в однострочном поле перетаскиванием: курсор остаётся, где нажали, конец выделения — под мышью. Позицию под мышью считает само поле (клик), затем курсор возвращаем. */
+    private void selectTo(GuiTextField f, int mouseX) {
+        int[] r = fieldRect.get(f);
+        int anchor = f.getCursorPosition();
+        f.mouseClicked(Math.max(r[1], Math.min(r[1] + r[3] - 1, mouseX)), r[2], 0);
+        int pos = f.getCursorPosition();
+        f.setCursorPosition(anchor);
+        f.setSelectionPos(pos);
     }
 
     @Override
     protected void mouseMovedOrUp(int mouseX, int mouseY, int button) {
         if (button >= 0) {
             for (GuiTextArea a : areas) a.mouseReleased();
+            dragField = null;
         }
         super.mouseMovedOrUp(mouseX, mouseY, button);
     }
@@ -687,6 +721,10 @@ public class GuiPictureFrame extends GuiContainer {
                 text(I18n.format("minepapers.gui.mode"), 8, 18, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.style"), 8, 75, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.ppb"), 8, 135, GuiWidgets.TEXT);
+                break;
+            case TAB_INFO:
+                text(I18n.format("minepapers.gui.title"), 8, 18, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.description"), 8, 48, GuiWidgets.TEXT);
                 break;
             case TAB_FRAME: {
                 // Список материалов: слот, справа — что это и какой блок в нём лежит.

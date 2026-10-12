@@ -12,7 +12,7 @@ import net.minecraft.util.ResourceLocation;
 /** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры (сундук, вкладки творческого режима, кнопки), поэтому окно выглядит как родное и меняется вместе с ресурспаком. Из своей текстуры textures/gui/picture_frame.png — только иконки. */
 final class GuiWidgets {
 
-    /** Свои иконки: вкладки 16x16 в ряд с (0, 0), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32). */
+    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32). */
     static final ResourceLocation ICONS = new ResourceLocation(MinePapers.MODID, "textures/gui/picture_frame.png");
     private static final ResourceLocation CHEST = new ResourceLocation("textures/gui/container/generic_54.png");
     private static final ResourceLocation TABS = new ResourceLocation("textures/gui/container/creative_inventory/tabs.png");
@@ -23,6 +23,8 @@ final class GuiWidgets {
     /** Копировать и вставить 10x10 — в ряду иконок (v = 0). */
     static final int ICON_COPY_U = 134, ICON_PASTE_U = 144;
     static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48;
+    /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
+    static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
     /** Цвета текста на панели (TEXT — как у подписей "Инвентарь" в ванили). */
     static final int TEXT = 0x404040, HINT = 0x707070, HOVER = 0x1E50A0, ERROR = 0xA00000;
 
@@ -129,7 +131,7 @@ final class GuiWidgets {
         }
 
         void drawIcon() {
-            if (visible) icon(xPosition + 8, yPosition + 6, icon * 16, 0, 16, 16);
+            if (visible) icon(xPosition + 8, yPosition + 6, TAB_ICON_U[icon], 0, 16, 16);
         }
     }
 

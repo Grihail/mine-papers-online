@@ -108,6 +108,10 @@ public class ItemPictureFrame extends Item {
         s.readSettings(settings);
 
         lines.add(Component.translatable("minepapers.tooltip.configured").withStyle(ChatFormatting.GOLD));
+        if (!s.title.isEmpty()) lines.add(Component.literal(s.title).withStyle(ChatFormatting.WHITE));
+        for (String line : PictureFrame.wrap(s.description, 40)) {
+            lines.add(Component.literal(line).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
+        }
         String path = s.getSourcePath();
         if (path.length() > 40) path = "..." + path.substring(path.length() - 37);
         Component source = Component.translatable("minepapers.tooltip.source." + s.source).withStyle(ChatFormatting.GRAY);

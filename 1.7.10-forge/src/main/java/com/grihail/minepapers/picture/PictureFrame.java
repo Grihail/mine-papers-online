@@ -46,6 +46,7 @@ public class PictureFrame {
     public static final int MIN_PPB = 1;
     public static final int MAX_PPB = 256;
     public static final int MAX_STRING = 512;
+    public static final int MAX_TITLE = 64;
     /** Сколько картинок из локальной папки можно выложить на сервер для одной рамки. */
     public static final int MAX_FILES = 256;
     public static final byte[] NO_FILES = new byte[0];
@@ -91,6 +92,10 @@ public class PictureFrame {
     /** Внутренний отступ картинки от краёв холста (со всех сторон): в блоках или в пикселях. */
     public float padding = 0f;
     public boolean paddingInPixels = true;
+
+    /** Заголовок и описание картины (вкладка "Описание"), видны в подсказке предмета. */
+    public String title = "";
+    public String description = "";
 
     /** Как картинка вписывается в холст (масштабирование всегда от центра) */
     public int fitMode = FIT_COVER;
@@ -323,6 +328,8 @@ public class PictureFrame {
         tag.setBoolean("PosPx", offsetInPixels);
         tag.setFloat("Pad", padding);
         tag.setBoolean("PadPx", paddingInPixels);
+        if (!title.isEmpty()) tag.setString("Title", title);
+        if (!description.isEmpty()) tag.setString("Desc", description);
         tag.setByte("Fit", (byte) fitMode);
         tag.setShort("PPB", (short) pixelsPerBlock);
         tag.setByte("Style", (byte) style);
@@ -361,6 +368,9 @@ public class PictureFrame {
         paddingInPixels = !tag.hasKey("PadPx") || tag.getBoolean("PadPx");
         padding = clamp(tag.getFloat("Pad"), 0, MAX_SIZE_BLOCKS / 2 * (paddingInPixels ? 16f : 1f));
 
+        title = limit(tag.getString("Title").replace("\r", "").replace("\n", " "), MAX_TITLE);
+        description = limit(tag.getString("Desc").replace("\r", ""), MAX_STRING);
+
         fitMode = tag.hasKey("Fit") ? range(tag.getByte("Fit"), 0, FIT_COUNT - 1) : FIT_COVER;
         pixelsPerBlock = tag.hasKey("PPB") ? range(tag.getShort("PPB"), MIN_PPB, MAX_PPB) : 128;
         style = tag.hasKey("Style") ? range(tag.getByte("Style"), 0, STYLE_COUNT - 1) : STYLE_MAP_SOFT_DITHER;
@@ -378,8 +388,38 @@ public class PictureFrame {
         return !mine.equals(def);
     }
 
+    /** Текст, разбитый на строки не длиннее width символов (по словам; переводы строк сохраняются) — для подсказки предмета. */
+    public static java.util.List<String> wrap(String text, int width) {
+        java.util.List<String> lines = new java.util.ArrayList<String>();
+        for (String paragraph : text.split("\n")) {
+            StringBuilder line = new StringBuilder();
+            for (String word : paragraph.trim().split(" +")) {
+                while (word.length() > width) {
+                    if (line.length() > 0) {
+                        lines.add(line.toString());
+                        line.setLength(0);
+                    }
+                    lines.add(word.substring(0, width));
+                    word = word.substring(width);
+                }
+                if (line.length() > 0 && line.length() + 1 + word.length() > width) {
+                    lines.add(line.toString());
+                    line.setLength(0);
+                }
+                if (line.length() > 0) line.append(' ');
+                line.append(word);
+            }
+            if (line.length() > 0) lines.add(line.toString());
+        }
+        return lines;
+    }
+
     private static String limit(String s) {
-        return s.length() > MAX_STRING ? s.substring(0, MAX_STRING) : s;
+        return limit(s, MAX_STRING);
+    }
+
+    private static String limit(String s, int max) {
+        return s.length() > max ? s.substring(0, max) : s;
     }
 
     private static int range(int v, int min, int max) {
