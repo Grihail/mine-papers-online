@@ -4,27 +4,67 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.148' apply false
 }
 
-// Общие настройки для всех подпроектов версий Minecraft (папки 1.7.10/, ...).
+/** Сравнение версий Minecraft по числам: "1.7.10" < "1.13" < "1.21.1". */
+def compareVersions = { String a, String b ->
+    def x = a.tokenize('.')*.toInteger()
+    def y = b.tokenize('.')*.toInteger()
+    for (i in 0..<Math.max(x.size(), y.size())) {
+        int d = (x[i] ?: 0) <=> (y[i] ?: 0)
+        if (d) return d
+    }
+    0
+}
+
+// Общие настройки для всех подпроектов (папки <версия Minecraft>-<движок>/: 1.7.10-forge/, 1.21.1-neoforge/, ...).
+// Общие файлы лежат в common/:
+//   java/      — исходники, одинаковые для всех версий (только Java 8 и без API Minecraft);
+//   resources/ — ресурсы в раскладке 1.13+ (textures/block, textures/item), до 1.13 папки переименовываются в blocks/items;
+//   lang/      — словари по группам версий: папка "1.7.10 - 1.10.2" подходит версиям из этого диапазона.
 subprojects {
     apply plugin: 'java'
+
+    // Версия Minecraft — первая часть имени подпроекта: 1.21.1-neoforge -> 1.21.1
+    def mcVersion = project.name.tokenize('-')[0]
 
     group = mod_group
     version = mod_version
 
     base {
-        // Имя папки подпроекта и есть версия Minecraft: MinePapersOnline-1.7.10-1.3.0.jar
+        // MinePapersOnline-1.21.1-neoforge-1.3.0.jar
         archivesName = "${mod_name}-${project.name}"
     }
+
+    sourceSets.main.java.srcDir rootProject.file('common/java')
 
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
     }
 
+    // Папка словарей, в диапазон которой попадает версия Minecraft подпроекта.
+    def langDirs = rootProject.file('common/lang').listFiles().findAll { dir ->
+        def (from, to) = dir.name.split(' - ')*.trim()
+        dir.directory && compareVersions(from, mcVersion) <= 0 && compareVersions(mcVersion, to) <= 0
+    }
+    if (langDirs.size() != 1) {
+        throw new GradleException("Для Minecraft ${mcVersion} нужна ровно одна папка словарей в common/lang, найдено: ${langDirs*.name}")
+    }
+    def legacyTextures = compareVersions(mcVersion, '1.13') < 0
+
     processResources {
+        filteringCharset = 'UTF-8'
         inputs.property 'version', project.version
-        inputs.property 'mcversion', project.name
+        inputs.property 'mcversion', mcVersion
         filesMatching(['mcmod.info', 'META-INF/neoforge.mods.toml']) {
-            expand 'version': project.version, 'mcversion': project.name
+            expand 'version': project.version, 'mcversion': mcVersion
+        }
+
+        from(rootProject.file('common/resources')) {
+            if (legacyTextures) {
+                eachFile { it.path = it.path.replaceFirst('/textures/(block|item)/', '/textures/$1s/') }
+            }
+        }
+        from(langDirs[0]) {
+            into 'assets/minepapers/lang'
         }
     }
 }

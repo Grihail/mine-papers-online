@@ -11,6 +11,7 @@ pluginManagement {
 
 rootProject.name = 'MinePapersOnline'
 
-// Каждая версия Minecraft — отдельный подпроект в папке с её номером.
-include '1.7.10'
-include '1.21.1'
+// Каждая пара "версия Minecraft + движок" — отдельный подпроект в папке <версия>-<движок>.
+// Общие для всех версий файлы лежат в common/ (см. build.gradle).
+include '1.7.10-forge'
+include '1.21.1-neoforge'
