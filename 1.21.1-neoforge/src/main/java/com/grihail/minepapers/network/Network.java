@@ -17,6 +17,8 @@ public final class Network {
         registrar.playToServer(PacketFileChunk.Upload.TYPE, PacketFileChunk.Upload.CODEC, PacketFileChunk.Upload::handle);
         registrar.playToServer(PacketHashes.Request.TYPE, PacketHashes.Request.CODEC, PacketHashes.Request::handle);
         registrar.playToServer(PacketBreakPicture.TYPE, PacketBreakPicture.CODEC, PacketBreakPicture::handle);
+        registrar.playToServer(PacketOpenFrame.TYPE, PacketOpenFrame.CODEC, PacketOpenFrame::handle);
+        registrar.playToServer(PacketPasteMaterials.TYPE, PacketPasteMaterials.CODEC, PacketPasteMaterials::handle);
         registrar.playToClient(PacketHashes.Need.TYPE, PacketHashes.Need.CODEC,
             (msg, ctx) -> MinePapers.proxy.onFilesNeeded(msg.hashes()));
         registrar.playToClient(PacketFileChunk.TYPE, PacketFileChunk.CODEC,

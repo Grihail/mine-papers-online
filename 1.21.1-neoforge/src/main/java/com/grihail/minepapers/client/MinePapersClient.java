@@ -13,6 +13,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
@@ -31,6 +32,7 @@ public class MinePapersClient {
         modBus.addListener(MinePapersClient::registerItemRenderer);
         modBus.addListener(MinePapersClient::setup);
         modBus.addListener(MinePapersClient::onAtlasStitched);
+        modBus.addListener(MinePapersClient::registerScreens);
 
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.register(new PictureControls());
@@ -51,6 +53,11 @@ public class MinePapersClient {
                 return renderer;
             }
         }, MinePapers.FRAME.get());
+    }
+
+    /** Окно настройки картины для меню, которое открывает сервер. */
+    private static void registerScreens(RegisterMenuScreensEvent event) {
+        event.register(MinePapers.FRAME_MENU.get(), GuiPictureFrame::new);
     }
 
     private static void setup(FMLClientSetupEvent event) {

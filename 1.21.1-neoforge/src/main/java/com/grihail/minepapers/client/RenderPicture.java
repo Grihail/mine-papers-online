@@ -10,6 +10,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -47,6 +48,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
     private float tintR = 1f, tintG = 1f, tintB = 1f;
     private float colorR = 1f, colorG = 1f, colorB = 1f, colorA = 1f;
     private int light;
+    /** Свечение рисуемой картины (0..15). */
+    private int glow;
     private final BlockPos.MutableBlockPos cell = new BlockPos.MutableBlockPos();
 
     public RenderPicture(EntityRendererProvider.Context context) {
@@ -80,6 +83,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         double u0 = tile.getOffsetXBlocks(), v0 = tile.getOffsetYBlocks();
         double u1 = u0 + tile.getWidthBlocks(), v1 = v0 + tile.getHeightBlocks();
         int mode = tile.mode;
+        glow = tile.selfGlow();
 
         poseStack.pushPose();
         // Отсчёт от угла клетки рамки у поверхности, а не от позиции сущности (центра холста).
@@ -91,13 +95,13 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         boolean plate = mode == PictureFrame.MODE_PLATE;
         if (mode != PictureFrame.MODE_DECAL && !plate || !hasPicture) {
             out = buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS));
-            setTint(1f, 1f, 1f);
-            TextureAtlasSprite canvasSprite = FrameSkin.sprite(FrameSkin.CANVAS);
-            canvas(canvasSprite, u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
+            FrameSkin canvasSkin = FrameSkin.canvas(tile.canvas);
+            setTint(canvasSkin.r, canvasSkin.g, canvasSkin.b);
+            canvas(canvasSkin.sprite, u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
             if (plate) {
-                edges(canvasSprite, u0, v0, u1, v1, 0, PX);
+                edges(canvasSkin.sprite, u0, v0, u1, v1, 0, PX);
             } else if (mode != PictureFrame.MODE_DECAL) {
-                FrameSkin skin = FrameSkin.of(tile.borderItem);
+                FrameSkin skin = FrameSkin.border(tile.border);
                 setTint(skin.r, skin.g, skin.b);
                 if (mode == PictureFrame.MODE_PANEL) {
                     edges(skin.sprite, u0, v0, u1, v1, 0, PX);
@@ -272,8 +276,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         alongU(icon, u0, u1, v1, d0, d1, 6, rows, 0.05, 1.0f);
         alongU(icon, u0, u1, v0, d0, d1, 6, rows, -0.05, 0.55f);
         // лево и право
-        alongV(icon, v0, v1, u0, d0, d1, 6, rows, -0.05, 0.8f);
-        alongV(icon, v0, v1, u1, d0, d1, 6, rows, 0.05, 0.8f);
+        alongV(icon, v0, v1, u0, d0, d1, rows, true, true, -0.05, 0.8f);
+        alongV(icon, v0, v1, u1, d0, d1, rows, false, true, 0.05, 0.8f);
     }
 
     /** Реалистичная рамка: брусья шириной 2 пикселя заходят на холст и выступают на пиксель над картинкой; лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы. */
@@ -309,8 +313,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         if (ib1 > ib0 && jb1 > jb0) {
             alongU(icon, ib0, ib1, jb1, PX, top, 6, 1, -0.05, 0.55f);
             alongU(icon, ib0, ib1, jb0, PX, top, 6, 1, 0.05, 1.0f);
-            alongV(icon, jb0, jb1, ib0, PX, top, 6, 1, 0.05, 0.8f);
-            alongV(icon, jb0, jb1, ib1, PX, top, 6, 1, -0.05, 0.8f);
+            alongV(icon, jb0, jb1, ib0, PX, top, 1, false, false, 0.05, 0.8f);
+            alongV(icon, jb0, jb1, ib1, PX, top, 1, true, false, -0.05, 0.8f);
         }
     }
 
@@ -341,18 +345,22 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         }
     }
 
-    /** Вертикальный торец (плоскость u = const) вдоль v. */
+    /** Вертикальный торец (плоскость u = const) вдоль v. Текстура стоит как на лицевой стороне — верхом вверх: у наружного торца (fromTop) верхний блок берёт её верх (у травы — зелёная кайма), ниже — и у внутренних целиком — повторяется середина, как у лицевых брусьев. Поперёк — cols столбцов у края текстуры (left — левого), чтобы угол продолжал лицевую сторону без шва. */
     private void alongV(TextureAtlasSprite icon, double v0, double v1, double u, double d0, double d1,
-                        double row, double rows, double du, float shade) {
-        for (double s = v0; s < v1 - 1e-6; s += TILE) {
-            double e = Math.min(s + TILE, v1);
+                        double cols, boolean left, boolean fromTop, double du, float shade) {
+        double outer = left ? 0 : 16, inner = left ? cols : 16 - cols; // у лица (d1) — крайний столбец
+        boolean first = fromTop;
+        for (double s = v1; s > v0 + 1e-6; first = false) {
+            double e = Math.max(s - (first ? 1 : TILE), v0);
+            double t0 = first ? 0 : 2, t1 = t0 + (s - e) * 16;
             light(u + du, (s + e) / 2, (d0 + d1) / 2, shade);
-            double ia = texU(icon, 2), ib = texU(icon, 2 + (e - s) * 16);
-            double ic = texV(icon, row), ie = texV(icon, row + rows);
+            double ia = texU(icon, inner), ib = texU(icon, outer);
+            double ic = texV(icon, t0), ie = texV(icon, t1);
             vertex(u, s, d0, ia, ic);
-            vertex(u, e, d0, ib, ic);
+            vertex(u, e, d0, ia, ie);
             vertex(u, e, d1, ib, ie);
-            vertex(u, s, d1, ia, ie);
+            vertex(u, s, d1, ib, ic);
+            s = e;
         }
     }
 
@@ -374,8 +382,13 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
             .setColor(colorR, colorG, colorB, colorA)
             .setUv((float) tu, (float) tv)
             .setOverlay(OverlayTexture.NO_OVERLAY)
-            .setLight(light)
+            .setLight(glowing(light))
             .setNormal(pose, 0f, 1f, 0f);
+    }
+
+    /** Светящаяся картина не темнее своего свечения: блочный свет не ниже него, как у светящихся блоков (небесный — как есть). */
+    private int glowing(int packed) {
+        return glow > LightTexture.block(packed) ? LightTexture.pack(glow, LightTexture.sky(packed)) : packed;
     }
 
     /** Освещение клетки, в которой лежит точка (u, v, d), и затенение грани как у ванильных блоков. */

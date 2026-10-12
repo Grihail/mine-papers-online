@@ -6,6 +6,7 @@ import java.util.Map;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.item.ItemPictureFrame;
+import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.BakedQuad;
@@ -19,7 +20,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Текстура рамки: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы), у остальных предметов — их иконка. Не нашли предмет или текстуру — обычная рамка. */
+/** Текстура рамки или холста: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы), у остальных предметов — их иконка. Не нашли предмет или текстуру — обычная рамка. */
 public final class FrameSkin {
 
     public static final ResourceLocation BORDER = MinePapers.id("block/frame_border");
@@ -44,15 +45,21 @@ public final class FrameSkin {
         return Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(id);
     }
 
-    public static FrameSkin standard() {
-        return of("");
+    /** Текстура рамки из её материала. */
+    public static FrameSkin border(PictureFrame.Material m) {
+        return of(m.item, BORDER);
     }
 
-    public static FrameSkin of(String itemId) {
-        String key = itemId == null ? "" : itemId;
+    /** Текстура холста из его материала (обычная — frame_canvas). */
+    public static FrameSkin canvas(PictureFrame.Material m) {
+        return of(m.item, CANVAS);
+    }
+
+    private static FrameSkin of(String itemId, ResourceLocation fallback) {
+        String key = fallback + "|" + (itemId == null ? "" : itemId);
         FrameSkin skin = CACHE.get(key);
         if (skin == null) {
-            skin = find(key);
+            skin = find(itemId, fallback);
             CACHE.put(key, skin);
         }
         return skin;
@@ -63,7 +70,7 @@ public final class FrameSkin {
         CACHE.clear();
     }
 
-    private static FrameSkin find(String itemId) {
+    private static FrameSkin find(String itemId, ResourceLocation fallback) {
         ItemStack stack = ItemPictureFrame.borderStack(itemId);
         if (stack != null) {
             try {
@@ -87,10 +94,10 @@ public final class FrameSkin {
                 }
                 return new FrameSkin(model.getParticleIcon(), -1);
             } catch (Throwable ignored) {
-                // Чужие моды бывают капризны к необычным вызовам — просто оставляем обычную рамку.
+                // Чужие моды бывают капризны к необычным вызовам — просто оставляем обычную текстуру.
             }
         }
-        return new FrameSkin(sprite(BORDER), -1);
+        return new FrameSkin(sprite(fallback), -1);
     }
 
     private static BakedQuad first(List<BakedQuad> quads) {

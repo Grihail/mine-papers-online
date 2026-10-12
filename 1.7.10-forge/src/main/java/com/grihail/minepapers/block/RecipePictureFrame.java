@@ -1,14 +1,19 @@
 package com.grihail.minepapers.block;
 
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.picture.PictureFrame;
 
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent;
+import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 
-/** Рецепты без формы, как копирование карт: одна настроенная рамка — сброс до пустой; настроенная + пустые — столько же копий настроенной. */
+/** Рецепты без формы, как копирование карт: одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. Events). */
 public class RecipePictureFrame implements IRecipe {
 
     private static boolean isConfigured(ItemStack stack) {
@@ -44,10 +49,29 @@ public class RecipePictureFrame implements IRecipe {
         int[] empty = new int[1];
         ItemStack configured = find(inv, empty);
         if (configured == null) return null;
-        if (empty[0] == 0) return new ItemStack(MinePapers.frame);
         ItemStack copy = configured.copy();
         copy.stackSize = empty[0] + 1;
+        NBTTagCompound settings = copy.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG);
+        // Блоки из слотов материалов в единственном числе: они вернутся игроку (Events), картины остаются без них.
+        boolean hadMaterials = stripMaterials(settings);
+        if (empty[0] == 0) {
+            // Разбор: сначала только вынимаем материалы — картина остаётся с настройками, но без рамки и холста (граффити). Повторный крафт сбрасывает её полностью.
+            if (!hadMaterials) return new ItemStack(MinePapers.frame);
+            settings.setByte("Mode", (byte) PictureFrame.MODE_DECAL);
+        }
         return copy;
+    }
+
+    /** Убрать из настроек предметы материалов; true — что-то было. */
+    private static boolean stripMaterials(NBTTagCompound settings) {
+        boolean had = false;
+        for (PictureFrame.Material m : new PictureFrame().materials()) {
+            if (settings.hasKey(m.stackTag())) {
+                m.remove(settings);
+                had = true;
+            }
+        }
+        return had;
     }
 
     @Override
@@ -58,5 +82,22 @@ public class RecipePictureFrame implements IRecipe {
     @Override
     public ItemStack getRecipeOutput() {
         return new ItemStack(MinePapers.frame);
+    }
+
+    /** Картина ушла в крафт (сброс, копирование, чужой рецепт) — блоки из её слотов материалов возвращаются в инвентарь (нет места — выпадают рядом), а не пропадают и не размножаются. Событие приходит до того, как ингредиенты списаны: каждый крафт тратит по одной картине из ячейки. */
+    public static class Events {
+
+        @SubscribeEvent
+        public void onCrafted(PlayerEvent.ItemCraftedEvent event) {
+            if (event.player.worldObj.isRemote || event.craftMatrix == null) return;
+            IInventory grid = event.craftMatrix;
+            for (int i = 0; i < grid.getSizeInventory(); i++) {
+                for (ItemStack stored : ItemPictureFrame.storedMaterials(grid.getStackInSlot(i))) {
+                    if (!event.player.inventory.addItemStackToInventory(stored)) {
+                        event.player.dropPlayerItemWithRandomChoice(stored, false);
+                    }
+                }
+            }
+        }
     }
 }

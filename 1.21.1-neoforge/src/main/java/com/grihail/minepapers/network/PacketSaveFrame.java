@@ -40,9 +40,13 @@ public record PacketSaveFrame(int entityId, CompoundTag settings) implements Cus
         PictureFrame frame = picture.frame;
         String origin = frame.getOriginKey();
         byte[] files = frame.files;
+        // Материалы рамки и холста — настоящие предметы, их меняют только слоты окна (ContainerPictureFrame).
+        CompoundTag materials = new CompoundTag();
+        frame.writeSettings(materials);
         frame.readSettings(msg.settings);
         // Список картинок на сервере меняет только сервер (PacketOfferFiles), клиенту здесь не верим.
         frame.files = origin != null && origin.equals(frame.getOriginKey()) ? files : PictureFrame.NO_FILES;
+        for (PictureFrame.Material m : frame.materials()) m.read(materials);
         picture.settingsChanged();
     }
 }

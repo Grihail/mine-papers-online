@@ -35,6 +35,8 @@ public class RenderPicture extends Render {
     private int bx, by, bz;
     private Tessellator t;
     private float tintR = 1f, tintG = 1f, tintB = 1f;
+    /** Свечение рисуемой картины (0..15). */
+    private int glow;
 
     @Override
     protected ResourceLocation getEntityTexture(Entity entity) {
@@ -66,6 +68,7 @@ public class RenderPicture extends Render {
         double u0 = tile.getOffsetXBlocks(), v0 = tile.getOffsetYBlocks();
         double u1 = u0 + tile.getWidthBlocks(), v1 = v0 + tile.getHeightBlocks();
         int mode = tile.mode;
+        glow = tile.selfGlow();
 
         GL11.glPushMatrix();
         // Отсчёт от угла клетки рамки у поверхности, а не от позиции сущности (центра холста).
@@ -76,18 +79,19 @@ public class RenderPicture extends Render {
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glColor4f(1f, 1f, 1f, 1f);
 
-        // 1. Холст (атлас блоков) и рамка (обычная или с текстурой предмета — она может быть в атласе предметов). У граффити и пластины холст только вместо картинки, пока её нет.
+        // 1. Холст и рамка (обычные или с текстурой предмета — она может быть в атласе предметов). У граффити и пластины холст только вместо картинки, пока её нет.
         boolean plate = mode == PictureFrame.MODE_PLATE;
         if (mode != PictureFrame.MODE_DECAL && !plate || !hasPicture) {
-            bindTexture(TextureMap.locationBlocksTexture);
+            FrameSkin canvasSkin = FrameSkin.canvas(tile.canvas);
+            bindTexture(canvasSkin.atlas);
             t.startDrawingQuads();
-            setTint(1f, 1f, 1f);
-            canvas(MinePapers.frame.canvasIcon, u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
+            setTint(canvasSkin.r, canvasSkin.g, canvasSkin.b);
+            canvas(canvasSkin.icon, u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
             if (plate) {
-                edges(MinePapers.frame.canvasIcon, u0, v0, u1, v1, 0, PX);
+                edges(canvasSkin.icon, u0, v0, u1, v1, 0, PX);
             } else if (mode != PictureFrame.MODE_DECAL) {
-                FrameSkin skin = FrameSkin.of(tile.borderItem, tile.borderMeta);
-                if (skin.atlas != TextureMap.locationBlocksTexture) {
+                FrameSkin skin = FrameSkin.border(tile.border);
+                if (skin.atlas != canvasSkin.atlas) {
                     t.draw();
                     bindTexture(skin.atlas);
                     t.startDrawingQuads();
@@ -101,6 +105,9 @@ public class RenderPicture extends Render {
             }
             t.draw();
         }
+
+        // Цвет материала (трава, листва) красит только холст и рамку — не картинку и не следующую картину.
+        setTint(1f, 1f, 1f);
 
         // 2. Картинка (пластина — объёмная, сама по себе)
         if (hasPicture) {
@@ -213,6 +220,8 @@ public class RenderPicture extends Render {
         }
         int result = n == 0 ? world.getLightBrightnessForSkyBlocks(bx, by, bz, 0)
             : (sky / n) << 16 | (block / n);
+        // Светящаяся картина не темнее своего свечения (блочный свет — младшие биты, в шестнадцатых).
+        if ((result & 0xFFFF) < glow << 4) result = (result & 0xFFFF0000) | glow << 4;
         lightCache.put(key, result);
         return result;
     }
@@ -278,8 +287,8 @@ public class RenderPicture extends Render {
         alongU(icon, u0, u1, v1, d0, d1, 6, rows, 0, 0.05, 1.0f);
         alongU(icon, u0, u1, v0, d0, d1, 6, rows, 0, -0.05, 0.55f);
         // лево и право
-        alongV(icon, v0, v1, u0, d0, d1, 6, rows, -0.05, 0.8f);
-        alongV(icon, v0, v1, u1, d0, d1, 6, rows, 0.05, 0.8f);
+        alongV(icon, v0, v1, u0, d0, d1, rows, true, true, -0.05, 0.8f);
+        alongV(icon, v0, v1, u1, d0, d1, rows, false, true, 0.05, 0.8f);
     }
 
     /** Реалистичная рамка: брусья шириной 2 пикселя заходят на холст и выступают на пиксель над картинкой; лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы. */
@@ -315,8 +324,8 @@ public class RenderPicture extends Render {
         if (ib1 > ib0 && jb1 > jb0) {
             alongU(icon, ib0, ib1, jb1, PX, top, 6, 1, 0, -0.05, 0.55f);
             alongU(icon, ib0, ib1, jb0, PX, top, 6, 1, 0, 0.05, 1.0f);
-            alongV(icon, jb0, jb1, ib0, PX, top, 6, 1, 0.05, 0.8f);
-            alongV(icon, jb0, jb1, ib1, PX, top, 6, 1, -0.05, 0.8f);
+            alongV(icon, jb0, jb1, ib0, PX, top, 1, false, false, 0.05, 0.8f);
+            alongV(icon, jb0, jb1, ib1, PX, top, 1, true, false, -0.05, 0.8f);
         }
     }
 
@@ -347,18 +356,22 @@ public class RenderPicture extends Render {
         }
     }
 
-    /** Вертикальный торец (плоскость u = const) вдоль v. */
+    /** Вертикальный торец (плоскость u = const) вдоль v. Текстура стоит как на лицевой стороне — верхом вверх: у наружного торца (fromTop) верхний блок берёт её верх (у травы — зелёная кайма), ниже — и у внутренних целиком — повторяется середина, как у лицевых брусьев. Поперёк — cols столбцов у края текстуры (left — левого), чтобы угол продолжал лицевую сторону без шва. */
     private void alongV(IIcon icon, double v0, double v1, double u, double d0, double d1,
-                        double row, double rows, double du, float shade) {
-        for (double s = v0; s < v1 - 1e-6; s += TILE) {
-            double e = Math.min(s + TILE, v1);
+                        double cols, boolean left, boolean fromTop, double du, float shade) {
+        double outer = left ? 0 : 16, inner = left ? cols : 16 - cols; // у лица (d1) — крайний столбец
+        boolean first = fromTop;
+        for (double s = v1; s > v0 + 1e-6; first = false) {
+            double e = Math.max(s - (first ? 1 : TILE), v0);
+            double t0 = first ? 0 : 2, t1 = t0 + (s - e) * 16;
             light(u + du, (s + e) / 2, (d0 + d1) / 2, shade);
-            double ia = icon.getInterpolatedU(2), ib = icon.getInterpolatedU(2 + (e - s) * 16);
-            double ic = icon.getInterpolatedV(row), ie = icon.getInterpolatedV(row + rows);
+            double ia = icon.getInterpolatedU(inner), ib = icon.getInterpolatedU(outer);
+            double ic = icon.getInterpolatedV(t0), ie = icon.getInterpolatedV(t1);
             vertex(u, s, d0, ia, ic);
-            vertex(u, e, d0, ib, ic);
+            vertex(u, e, d0, ia, ie);
             vertex(u, e, d1, ib, ie);
-            vertex(u, s, d1, ia, ie);
+            vertex(u, s, d1, ib, ic);
+            s = e;
         }
     }
 
@@ -373,8 +386,9 @@ public class RenderPicture extends Render {
     private void light(double u, double v, double d, float shade) {
         double[] p = FrameGeometry.toBlock(facing, rotation, u, v, d);
         int x = MathHelper.floor_double(ox + p[0]), y = MathHelper.floor_double(oy + p[1]), z = MathHelper.floor_double(oz + p[2]);
-        int brightness = world.getLightBrightnessForSkyBlocks(x, y, z, 0);
-        if (brightness == 0) brightness = world.getLightBrightnessForSkyBlocks(bx, by, bz, 0);
+        // Светящаяся картина не темнее своего свечения — ванильный минимум блочного света, как у светящихся блоков.
+        int brightness = world.getLightBrightnessForSkyBlocks(x, y, z, glow);
+        if (brightness == 0) brightness = world.getLightBrightnessForSkyBlocks(bx, by, bz, glow);
         t.setBrightness(brightness);
         t.setColorOpaque_F(shade * tintR, shade * tintG, shade * tintB);
     }

@@ -1,7 +1,9 @@
 package com.grihail.minepapers.block;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
@@ -13,6 +15,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.StatCollector;
@@ -78,6 +81,21 @@ public class ItemPictureFrame extends ItemBlock {
         return ghost != null && !FrameGeometry.isBlocked(world, ghost, null);
     }
 
+    /** Блоки из слотов материалов (рамка, холст), лежащие в картине-предмете. */
+    public static List<ItemStack> storedMaterials(ItemStack stack) {
+        List<ItemStack> stored = new ArrayList<ItemStack>();
+        if (stack == null || stack.getItem() != Item.getItemFromBlock(MinePapers.frame) || !stack.hasTagCompound()) {
+            return stored;
+        }
+        PictureFrame frame = new PictureFrame();
+        NBTTagCompound settings = stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG);
+        for (PictureFrame.Material m : frame.materials()) {
+            m.read(settings);
+            if (m.stack != null) stored.add(m.stack);
+        }
+        return stored;
+    }
+
     @Override
     @SideOnly(Side.CLIENT)
     @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -94,16 +112,27 @@ public class ItemPictureFrame extends ItemBlock {
         lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted("minepapers.tooltip.size",
             fmt(s.getWidthBlocks()), fmt(s.getHeightBlocks()))
             + ", " + StatCollector.translateToLocal("minepapers.gui.mode." + s.mode));
-        Item border = s.borderItem.isEmpty() ? null : (Item) Item.itemRegistry.getObject(s.borderItem);
-        if (border != null) {
-            String name;
-            try {
-                name = new ItemStack(border, 1, s.borderMeta).getDisplayName();
-            } catch (Throwable t) {
-                name = s.borderItem;
-            }
-            lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted("minepapers.tooltip.border", name));
+        material(lines, s.border, "minepapers.tooltip.border");
+        material(lines, s.canvas, "minepapers.tooltip.canvas");
+        if (PictureFrame.isGlowDust(s.glow.stack)) {
+            lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocal("minepapers.tooltip.glow.self"));
+        } else if (s.glowLevel() > 0) {
+            lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted("minepapers.tooltip.glow",
+                s.glowLevel()));
         }
+    }
+
+    @SideOnly(Side.CLIENT)
+    private static void material(List<String> lines, PictureFrame.Material m, String key) {
+        Item item = m.item.isEmpty() ? null : (Item) Item.itemRegistry.getObject(m.item);
+        if (item == null) return;
+        String name;
+        try {
+            name = new ItemStack(item, 1, m.meta).getDisplayName();
+        } catch (Throwable t) {
+            name = m.item;
+        }
+        lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted(key, name));
     }
 
     private static String fmt(float blocks) {

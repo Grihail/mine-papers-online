@@ -65,7 +65,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
 
         // 1. Рамка (и торцы пластинки)
         if (ring > 0) {
-            FrameSkin skin = FrameSkin.of(s.borderItem);
+            FrameSkin skin = FrameSkin.border(s.border);
             out = buffers.getBuffer(atlas);
             color(skin.r, skin.g, skin.b);
             for (int face = 0; face < faces(); face++) ring(skin.sprite, face, x0, y0, x1, y1);
@@ -77,8 +77,10 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         if (thumb != null) {
             if (ring > 0) {
                 out = buffers.getBuffer(atlas);
-                TextureAtlasSprite canvas = FrameSkin.sprite(FrameSkin.CANVAS);
-                for (int face = 0; face < faces(); face++) atlasRect(canvas, face, cx0, cy0, cx1, cy1);
+                FrameSkin canvas = FrameSkin.canvas(s.canvas);
+                color(canvas.r, canvas.g, canvas.b);
+                for (int face = 0; face < faces(); face++) atlasRect(canvas.sprite, face, cx0, cy0, cx1, cy1);
+                color(1f, 1f, 1f);
             }
             out = buffers.getBuffer(RenderType.entityTranslucent(thumb.getTexture()));
             double a = cx0 + thumb.x0 / w * iw, b = cx0 + thumb.x1 / w * iw;

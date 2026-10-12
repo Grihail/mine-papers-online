@@ -1,8 +1,12 @@
 package com.grihail.minepapers.picture;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.block.BlockPictureFrame;
 import com.grihail.minepapers.network.PacketBreakPicture;
+import com.grihail.minepapers.network.PacketOpenFrame;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.registry.IEntityAdditionalSpawnData;
@@ -54,7 +58,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
 
     // ---------- Настройки и хитбокс ----------
 
-    /** Настройки изменились: пересчитать хитбокс и (на сервере) разослать игрокам. */
+    /** Настройки изменились: пересчитать хитбокс и (на сервере) разослать игрокам и обновить свет. */
     public void settingsChanged() {
         refresh();
         if (worldObj != null && !worldObj.isRemote) {
@@ -63,7 +67,69 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
             frame.writeSettings(tag);
             stack.setTagCompound(tag);
             dataWatcher.updateObject(WATCH_SETTINGS, stack);
+            lightsDirty = true; // блоки ставим в onUpdate: при загрузке из сохранения мир ещё не готов
         }
+    }
+
+    // ---------- Свет ----------
+
+    /** Где картина поставила свет (смещения от клетки рамки, см. FrameGeometry.lightCells). Только на сервере. */
+    private final List<int[]> lights = new ArrayList<int[]>();
+    private boolean lightsDirty;
+
+    /** Светящаяся картина ставит перед холстом блоки света силы своего материала свечения; ненужные убирает. Чужие блоки не трогает: занятая клетка просто остаётся без света. */
+    private void updateLights() {
+        lightsDirty = false;
+        int level = frame.glowLevel();
+        List<int[]> wanted = level > 0 ? FrameGeometry.lightCells(frame) : new ArrayList<int[]>();
+        for (int[] c : lights) {
+            if (!contains(wanted, c)) removeLight(c);
+        }
+        lights.clear();
+        for (int[] c : wanted) {
+            if (placeLight(c, level)) lights.add(c);
+        }
+    }
+
+    private boolean placeLight(int[] c, int level) {
+        int x = frame.x + c[0], y = frame.y + c[1], z = frame.z + c[2];
+        if (y < 0 || y >= worldObj.getHeight()) return false;
+        Block block = worldObj.getBlock(x, y, z);
+        if (block == MinePapers.light) {
+            if (worldObj.getBlockMetadata(x, y, z) != level) worldObj.setBlock(x, y, z, MinePapers.light, level, 3);
+            return true;
+        }
+        if (!worldObj.isAirBlock(x, y, z)) return false;
+        return worldObj.setBlock(x, y, z, MinePapers.light, level, 3);
+    }
+
+    private void removeLight(int[] c) {
+        int x = frame.x + c[0], y = frame.y + c[1], z = frame.z + c[2];
+        if (worldObj.getBlock(x, y, z) == MinePapers.light) worldObj.setBlockToAir(x, y, z);
+    }
+
+    private void clearLights() {
+        for (int[] c : lights) removeLight(c);
+        lights.clear();
+    }
+
+    private static boolean contains(List<int[]> cells, int[] cell) {
+        for (int[] c : cells) {
+            if (c[0] == cell[0] && c[1] == cell[1] && c[2] == cell[2]) return true;
+        }
+        return false;
+    }
+
+    /** Этот блок света поставила эта картина (иначе он лишний и исчезает, см. BlockPictureLight). */
+    public boolean ownsLight(int x, int y, int z) {
+        return !isDead && contains(lights, new int[] { x - frame.x, y - frame.y, z - frame.z });
+    }
+
+    /** Картину убрали — убираем и её свет. Выгрузка чанка сюда не приходит: свет остаётся вместе с картиной. */
+    @Override
+    public void setDead() {
+        if (worldObj != null && !worldObj.isRemote && !isDead) clearLights();
+        super.setDead();
     }
 
     /** Хитбокс = холст, позиция сущности — его центр. */
@@ -88,10 +154,13 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         refresh();
     }
 
-    /** Картина не движется и не горит; клиент только подхватывает новые настройки с сервера. */
+    /** Картина не движется и не горит; сервер обновляет свет после смены настроек, клиент подхватывает новые настройки с сервера. */
     @Override
     public void onUpdate() {
-        if (!worldObj.isRemote) return;
+        if (!worldObj.isRemote) {
+            if (lightsDirty) updateLights();
+            return;
+        }
         ItemStack stack = dataWatcher.getWatchableObjectItemStack(WATCH_SETTINGS);
         if (stack != shownSettings) {
             shownSettings = stack;
@@ -134,7 +203,8 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
 
     @Override
     public boolean interactFirst(EntityPlayer player) {
-        if (worldObj.isRemote) MinePapers.proxy.openFrameGui(this);
+        // Окно с инвентарём открывает сервер, см. PacketOpenFrame.
+        if (worldObj.isRemote) MinePapers.network.sendToServer(new PacketOpenFrame(getEntityId()));
         return true;
     }
 
@@ -184,6 +254,9 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
     protected void readEntityFromNBT(NBTTagCompound tag) {
         frame.readPlacement(tag);
         frame.readSettings(tag.getCompoundTag("Settings"));
+        lights.clear();
+        int[] flat = tag.getIntArray("Lights");
+        for (int i = 0; i + 2 < flat.length; i += 3) lights.add(new int[] { flat[i], flat[i + 1], flat[i + 2] });
         settingsChanged();
     }
 
@@ -193,6 +266,9 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         NBTTagCompound settings = new NBTTagCompound();
         frame.writeSettings(settings);
         tag.setTag("Settings", settings);
+        int[] flat = new int[lights.size() * 3];
+        for (int i = 0; i < lights.size(); i++) System.arraycopy(lights.get(i), 0, flat, i * 3, 3);
+        tag.setIntArray("Lights", flat);
     }
 
     @Override

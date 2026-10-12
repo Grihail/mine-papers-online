@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.item.RecipePictureFrame;
 import com.grihail.minepapers.network.Network;
+import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.server.ServerImages;
 import com.mojang.logging.LogUtils;
@@ -20,6 +21,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer;
@@ -28,6 +30,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -38,7 +41,7 @@ public class MinePapers {
 
     public static final String MODID = "minepapers";
     public static final String NAME = "Mine Papers Online";
-    public static String VERSION = "1.3.0";
+    public static String VERSION = "1.4.0";
 
     private static final Logger LOG = LogUtils.getLogger();
 
@@ -48,6 +51,7 @@ public class MinePapers {
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
     private static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, MODID);
     private static final DeferredRegister<RecipeSerializer<?>> RECIPES = DeferredRegister.create(Registries.RECIPE_SERIALIZER, MODID);
+    private static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, MODID);
     private static final DeferredRegister.DataComponents COMPONENTS = DeferredRegister.createDataComponents(
         Registries.DATA_COMPONENT_TYPE, MODID);
 
@@ -69,6 +73,10 @@ public class MinePapers {
     public static final DeferredHolder<RecipeSerializer<?>, RecipeSerializer<RecipePictureFrame>> FRAME_COPY =
         RECIPES.register("frame_copy", () -> new SimpleCraftingRecipeSerializer<>(RecipePictureFrame::new));
 
+    /** Окно настройки картины (инвентарь игрока + слот материала рамки). */
+    public static final DeferredHolder<MenuType<?>, MenuType<ContainerPictureFrame>> FRAME_MENU =
+        MENUS.register("picture_frame", () -> IMenuTypeExtension.create(ContainerPictureFrame::fromNetwork));
+
     /** Папка с локальными картинками: config/minepapers */
     public static Path picturesDir;
 
@@ -84,11 +92,13 @@ public class MinePapers {
         ITEMS.register(modBus);
         ENTITIES.register(modBus);
         RECIPES.register(modBus);
+        MENUS.register(modBus);
         COMPONENTS.register(modBus);
         modBus.addListener(Network::register);
         modBus.addListener(MinePapers::fillCreativeTab);
 
         NeoForge.EVENT_BUS.register(new ServerImages.Events());
+        NeoForge.EVENT_BUS.register(new RecipePictureFrame.Events());
     }
 
     public static ResourceLocation id(String path) {

@@ -1,15 +1,16 @@
 package com.grihail.minepapers.client;
 
 import com.grihail.minepapers.CommonProxy;
-import com.grihail.minepapers.picture.EntityPicture;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.HolderLookup;
 
 public class ClientProxy extends CommonProxy {
 
     @Override
-    public void openFrameGui(EntityPicture picture) {
-        Minecraft.getInstance().setScreen(new GuiPictureFrame(picture));
+    public HolderLookup.Provider clientRegistries() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.level != null ? mc.level.registryAccess() : null;
     }
 
     @Override

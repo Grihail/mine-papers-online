@@ -3,66 +3,97 @@ package com.grihail.minepapers.client;
 import java.awt.Desktop;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.lwjgl.Sys;
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
 
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.network.PacketPasteMaterials;
 import com.grihail.minepapers.network.PacketSaveFrame;
+import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.PictureConfig;
 import com.grihail.minepapers.picture.PictureFrame;
 
-import cpw.mods.fml.client.config.GuiCheckBox;
 import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.IChatComponent;
 
-public class GuiPictureFrame extends GuiScreen {
+/** Окно настройки картины: вкладки слева, под настройками — инвентарь игрока. Настройки применяются при закрытии окна. */
+public class GuiPictureFrame extends GuiContainer {
 
-    private static final int ID_SOURCE = 0, ID_PREV = 1, ID_NEXT = 2, ID_FOLDER = 3, ID_RELOAD = 4,
-        ID_DONE = 5, ID_CANCEL = 6, ID_SIZE_PX = 7, ID_POS_PX = 8, ID_FIT = 9, ID_STYLE = 10, ID_MODE = 11,
-        ID_BORDER = 12;
-    /** Кнопка вида вместе с квадратной кнопкой текстуры рамки справа от неё. */
-    private static final int MODE_BUTTON = 130;
+    private static final int TAB_SOURCE = 0, TAB_SIZE = 1, TAB_STYLE = 2, TAB_FRAME = 3, TAB_COUNT = 4;
 
-    private static final int GUI_WIDTH = 360;
-    private static final int COLUMN = 175;
+    /** id кнопок: вкладки — 0..3, группы переключателей — начало группы + значение. */
+    private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_MODE = 30, ID_STYLE = 40,
+        ID_PREV = 50, ID_NEXT = 51, ID_FOLDER = 52, ID_RELOAD = 53, ID_SIZE_PX = 54, ID_POS_PX = 55,
+        ID_COPY = 56, ID_PASTE = 57;
+
+    /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
+    private static final int WIDTH = 176,
+        HEIGHT = ContainerPictureFrame.INVENTORY_Y - GuiWidgets.INVENTORY_PART_SLOTS_Y + GuiWidgets.INVENTORY_PART_HEIGHT;
+
+    /** Последняя открытая вкладка — с неё окно откроется в следующий раз. */
+    private static int lastTab = TAB_SOURCE;
 
     private final EntityPicture picture;
     private final PictureFrame tile;
 
+    private int tab = lastTab;
     private int source, fitMode, style, mode;
-    private String borderItem;
-    private int borderMeta;
-    private GuiButton btnSource, btnPrev, btnNext, btnFolder, btnFit, btnStyle, btnMode, btnBorder;
-    private GuiCheckBox cbSizePx, cbPosPx;
+    private boolean sizePx, posPx;
+
+    private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
+    private final List<GuiWidgets.Radio> radios = new ArrayList<GuiWidgets.Radio>();
+    /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
+    private final List<GuiWidgets.Toggle> sourceButtons = new ArrayList<GuiWidgets.Toggle>();
+    private final List<GuiWidgets.Toggle> fitButtons = new ArrayList<GuiWidgets.Toggle>();
+    /** Многострочные поля (путь и ссылки): им нужны перетаскивание мыши и колёсико. */
+    private final List<GuiTextArea> areas = new ArrayList<GuiTextArea>();
+    /** Вкладка, на которой лежит кнопка (у самих вкладок записи нет — они видны всегда). */
+    private final Map<GuiButton, Integer> buttonTab = new HashMap<GuiButton, Integer>();
+    private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
+    private GuiWidgets.Check cbSizePx, cbPosPx;
+
     private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPpb;
     private final List<GuiTextField> fields = new ArrayList<GuiTextField>();
-    private int left, right, top;
+    /** Поле -> {вкладка, x, y, ширина, высота}: видимость и подсказки при наведении. */
+    private final Map<GuiTextField, int[]> fieldRect = new HashMap<GuiTextField, int[]>();
 
-    public GuiPictureFrame(EntityPicture picture) {
-        this.picture = picture;
+    private boolean statusError;
+
+    public GuiPictureFrame(ContainerPictureFrame container) {
+        super(container);
+        this.picture = container.picture;
         this.tile = picture.frame;
         this.source = tile.source;
         this.fitMode = tile.fitMode;
         this.style = tile.style;
         this.mode = tile.mode;
-        this.borderItem = tile.borderItem;
-        this.borderMeta = tile.borderMeta;
+        this.sizePx = tile.sizeInPixels;
+        this.posPx = tile.offsetInPixels;
+        this.xSize = WIDTH;
+        this.ySize = HEIGHT;
     }
 
     @Override
     public void initGui() {
+        super.initGui();
         Keyboard.enableRepeatEvents(true);
-        buttonList.clear();
 
         // При изменении размера окна initGui вызывается снова — сохраняем то, что уже введено.
         List<String> old = null;
@@ -70,47 +101,64 @@ public class GuiPictureFrame extends GuiScreen {
             old = new ArrayList<String>();
             for (GuiTextField f : fields) old.add(f.getText());
         }
-        boolean sizePx = cbSizePx != null ? cbSizePx.isChecked() : tile.sizeInPixels;
-        boolean posPx = cbPosPx != null ? cbPosPx.isChecked() : tile.offsetInPixels;
         fields.clear();
+        fieldRect.clear();
+        tabs.clear();
+        radios.clear();
+        sourceButtons.clear();
+        fitButtons.clear();
+        areas.clear();
+        buttonTab.clear();
 
-        left = width / 2 - GUI_WIDTH / 2;
-        right = left + GUI_WIDTH - COLUMN;
-        top = height / 2 - 106;
+        int x = guiLeft, y = guiTop;
+        for (int i = 0; i < TAB_COUNT; i++) {
+            GuiWidgets.Tab t = new GuiWidgets.Tab(ID_TAB + i, x - GuiWidgets.Tab.WIDTH + GuiWidgets.Tab.OVERLAP,
+                y + 4 + i * (GuiWidgets.Tab.HEIGHT + 1), i);
+            tabs.add(t);
+            add(t, -1);
+        }
+        // Справа сверху, вне окна — копировать и вставить все настройки как JSON (PictureConfig).
+        btnCopy = add(new GuiWidgets.Small(ID_COPY, x + xSize + 2, y + 4, 20, 20, "", GuiWidgets.ICON_COPY_U), -1);
+        btnPaste = add(new GuiWidgets.Small(ID_PASTE, x + xSize + 2, y + 26, 20, 20, "", GuiWidgets.ICON_PASTE_U), -1);
 
-        btnSource = addButton(new GuiButton(ID_SOURCE, left, top, GUI_WIDTH - MODE_BUTTON - 4, 20, ""));
-        btnMode = addButton(new GuiButton(ID_MODE, left + GUI_WIDTH - MODE_BUTTON, top, MODE_BUTTON - 24, 20, ""));
-        btnBorder = addButton(new GuiButton(ID_BORDER, left + GUI_WIDTH - 20, top, 20, 20, ""));
+        // Источник
+        for (int i = 0; i < PictureFrame.SOURCE_COUNT; i++) {
+            sourceButtons.add(add(new GuiWidgets.Toggle(ID_SOURCE + i, x + 8 + i * 22, y + 17, i * 16,
+                GuiWidgets.SOURCE_ICON_V), TAB_SOURCE));
+        }
+        fPath = area(TAB_SOURCE, x + 9, y + 53, 158, 44, tile.localPath);
+        fUrl = area(TAB_SOURCE, x + 9, y + 53, 158, 44, tile.yandexUrl);
+        fFolder = area(TAB_SOURCE, x + 9, y + 53, 158, 44, tile.folderPath);
+        fImage = area(TAB_SOURCE, x + 9, y + 53, 158, 44, tile.imageUrl);
+        btnPrev = small(TAB_SOURCE, ID_PREV, x + 8, y + 100, 14, 14, "<", -1);
+        btnNext = small(TAB_SOURCE, ID_NEXT, x + 24, y + 100, 14, 14, ">", -1);
+        String open = I18n.format("minepapers.gui.openFolder");
+        btnFolder = small(TAB_SOURCE, ID_FOLDER, x + 40, y + 100, fontRendererObj.getStringWidth(open) + 12, 14, open, -1);
+        // Интервал и состояние — внизу вкладки, над инвентарём
+        fInterval = field(TAB_SOURCE, x + 129, y + 117, 38, 6, String.valueOf(tile.interval));
+        btnReload = small(TAB_SOURCE, ID_RELOAD, x + 154, y + 131, 14, 14, "", GuiWidgets.ICON_RELOAD_U);
 
-        // Путь / ссылка (видно только поле текущего источника)
-        fPath = field(left, top + 35, GUI_WIDTH - 46, 512, tile.localPath);
-        btnPrev = addButton(new GuiButton(ID_PREV, left + GUI_WIDTH - 42, top + 34, 20, 20, "<"));
-        btnNext = addButton(new GuiButton(ID_NEXT, left + GUI_WIDTH - 20, top + 34, 20, 20, ">"));
-        fUrl = field(left, top + 35, GUI_WIDTH, 512, tile.yandexUrl);
-        fFolder = field(left, top + 35, GUI_WIDTH, 512, tile.folderPath);
-        fImage = field(left, top + 35, GUI_WIDTH, 512, tile.imageUrl);
-        btnFolder = addButton(new GuiButton(ID_FOLDER, left, top + 57, 120, 20, I18n.format("minepapers.gui.openFolder")));
+        // Размер и позиция
+        fWidth = field(TAB_SIZE, x + 9, y + 31, 40, 10, fmt(tile.width));
+        fHeight = field(TAB_SIZE, x + 63, y + 31, 40, 10, fmt(tile.height));
+        cbSizePx = check(TAB_SIZE, ID_SIZE_PX, x + 112, y + 32, sizePx);
+        fOffX = field(TAB_SIZE, x + 9, y + 61, 40, 10, fmt(tile.offsetX));
+        fOffY = field(TAB_SIZE, x + 63, y + 61, 40, 10, fmt(tile.offsetY));
+        cbPosPx = check(TAB_SIZE, ID_POS_PX, x + 112, y + 62, posPx);
+        for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
+            // Внизу вкладки, над инвентарём
+            fitButtons.add(add(new GuiWidgets.Toggle(ID_FIT + i, x + 8 + i * 22, y + 128, i * 16, GuiWidgets.FIT_ICON_V),
+                TAB_SIZE));
+        }
 
-        // Левая колонка: размер, смещение, интервал
-        fWidth = field(left, top + 95, 48, 10, fmt(tile.width));
-        fHeight = field(left + 52, top + 95, 48, 10, fmt(tile.height));
-        cbSizePx = (GuiCheckBox) addButton(new GuiCheckBox(ID_SIZE_PX, left + 106, top + 99,
-            I18n.format("minepapers.gui.pixels"), sizePx));
-        fOffX = field(left, top + 131, 48, 10, fmt(tile.offsetX));
-        fOffY = field(left + 52, top + 131, 48, 10, fmt(tile.offsetY));
-        cbPosPx = (GuiCheckBox) addButton(new GuiCheckBox(ID_POS_PX, left + 106, top + 135,
-            I18n.format("minepapers.gui.pixels"), posPx));
-        fInterval = field(left + COLUMN - 50, top + 153, 50, 6, String.valueOf(tile.interval));
-
-        // Правая колонка: вписывание, стиль, разрешение
-        btnFit = addButton(new GuiButton(ID_FIT, right, top + 94, COLUMN, 20, ""));
-        btnStyle = addButton(new GuiButton(ID_STYLE, right, top + 130, COLUMN, 20, ""));
-        fPpb = field(right + COLUMN - 50, top + 153, 50, 3, String.valueOf(tile.pixelsPerBlock));
-
-        int bw = (GUI_WIDTH - 12) / 3;
-        addButton(new GuiButton(ID_RELOAD, left, top + 192, bw, 20, I18n.format("minepapers.gui.reload")));
-        addButton(new GuiButton(ID_DONE, left + bw + 6, top + 192, bw, 20, I18n.format("gui.done")));
-        addButton(new GuiButton(ID_CANCEL, left + 2 * (bw + 6), top + 192, bw, 20, I18n.format("gui.cancel")));
+        // Вид и стиль
+        for (int i = 0; i < PictureFrame.MODE_COUNT; i++) {
+            radio(TAB_STYLE, ID_MODE + i, x + 8, y + 29 + i * 11, "minepapers.gui.mode." + i);
+        }
+        for (int i = 0; i < PictureFrame.STYLE_COUNT; i++) {
+            radio(TAB_STYLE, ID_STYLE + i, x + 8, y + 86 + i * 11, "minepapers.gui.style." + i);
+        }
+        fPpb = field(TAB_STYLE, x + 129, y + 133, 38, 3, String.valueOf(tile.pixelsPerBlock));
 
         if (old != null && old.size() == fields.size()) {
             for (int i = 0; i < fields.size(); i++) fields.get(i).setText(old.get(i));
@@ -119,34 +167,78 @@ public class GuiPictureFrame extends GuiScreen {
     }
 
     @SuppressWarnings("unchecked")
-    private GuiButton addButton(GuiButton button) {
+    private <T extends GuiButton> T add(T button, int onTab) {
         buttonList.add(button);
+        if (onTab >= 0) buttonTab.put(button, onTab);
         return button;
     }
 
-    private GuiTextField field(int x, int y, int w, int maxLength, String text) {
-        GuiTextField f = new GuiTextField(fontRendererObj, x, y, w, 18);
+    private void radio(int onTab, int id, int x, int y, String key) {
+        radios.add(add(new GuiWidgets.Radio(id, x, y, 160, I18n.format(key)), onTab));
+    }
+
+    private GuiWidgets.Small small(int onTab, int id, int x, int y, int w, int h, String text, int iconU) {
+        return add(new GuiWidgets.Small(id, x, y, w, h, text, iconU), onTab);
+    }
+
+    private GuiWidgets.Check check(int onTab, int id, int x, int y, boolean checked) {
+        return add(new GuiWidgets.Check(id, x, y, I18n.format("minepapers.gui.pixels"), checked), onTab);
+    }
+
+    private GuiTextField field(int onTab, int x, int y, int w, int maxLength, String text) {
+        return register(new GuiTextField(fontRendererObj, x, y, w, 12), onTab, x, y, w, 12, maxLength, text);
+    }
+
+    /** Многострочное поле для пути или ссылки. */
+    private GuiTextField area(int onTab, int x, int y, int w, int h, String text) {
+        GuiTextArea a = new GuiTextArea(fontRendererObj, x, y, w, h);
+        areas.add(a);
+        return register(a, onTab, x, y, w, h, 512, text);
+    }
+
+    private GuiTextField register(GuiTextField f, int onTab, int x, int y, int w, int h, int maxLength, String text) {
         f.setMaxStringLength(maxLength);
         f.setText(text);
         fields.add(f);
+        fieldRect.put(f, new int[] { onTab, x, y, w, h });
         return f;
     }
 
     private void updateWidgets() {
         boolean local = source == PictureFrame.SOURCE_LOCAL;
-        btnSource.displayString = I18n.format("minepapers.gui.source." + source);
-        btnPrev.visible = local;
-        btnNext.visible = local;
-        btnFolder.visible = local;
-        btnFit.displayString = I18n.format("minepapers.gui.fit." + fitMode);
-        btnStyle.displayString = I18n.format("minepapers.gui.style." + style);
-        btnMode.displayString = I18n.format("minepapers.gui.mode." + mode);
+        for (Object o : buttonList) {
+            GuiButton b = (GuiButton) o;
+            Integer onTab = buttonTab.get(b);
+            if (onTab != null) b.visible = onTab == tab;
+        }
+        btnPrev.visible &= local;
+        btnNext.visible &= local;
+        btnFolder.visible &= local;
+        for (GuiWidgets.Tab t : tabs) t.selected = t.id - ID_TAB == tab;
+        for (GuiWidgets.Radio r : radios) r.checked = isChosen(r.id);
+        for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.id - ID_SOURCE == source;
+        for (GuiWidgets.Toggle t : fitButtons) t.checked = t.id - ID_FIT == fitMode;
+        // Слот рамки есть всегда (его содержимое синхронизирует сервер), но виден и кликается только на своей вкладке.
+        for (Object o : inventorySlots.inventorySlots) {
+            Slot s = (Slot) o;
+            if (container().isMaterialSlot(s.slotNumber)) {
+                s.xDisplayPosition = tab == TAB_FRAME ? ContainerPictureFrame.MATERIAL_X : -10000;
+            }
+        }
+        cbSizePx.checked = sizePx;
+        cbPosPx.checked = posPx;
         for (GuiTextField f : fields) {
             if (!isActive(f)) f.setFocused(false);
         }
     }
 
+    private boolean isChosen(int radioId) {
+        if (radioId >= ID_STYLE) return radioId - ID_STYLE == style;
+        return radioId - ID_MODE == mode;
+    }
+
     private boolean isActive(GuiTextField f) {
+        if (fieldRect.get(f)[0] != tab) return false;
         if (f == fPath) return source == PictureFrame.SOURCE_LOCAL;
         if (f == fUrl) return source == PictureFrame.SOURCE_YANDEX;
         if (f == fFolder) return source == PictureFrame.SOURCE_FOLDER;
@@ -166,60 +258,59 @@ public class GuiPictureFrame extends GuiScreen {
 
     @Override
     protected void actionPerformed(GuiButton button) {
-        switch (button.id) {
-            case ID_SOURCE:
-                source = (source + 1) % PictureFrame.SOURCE_COUNT;
-                updateWidgets();
-                break;
-            case ID_FIT:
-                fitMode = (fitMode + 1) % PictureFrame.FIT_COUNT;
-                updateWidgets();
-                break;
-            case ID_STYLE:
-                style = (style + 1) % PictureFrame.STYLE_COUNT;
-                updateWidgets();
-                break;
-            case ID_MODE:
-                mode = (mode + 1) % PictureFrame.MODE_COUNT;
-                updateWidgets();
-                break;
-            case ID_BORDER:
-                toggleBorder();
-                break;
-            case ID_PREV:
-            case ID_NEXT:
-                cycleLocal(button.id == ID_NEXT ? 1 : -1);
-                break;
-            case ID_FOLDER:
-                openFolder();
-                break;
-            case ID_RELOAD: {
-                String key = currentKey();
-                if (key != null) {
-                    PictureManager.reload(key);
-                    PictureManager.get(key);
-                    // Перечитать папку и выложить на сервер то, что в ней появилось.
-                    if (key.equals(tile.getOriginKey())) {
-                        if (tile.hasSharedFiles()) PictureManager.reload(tile.getSourceKey());
-                        ImageSync.offer(picture);
-                    }
-                }
-                break;
+        int id = button.id;
+        if (id < ID_SOURCE) {
+            tab = lastTab = id - ID_TAB;
+        } else if (id < ID_FIT) {
+            source = id - ID_SOURCE;
+        } else if (id < ID_MODE) {
+            fitMode = id - ID_FIT;
+        } else if (id < ID_STYLE) {
+            mode = id - ID_MODE;
+        } else if (id < ID_PREV) {
+            style = id - ID_STYLE;
+        } else {
+            switch (id) {
+                case ID_PREV:
+                case ID_NEXT:
+                    cycleLocal(id == ID_NEXT ? 1 : -1);
+                    break;
+                case ID_FOLDER:
+                    openFolder();
+                    break;
+                case ID_COPY:
+                    copyConfig();
+                    break;
+                case ID_PASTE:
+                    pasteConfig();
+                    break;
+                case ID_RELOAD:
+                    reload();
+                    break;
+                case ID_SIZE_PX:
+                    sizePx = !sizePx;
+                    convert(fWidth, sizePx);
+                    convert(fHeight, sizePx);
+                    break;
+                case ID_POS_PX:
+                    posPx = !posPx;
+                    convert(fOffX, posPx);
+                    convert(fOffY, posPx);
+                    break;
             }
-            case ID_SIZE_PX:
-                convert(fWidth, cbSizePx.isChecked());
-                convert(fHeight, cbSizePx.isChecked());
-                break;
-            case ID_POS_PX:
-                convert(fOffX, cbPosPx.isChecked());
-                convert(fOffY, cbPosPx.isChecked());
-                break;
-            case ID_DONE:
-                save();
-                break;
-            case ID_CANCEL:
-                mc.displayGuiScreen(null);
-                break;
+        }
+        updateWidgets();
+    }
+
+    private void reload() {
+        String key = currentKey();
+        if (key == null) return;
+        PictureManager.reload(key);
+        PictureManager.get(key);
+        // Перечитать папку и выложить на сервер то, что в ней появилось.
+        if (key.equals(tile.getOriginKey())) {
+            if (tile.hasSharedFiles()) PictureManager.reload(tile.getSourceKey());
+            ImageSync.offer(picture);
         }
     }
 
@@ -243,21 +334,6 @@ public class GuiPictureFrame extends GuiScreen {
         fPath.setText(entries.get(index));
     }
 
-    /** Текстура рамки: с предмета в руке, а повторное нажатие возвращает обычную. */
-    private void toggleBorder() {
-        if (!borderItem.isEmpty()) {
-            borderItem = "";
-            borderMeta = 0;
-            return;
-        }
-        ItemStack held = mc.thePlayer.getHeldItem();
-        if (held == null) return;
-        String name = Item.itemRegistry.getNameForObject(held.getItem());
-        if (name == null) return;
-        borderItem = name;
-        borderMeta = held.getItemDamage();
-    }
-
     private void openFolder() {
         try {
             Desktop.getDesktop().open(MinePapers.picturesDir);
@@ -266,7 +342,91 @@ public class GuiPictureFrame extends GuiScreen {
         }
     }
 
+    // ---------- Копировать и вставить ----------
+
+    private GuiTextField pathField(int src) {
+        switch (src) {
+            case PictureFrame.SOURCE_YANDEX: return fUrl;
+            case PictureFrame.SOURCE_FOLDER: return fFolder;
+            case PictureFrame.SOURCE_URL: return fImage;
+            default: return fPath;
+        }
+    }
+
+    /** Все настройки окна (как они введены сейчас) и материалы картины — в буфер обмена JSON-ом. */
+    private void copyConfig() {
+        PictureConfig c = new PictureConfig();
+        c.minecraft = "1.7.10";
+        c.source = source;
+        c.path = pathField(source).getText().trim();
+        Float interval = parse(fInterval.getText());
+        if (interval != null) c.interval = Math.round(interval);
+        c.width = parse(fWidth.getText());
+        c.height = parse(fHeight.getText());
+        c.sizePixels = sizePx;
+        c.offsetRight = parse(fOffX.getText());
+        c.offsetUp = parse(fOffY.getText());
+        c.offsetPixels = posPx;
+        c.fit = fitMode;
+        c.look = mode;
+        c.style = style;
+        Float ppb = parse(fPpb.getText());
+        if (ppb != null) c.pixelsPerBlock = Math.round(ppb);
+        PictureFrame.Material[] materials = tile.materials();
+        for (int i = 0; i < materials.length && i < PictureConfig.MATERIALS.length; i++) {
+            c.hasMaterial[i] = true;
+            c.materials[i] = materials[i].stack != null ? new PictureConfig.Item(materials[i].item, materials[i].meta) : null;
+        }
+        setClipboardString(c.toJson());
+        chat(new ChatComponentTranslation("minepapers.chat.copied"), EnumChatFormatting.GRAY);
+    }
+
+    /** Настройки из буфера обмена — в окно (применятся при закрытии, как и введённые руками); материалы сервер берёт из инвентаря (PacketPasteMaterials). */
+    private void pasteConfig() {
+        PictureConfig c;
+        try {
+            c = PictureConfig.fromJson(getClipboardString());
+        } catch (IllegalArgumentException e) {
+            chat(new ChatComponentTranslation("minepapers.chat.badConfig"), EnumChatFormatting.RED);
+            return;
+        }
+        if (c.source != null) source = c.source;
+        if (c.path != null) pathField(source).setText(c.path);
+        if (c.interval != null) fInterval.setText(String.valueOf(c.interval));
+        if (c.sizePixels != null) sizePx = c.sizePixels;
+        if (c.width != null) fWidth.setText(fmt(c.width));
+        if (c.height != null) fHeight.setText(fmt(c.height));
+        if (c.offsetPixels != null) posPx = c.offsetPixels;
+        if (c.offsetRight != null) fOffX.setText(fmt(c.offsetRight));
+        if (c.offsetUp != null) fOffY.setText(fmt(c.offsetUp));
+        if (c.fit != null) fitMode = c.fit;
+        if (c.look != null) mode = c.look;
+        if (c.style != null) style = c.style;
+        if (c.pixelsPerBlock != null) fPpb.setText(String.valueOf(c.pixelsPerBlock));
+        updateWidgets();
+        // Конфиг из новых версий: предметы там названы иначе (grass_block вместо grass) — переводим.
+        for (int i = 0; i < c.materials.length; i++) {
+            c.materials[i] = c.translate(c.materials[i], false, id -> Item.itemRegistry.getObject(id) != null);
+        }
+        for (boolean has : c.hasMaterial) {
+            if (has) {
+                MinePapers.network.sendToServer(new PacketPasteMaterials(picture.getEntityId(), c));
+                break;
+            }
+        }
+    }
+
+    private void chat(IChatComponent text, EnumChatFormatting color) {
+        text.getChatStyle().setColor(color);
+        mc.thePlayer.addChatMessage(text);
+    }
+
+    // ---------- Сохранение ----------
+
     private void save() {
+        NBTTagCompound before = new NBTTagCompound();
+        tile.writeSettings(before);
+
         tile.source = source;
         tile.localPath = fPath.getText().trim();
         tile.yandexUrl = fUrl.getText().trim();
@@ -274,18 +434,16 @@ public class GuiPictureFrame extends GuiScreen {
         tile.imageUrl = fImage.getText().trim();
         Float interval = parse(fInterval.getText());
         if (interval != null) tile.interval = Math.round(interval);
-        tile.sizeInPixels = cbSizePx.isChecked();
+        tile.sizeInPixels = sizePx;
         float[] size = resolveSize(parse(fWidth.getText()), parse(fHeight.getText()));
         tile.width = size[0];
         tile.height = size[1];
-        tile.offsetInPixels = cbPosPx.isChecked();
+        tile.offsetInPixels = posPx;
         tile.offsetX = orDefault(parse(fOffX.getText()), tile.offsetX);
         tile.offsetY = orDefault(parse(fOffY.getText()), tile.offsetY);
         tile.fitMode = fitMode;
         tile.style = style;
         tile.mode = mode;
-        tile.borderItem = borderItem;
-        tile.borderMeta = borderMeta;
         Float ppb = parse(fPpb.getText());
         if (ppb != null) tile.pixelsPerBlock = Math.round(ppb);
 
@@ -293,18 +451,19 @@ public class GuiPictureFrame extends GuiScreen {
         NBTTagCompound tag = new NBTTagCompound();
         tile.writeSettings(tag);
         tile.readSettings(tag);
+        NBTTagCompound after = new NBTTagCompound();
+        tile.writeSettings(after);
+        if (after.equals(before)) return; // окно открыли и закрыли — серверу отправлять нечего
 
         picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
         MinePapers.network.sendToServer(new PacketSaveFrame(picture));
         // Файлы с этого компьютера другие игроки увидят, только когда они окажутся на сервере.
         ImageSync.offer(picture);
-        mc.displayGuiScreen(null);
     }
 
     /** Хитбокс должен быть известен серверу, поэтому "0 = авто" превращаем в конкретный размер по пропорциям текущей картинки (если она ещё не загружена — квадрат). Округляем до пикселя. */
     private float[] resolveSize(Float w, Float h) {
-        boolean px = cbSizePx.isChecked();
-        float unit = px ? 16f : 1f;
+        float unit = sizePx ? 16f : 1f;
         boolean wAuto = w == null || w <= 0, hAuto = h == null || h <= 0;
         if (wAuto || hAuto) {
             double aspect = currentAspect();
@@ -317,7 +476,7 @@ public class GuiPictureFrame extends GuiScreen {
                 w = (float) (h / aspect);
             }
         }
-        return new float[] { snap(w, px), snap(h, px) };
+        return new float[] { snap(w, sizePx), snap(h, sizePx) };
     }
 
     private static float snap(float v, boolean px) {
@@ -361,12 +520,8 @@ public class GuiPictureFrame extends GuiScreen {
 
     @Override
     protected void keyTyped(char c, int key) {
-        if (key == Keyboard.KEY_ESCAPE) {
-            mc.displayGuiScreen(null);
-            return;
-        }
-        if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
-            save();
+        if (key == Keyboard.KEY_ESCAPE || key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
+            mc.thePlayer.closeScreen(); // сохранение — в onGuiClosed
             return;
         }
         if (key == Keyboard.KEY_TAB) {
@@ -376,8 +531,10 @@ public class GuiPictureFrame extends GuiScreen {
         for (GuiTextField f : fields) {
             if (isActive(f) && f.isFocused()) {
                 f.textboxKeyTyped(c, key);
+                return;
             }
         }
+        super.keyTyped(c, key); // E закрывает окно, цифры — обмен с хотбаром, как в любом инвентаре
     }
 
     private void focusNext() {
@@ -385,6 +542,7 @@ public class GuiPictureFrame extends GuiScreen {
         for (GuiTextField f : fields) {
             if (isActive(f)) active.add(f);
         }
+        if (active.isEmpty()) return;
         int focused = -1;
         for (int i = 0; i < active.size(); i++) {
             if (active.get(i).isFocused()) focused = i;
@@ -395,14 +553,63 @@ public class GuiPictureFrame extends GuiScreen {
 
     @Override
     protected void mouseClicked(int x, int y, int button) {
-        super.mouseClicked(x, y, button);
         for (GuiTextField f : fields) {
             if (isActive(f)) f.mouseClicked(x, y, button);
         }
+        // Кнопки обрабатываем сами: вкладки лежат за краем окна, а клик туда с предметом в руке GuiContainer счёл бы выбросом.
+        if (button == 0) {
+            for (Object o : buttonList) {
+                GuiButton b = (GuiButton) o;
+                if (b.mousePressed(mc, x, y)) {
+                    b.func_146113_a(mc.getSoundHandler());
+                    actionPerformed(b);
+                    return;
+                }
+            }
+        }
+        super.mouseClicked(x, y, button);
+    }
+
+    /** Перетаскивание мыши после клика в многострочном поле — выделение текста, а не раскладка предметов по слотам. */
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int button, long sinceClick) {
+        for (GuiTextArea a : areas) {
+            if (isActive(a) && a.mouseDragged(mouseX, mouseY)) return;
+        }
+        super.mouseClickMove(mouseX, mouseY, button, sinceClick);
+    }
+
+    @Override
+    protected void mouseMovedOrUp(int mouseX, int mouseY, int button) {
+        if (button >= 0) {
+            for (GuiTextArea a : areas) a.mouseReleased();
+        }
+        super.mouseMovedOrUp(mouseX, mouseY, button);
+    }
+
+    /** Колёсико над многострочным полем прокручивает его. */
+    @Override
+    public void handleMouseInput() {
+        super.handleMouseInput();
+        int wheel = Mouse.getEventDWheel();
+        if (wheel == 0) return;
+        int mouseX = Mouse.getEventX() * width / mc.displayWidth;
+        int mouseY = height - Mouse.getEventY() * height / mc.displayHeight - 1;
+        for (GuiTextArea a : areas) {
+            if (isActive(a) && a.contains(mouseX, mouseY)) a.scrollBy(wheel > 0 ? -1 : 1);
+        }
+    }
+
+    /** Shift+клик кладёт предмет в слот рамки — только когда этот слот виден. */
+    @Override
+    protected void handleMouseClick(Slot slot, int slotId, int button, int clickType) {
+        if (clickType == 1 && tab != TAB_FRAME && slot != null && !container().isMaterialSlot(slot.slotNumber)) return;
+        super.handleMouseClick(slot, slotId, button, clickType);
     }
 
     @Override
     public void updateScreen() {
+        super.updateScreen();
         for (GuiTextField f : fields) {
             if (isActive(f)) f.updateCursorCounter();
         }
@@ -410,92 +617,173 @@ public class GuiPictureFrame extends GuiScreen {
 
     @Override
     public void onGuiClosed() {
+        super.onGuiClosed();
         Keyboard.enableRepeatEvents(false);
-    }
-
-    @Override
-    public boolean doesGuiPauseGame() {
-        return false;
+        // Настройки применяются при любом закрытии окна: Esc, E, Enter или сервер закрыл его сам.
+        if (mc.thePlayer != null && mc.getNetHandler() != null && !picture.isDead) save();
     }
 
     // ---------- Отрисовка ----------
 
     @Override
-    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
-        drawDefaultBackground();
-        drawCenteredString(fontRendererObj, I18n.format("minepapers.gui.title"), width / 2, top - 14, 0xFFFFFF);
-
-        label(I18n.format("minepapers.gui.path." + source), left, top + 24);
-        if (source == PictureFrame.SOURCE_YANDEX || source == PictureFrame.SOURCE_URL) {
-            fontRendererObj.drawString(I18n.format("minepapers.gui.hint." + source), left, top + 60, 0x808080);
+    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+        RenderHelper.disableStandardItemLighting();
+        GL11.glColor4f(1f, 1f, 1f, 1f);
+        int x = guiLeft, y = guiTop;
+        // Как в творческом режиме: невыбранные вкладки уходят под окно, выбранная лежит поверх и сливается с ним.
+        for (GuiWidgets.Tab t : tabs) {
+            if (!t.selected) t.drawBody();
         }
-
-        label(I18n.format("minepapers.gui.size"), left, top + 84);
-        label(I18n.format("minepapers.gui.offset"), left, top + 120);
-        label(I18n.format("minepapers.gui.interval"), left, top + 158);
-        label(I18n.format("minepapers.gui.fit"), right, top + 84);
-        label(I18n.format("minepapers.gui.style"), right, top + 120);
-        label(I18n.format("minepapers.gui.ppb"), right, top + 158);
-
+        GuiWidgets.panel(x, y, xSize, ySize); // слоты инвентаря — часть ванильной текстуры
+        for (GuiWidgets.Tab t : tabs) {
+            if (t.selected) t.drawBody();
+        }
+        for (GuiWidgets.Tab t : tabs) t.drawIcon();
+        if (tab == TAB_FRAME) {
+            for (int i = 0; i < tile.materials().length; i++) {
+                GuiWidgets.slot(x + ContainerPictureFrame.MATERIAL_X - 1,
+                    y + ContainerPictureFrame.MATERIAL_Y - 1 + i * ContainerPictureFrame.MATERIAL_STEP);
+            }
+        }
         for (GuiTextField f : fields) {
             if (isActive(f)) f.drawTextBox();
         }
+    }
 
-        fontRendererObj.drawString(fontRendererObj.trimStringToWidth(statusText(), GUI_WIDTH), left, top + 179, 0xFFFF80);
-        super.drawScreen(mouseX, mouseY, partialTicks);
-        drawBorderIcon();
-
-        // Подсказки
-        if (btnBorder.func_146115_a()) {
-            borderTooltip(mouseX, mouseY);
-        } else if (btnMode.func_146115_a()) {
-            tooltip("minepapers.gui.mode." + mode + ".tip", mouseX, mouseY);
-        } else if (btnFit.func_146115_a()) {
-            tooltip("minepapers.gui.fit." + fitMode + ".tip", mouseX, mouseY);
-        } else if (btnStyle.func_146115_a()) {
-            tooltip("minepapers.gui.style.tip", mouseX, mouseY);
-        } else if (mouseX >= right && mouseX < right + COLUMN && mouseY >= top + 152 && mouseY < top + 171) {
-            tooltip("minepapers.gui.ppb.tip", mouseX, mouseY);
-        } else if (cbSizePx.func_146115_a() || cbPosPx.func_146115_a()) {
-            tooltip("minepapers.gui.pixels.tip", mouseX, mouseY);
+    @Override
+    protected void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
+        text(I18n.format("minepapers.gui.tab." + tab), 8, 6, GuiWidgets.TEXT);
+        text(I18n.format("container.inventory"), 8, ySize - GuiWidgets.INVENTORY_PART_HEIGHT + 2, GuiWidgets.TEXT);
+        switch (tab) {
+            case TAB_SOURCE: {
+                text(I18n.format("minepapers.gui.path." + source), 8, 42, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.interval"), 8, 119, GuiWidgets.TEXT);
+                String status = statusText();
+                lines(status, 8, 133, 142, 2, statusError ? GuiWidgets.ERROR : GuiWidgets.TEXT);
+                break;
+            }
+            case TAB_SIZE:
+                text(I18n.format("minepapers.gui.size"), 8, 18, GuiWidgets.TEXT);
+                text("x", 53, 33, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.offset"), 8, 48, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.fit"), 8, 117, GuiWidgets.TEXT);
+                break;
+            case TAB_STYLE:
+                text(I18n.format("minepapers.gui.mode"), 8, 18, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.style"), 8, 75, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.ppb"), 8, 135, GuiWidgets.TEXT);
+                break;
+            case TAB_FRAME: {
+                // Список материалов: слот, справа — что это и какой блок в нём лежит.
+                PictureFrame.Material[] materials = tile.materials();
+                for (int i = 0; i < materials.length; i++) {
+                    String key = "minepapers.gui." + materials[i].key.toLowerCase(java.util.Locale.ROOT);
+                    String name = materials[i].stack != null ? name(materials[i].stack) : I18n.format(key + ".default");
+                    if (materials[i].light && materials[i].stack != null) {
+                        name += ", " + (PictureFrame.isGlowDust(materials[i].stack) ? I18n.format("minepapers.gui.glow.self")
+                            : I18n.format("minepapers.gui.glow.level", PictureFrame.lightOf(materials[i].stack)));
+                    }
+                    int ty = ContainerPictureFrame.MATERIAL_Y + 1 + i * ContainerPictureFrame.MATERIAL_STEP;
+                    text(I18n.format(key), 30, ty - 1, GuiWidgets.TEXT);
+                    text(fontRendererObj.trimStringToWidth(name, 138), 30, ty + 8, GuiWidgets.HINT);
+                }
+                break;
+            }
         }
+    }
+
+    private ContainerPictureFrame container() {
+        return (ContainerPictureFrame) inventorySlots;
+    }
+
+    private void text(String s, int x, int y, int color) {
+        fontRendererObj.drawString(s, x, y, color);
+    }
+
+    /** Текст с переносом по ширине, не больше maxLines строк. Возвращает y под последней строкой. */
+    @SuppressWarnings("unchecked")
+    private int lines(String s, int x, int y, int width, int maxLines, int color) {
+        List<String> list = fontRendererObj.listFormattedStringToWidth(s, width);
+        for (int i = 0; i < list.size() && i < maxLines; i++) {
+            text(list.get(i), x, y, color);
+            y += 9;
+        }
+        return y;
+    }
+
+    @Override
+    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        super.drawScreen(mouseX, mouseY, partialTicks);
+        if (mc.thePlayer.inventory.getItemStack() == null) drawTooltips(mouseX, mouseY);
+    }
+
+    private void drawTooltips(int mouseX, int mouseY) {
+        for (GuiWidgets.Tab t : tabs) {
+            if (t.hovered()) {
+                tooltip("minepapers.gui.tab." + (t.id - ID_TAB), mouseX, mouseY);
+                return;
+            }
+        }
+        for (GuiWidgets.Radio r : radios) {
+            if (!r.hovered()) continue;
+            if (r.id >= ID_STYLE) {
+                tooltip("minepapers.gui.style.tip", mouseX, mouseY);
+            } else if (r.id >= ID_MODE) {
+                tooltip("minepapers.gui.mode." + (r.id - ID_MODE) + ".tip", mouseX, mouseY);
+            }
+            return;
+        }
+        for (GuiWidgets.Toggle t : sourceButtons) {
+            if (t.hovered()) {
+                int s = t.id - ID_SOURCE;
+                titledTooltip("minepapers.gui.source." + s, "minepapers.gui.path." + s + ".tip", mouseX, mouseY);
+                return;
+            }
+        }
+        for (GuiWidgets.Toggle t : fitButtons) {
+            if (t.hovered()) {
+                int fit = t.id - ID_FIT;
+                titledTooltip("minepapers.gui.fit." + fit, "minepapers.gui.fit." + fit + ".tip", mouseX, mouseY);
+                return;
+            }
+        }
+        if (btnCopy.hovered()) {
+            titledTooltip("minepapers.gui.copy", "minepapers.gui.copy.tip", mouseX, mouseY);
+        } else if (btnPaste.hovered()) {
+            titledTooltip("minepapers.gui.paste", "minepapers.gui.paste.tip", mouseX, mouseY);
+        } else if (cbSizePx.hovered() || cbPosPx.hovered()) {
+            tooltip("minepapers.gui.pixels.tip", mouseX, mouseY);
+        } else if (tab == TAB_SIZE && over(fWidth, mouseX, mouseY)) {
+            tooltip("minepapers.gui.width", mouseX, mouseY);
+        } else if (tab == TAB_SIZE && over(fHeight, mouseX, mouseY)) {
+            tooltip("minepapers.gui.height", mouseX, mouseY);
+        } else if (tab == TAB_SIZE && over(fOffX, mouseX, mouseY)) {
+            tooltip("minepapers.gui.shift.x", mouseX, mouseY);
+        } else if (tab == TAB_SIZE && over(fOffY, mouseX, mouseY)) {
+            tooltip("minepapers.gui.shift.y", mouseX, mouseY);
+        } else if (btnReload.hovered()) {
+            tooltip("minepapers.gui.reload", mouseX, mouseY);
+        } else if (tab == TAB_STYLE && over(fPpb, mouseX, mouseY)) {
+            tooltip("minepapers.gui.ppb.tip", mouseX, mouseY);
+        }
+    }
+
+    private boolean over(GuiTextField f, int mouseX, int mouseY) {
+        int[] r = fieldRect.get(f);
+        return mouseX >= r[1] - 1 && mouseY >= r[2] - 1 && mouseX < r[1] + r[3] + 1 && mouseY < r[2] + r[4] + 1;
+    }
+
+    /** Название — заголовком, пояснение — серым под ним, как описание предмета. */
+    private void titledTooltip(String titleKey, String tipKey, int x, int y) {
+        List<String> lines = new ArrayList<String>();
+        lines.add(I18n.format(titleKey));
+        for (String s : I18n.format(tipKey).split("\\\\n")) lines.add("§7" + s);
+        drawHoveringText(lines, x, y, fontRendererObj);
     }
 
     private void tooltip(String key, int x, int y, Object... args) {
         List<String> lines = new ArrayList<String>(Arrays.asList(I18n.format(key, args).split("\\\\n")));
         drawHoveringText(lines, x, y, fontRendererObj);
-    }
-
-    /** На кнопке — предмет, из которого сделана рамка (или обычная рамка). */
-    private void drawBorderIcon() {
-        ItemStack stack = FrameSkin.stack(borderItem, borderMeta);
-        if (stack == null) stack = new ItemStack(MinePapers.frame);
-        GL11.glEnable(GL12.GL_RESCALE_NORMAL);
-        RenderHelper.enableGUIStandardItemLighting();
-        itemRender.zLevel = 100f;
-        try {
-            itemRender.renderItemAndEffectIntoGUI(fontRendererObj, mc.getTextureManager(), stack,
-                btnBorder.xPosition + 2, btnBorder.yPosition + 2);
-        } catch (Throwable ignored) {
-            // Чужой предмет может не уметь рисоваться в интерфейсе — кнопка просто останется пустой.
-        }
-        itemRender.zLevel = 0f;
-        RenderHelper.disableStandardItemLighting();
-        GL11.glDisable(GL12.GL_RESCALE_NORMAL);
-    }
-
-    private void borderTooltip(int x, int y) {
-        ItemStack custom = FrameSkin.stack(borderItem, borderMeta);
-        if (!borderItem.isEmpty()) {
-            tooltip("minepapers.gui.border.custom.tip", x, y, custom != null ? name(custom) : borderItem);
-            return;
-        }
-        ItemStack held = mc.thePlayer.getHeldItem();
-        if (held == null) {
-            tooltip("minepapers.gui.border.empty.tip", x, y);
-        } else {
-            tooltip("minepapers.gui.border.default.tip", x, y, name(held));
-        }
     }
 
     private static String name(ItemStack stack) {
@@ -506,11 +794,8 @@ public class GuiPictureFrame extends GuiScreen {
         }
     }
 
-    private void label(String text, int x, int y) {
-        fontRendererObj.drawString(text, x, y, 0xA0A0A0);
-    }
-
     private String statusText() {
+        statusError = false;
         String key = currentKey();
         if (key == null) return I18n.format("minepapers.gui.status.none");
         int[] job = ImageSync.jobStatus(key);
@@ -522,8 +807,11 @@ public class GuiPictureFrame extends GuiScreen {
         PictureManager.Source s = PictureManager.peek(key);
         if (s == null) return I18n.format("minepapers.gui.status.unknown");
         if (s.isLoading()) return I18n.format("minepapers.gui.status.loading");
-        if (s.getErrorKey() != null) return I18n.format("minepapers.gui.status.error", I18n.format(s.getErrorKey()));
-        if (s.getErrorDetail() != null) return I18n.format("minepapers.gui.status.error", s.getErrorDetail());
+        if (s.getErrorKey() != null || s.getErrorDetail() != null) {
+            statusError = true;
+            String detail = s.getErrorKey() != null ? I18n.format(s.getErrorKey()) : s.getErrorDetail();
+            return I18n.format("minepapers.gui.status.error", detail);
+        }
         return I18n.format(key.startsWith("shared:") ? "minepapers.gui.status.shared" : "minepapers.gui.status.count",
             s.count());
     }

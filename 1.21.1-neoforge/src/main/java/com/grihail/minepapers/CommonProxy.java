@@ -1,10 +1,13 @@
 package com.grihail.minepapers;
 
-import com.grihail.minepapers.picture.EntityPicture;
+import net.minecraft.core.HolderLookup;
 
 public class CommonProxy {
 
-    public void openFrameGui(EntityPicture picture) {}
+    /** Реестры клиентского мира (на сервере — null). */
+    public HolderLookup.Provider clientRegistries() {
+        return null;
+    }
 
     /** Сервер просит выложить эти картинки. */
     public void onFilesNeeded(byte[] hashes) {}

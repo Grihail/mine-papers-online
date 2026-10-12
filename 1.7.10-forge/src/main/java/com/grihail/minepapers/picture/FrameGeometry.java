@@ -68,6 +68,27 @@ public final class FrameGeometry {
         return AxisAlignedBB.getBoundingBox(o[0] + b[0], o[1] + b[1], o[2] + b[2], o[0] + b[3], o[1] + b[4], o[2] + b[5]);
     }
 
+    /** Шаг сетки источников света по холсту: свет гаснет на 1 за блок, так между ними он падает не больше чем на 2. */
+    public static final double LIGHT_STEP = 4;
+
+    /** Клетки перед холстом, где светящаяся картина ставит свет: сетка с шагом LIGHT_STEP (у маленькой картины — одна клетка в центре), на четверть блока от поверхности. Смещения {dx, dy, dz} от клетки рамки — так список остаётся верным, даже если картину вместе с её светом перенесут. */
+    public static List<int[]> lightCells(PictureFrame f) {
+        List<int[]> cells = new ArrayList<int[]>();
+        double[] o = origin(f);
+        double u0 = f.getOffsetXBlocks(), v0 = f.getOffsetYBlocks(), w = f.getWidthBlocks(), h = f.getHeightBlocks();
+        for (double u = u0 + Math.min(w, LIGHT_STEP) / 2; u < u0 + w; u += LIGHT_STEP) {
+            for (double v = v0 + Math.min(h, LIGHT_STEP) / 2; v < v0 + h; v += LIGHT_STEP) {
+                double[] p = toBlock(f.getFacing(), f.getRotation(), u, v, 0.25);
+                int[] cell = { MathHelper.floor_double(o[0] + p[0]) - f.x, MathHelper.floor_double(o[1] + p[1]) - f.y,
+                    MathHelper.floor_double(o[2] + p[2]) - f.z };
+                boolean known = false;
+                for (int[] c : cells) known |= c[0] == cell[0] && c[1] == cell[1] && c[2] == cell[2];
+                if (!known) cells.add(cell);
+            }
+        }
+        return cells;
+    }
+
     /** Холст нельзя разместить: он прошёл бы сквозь блок или другую картину. */
     public static boolean isBlocked(World world, PictureFrame candidate, Entity self) {
         return hitsBlocks(world, candidate) || overlapping(world, candidate, self) != null;

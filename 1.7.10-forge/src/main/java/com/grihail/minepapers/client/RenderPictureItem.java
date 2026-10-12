@@ -69,7 +69,7 @@ public class RenderPictureItem implements IItemRenderer {
 
         // 1. Рамка (и торцы пластинки)
         if (ring > 0) {
-            FrameSkin skin = FrameSkin.of(s.borderItem, s.borderMeta);
+            FrameSkin skin = FrameSkin.border(s.border);
             mc.getTextureManager().bindTexture(skin.atlas);
             t.startDrawingQuads();
             t.setColorOpaque_F(skin.r, skin.g, skin.b);
@@ -81,11 +81,11 @@ public class RenderPictureItem implements IItemRenderer {
         // 2. Картинка. В рамке — на фоне холста, как в мире. У граффити холста нет: прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы.
         if (thumb != null) {
             if (ring > 0) {
-                mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
+                FrameSkin canvas = FrameSkin.canvas(s.canvas);
+                mc.getTextureManager().bindTexture(canvas.atlas);
                 t.startDrawingQuads();
-                t.setColorOpaque_F(1f, 1f, 1f);
-                IIcon canvas = MinePapers.frame.canvasIcon;
-                for (int face = 0; face < faces(); face++) atlasRect(canvas, face, cx0, cy0, cx1, cy1);
+                t.setColorOpaque_F(canvas.r, canvas.g, canvas.b);
+                for (int face = 0; face < faces(); face++) atlasRect(canvas.icon, face, cx0, cy0, cx1, cy1);
                 t.draw();
             }
 

@@ -1,5 +1,6 @@
 package com.grihail.minepapers.item;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -116,14 +117,34 @@ public class ItemPictureFrame extends Item {
         lines.add(Component.translatable("minepapers.tooltip.size", fmt(s.getWidthBlocks()), fmt(s.getHeightBlocks()))
             .append(", ").append(Component.translatable("minepapers.gui.mode." + s.mode))
             .withStyle(ChatFormatting.GRAY));
-        ItemStack border = borderStack(s.borderItem);
-        if (border != null) {
-            lines.add(Component.translatable("minepapers.tooltip.border", border.getHoverName())
-                .withStyle(ChatFormatting.GRAY));
+        material(lines, s.border, "minepapers.tooltip.border");
+        material(lines, s.canvas, "minepapers.tooltip.canvas");
+        int glow = s.glowLevel();
+        if (PictureFrame.isGlowDust(s.glow.stack())) {
+            lines.add(Component.translatable("minepapers.tooltip.glow.self").withStyle(ChatFormatting.GRAY));
+        } else if (glow > 0) {
+            lines.add(Component.translatable("minepapers.tooltip.glow", glow).withStyle(ChatFormatting.GRAY));
         }
     }
 
-    /** Предмет, с которого взята текстура рамки, или null. */
+    private static void material(List<Component> lines, PictureFrame.Material m, String key) {
+        ItemStack stack = borderStack(m.item);
+        if (stack != null) lines.add(Component.translatable(key, stack.getHoverName()).withStyle(ChatFormatting.GRAY));
+    }
+
+    /** Блоки из слотов материалов (рамка, холст), лежащие в картине-предмете. */
+    public static List<ItemStack> storedMaterials(ItemStack stack) {
+        List<ItemStack> stored = new ArrayList<ItemStack>();
+        CompoundTag settings = stack.is(MinePapers.FRAME.get()) ? settings(stack) : null;
+        if (settings == null) return stored;
+        for (PictureFrame.Material m : new PictureFrame().materials()) {
+            m.read(settings);
+            if (!m.stack().isEmpty()) stored.add(m.stack().copy());
+        }
+        return stored;
+    }
+
+    /** Предмет, с которого взята текстура материала (рамки или холста), или null. */
     public static ItemStack borderStack(String itemId) {
         if (itemId == null || itemId.isEmpty()) return null;
         ResourceLocation id = ResourceLocation.tryParse(itemId);
