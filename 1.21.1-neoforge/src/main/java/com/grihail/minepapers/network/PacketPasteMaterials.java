@@ -22,7 +22,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов. Сервер берёт их из инвентаря игрока (прежние возвращает), а чего нет — перечисляет в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить. */
+/** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов. Сервер берёт их из инвентаря игрока (прежние возвращает), в творческом режиме недостающие создаёт, а чего нет — перечисляет в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить. */
 public record PacketPasteMaterials(int entityId, CompoundTag materials) implements CustomPacketPayload {
 
     public static final Type<PacketPasteMaterials> TYPE = new Type<>(MinePapers.id("paste_materials"));
@@ -65,6 +65,7 @@ public record PacketPasteMaterials(int entityId, CompoundTag materials) implemen
             }
             if (matches(current, id)) continue;
             ItemStack taken = take(player, m, id);
+            if (taken.isEmpty() && player.isCreative()) taken = create(m, id);
             if (taken.isEmpty()) {
                 Component name = name(id);
                 missing = missing == null ? name.copy() : missing.append(", ").append(name);
@@ -91,6 +92,15 @@ public record PacketPasteMaterials(int entityId, CompoundTag materials) implemen
             if (matches(stack, id) && m.accepts(stack)) return inv.removeItem(s, 1);
         }
         return ItemStack.EMPTY;
+    }
+
+    /** В творческом режиме недостающий предмет берётся из ниоткуда, как из творческого инвентаря (пусто — нет такого или слот его не примет). */
+    private static ItemStack create(PictureFrame.Material m, String id) {
+        ResourceLocation key = ResourceLocation.tryParse(id);
+        Item item = key != null ? BuiltInRegistries.ITEM.getOptional(key).orElse(null) : null;
+        if (item == null) return ItemStack.EMPTY;
+        ItemStack stack = new ItemStack(item);
+        return m.accepts(stack) ? stack : ItemStack.EMPTY;
     }
 
     private static void giveBack(ServerPlayer player, ItemStack stack) {

@@ -19,7 +19,7 @@ import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 
-/** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов. Сервер берёт их из инвентаря игрока (прежние возвращает), а чего нет — перечисляет в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить; meta — в ключе + "Meta" (-1 — любые). */
+/** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов. Сервер берёт их из инвентаря игрока (прежние возвращает), в творческом режиме недостающие создаёт, а чего нет — перечисляет в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить; meta — в ключе + "Meta" (-1 — любые). */
 public class PacketPasteMaterials implements IMessage {
 
     private int entityId;
@@ -68,6 +68,7 @@ public class PacketPasteMaterials implements IMessage {
             }
             if (matches(m.stack, id, meta)) continue;
             ItemStack taken = take(player, m, id, meta);
+            if (taken == null && player.capabilities.isCreativeMode) taken = create(m, id, meta);
             if (taken == null) {
                 IChatComponent name = name(id, meta);
                 if (missing == null) {
@@ -104,6 +105,14 @@ public class PacketPasteMaterials implements IMessage {
             }
         }
         return null;
+    }
+
+    /** В творческом режиме недостающий предмет берётся из ниоткуда, как из творческого инвентаря (null — нет такого или слот его не примет). */
+    private static ItemStack create(PictureFrame.Material m, String id, int meta) {
+        Item item = (Item) Item.itemRegistry.getObject(id);
+        if (item == null) return null;
+        ItemStack stack = new ItemStack(item, 1, Math.max(meta, 0));
+        return m.accepts(stack) ? stack : null;
     }
 
     private static void giveBack(EntityPlayerMP player, ItemStack stack) {
