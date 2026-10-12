@@ -43,6 +43,8 @@
   "minepapers.gui.height": "Height (0 = from picture proportions)",
   "minepapers.gui.shift.x": "Offset to the right of the clicked block",
   "minepapers.gui.shift.y": "Offset up from the clicked block",
+  "minepapers.gui.padding": "Padding:",
+  "minepapers.gui.padding.tip": "Gap between the image and the canvas edges, on all sides",
   "minepapers.gui.pixels": "px",
   "minepapers.gui.pixels.tip": "Checked - values are in pixels (1/16 block).\\nUnchecked - in blocks.\\nThe picture size is also its hitbox.",
   "minepapers.gui.fit": "Fit (from center):",

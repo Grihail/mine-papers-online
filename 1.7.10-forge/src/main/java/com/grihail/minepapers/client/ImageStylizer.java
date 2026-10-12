@@ -29,25 +29,30 @@ public final class ImageStylizer {
     /** Параметры, от которых зависит итоговая текстура. */
     public static final class Layout {
         final double canvasW, canvasH;
+        /** Внутренний отступ картинки от краёв холста, в блоках. */
+        final double padding;
         /** ppb — пикселей текстуры на блок; naturalPpb — для режимов none / scale-down (у картины в мире они равны). */
         final double ppb, naturalPpb;
         final int fit, style;
         final String key;
 
-        Layout(double canvasW, double canvasH, int fit, double ppb, double naturalPpb, int style) {
+        Layout(double canvasW, double canvasH, double padding, int fit, double ppb, double naturalPpb, int style) {
             this.canvasW = canvasW;
             this.canvasH = canvasH;
+            this.padding = padding;
             this.fit = fit;
             this.ppb = ppb;
             this.naturalPpb = naturalPpb;
             this.style = style;
-            this.key = String.format(Locale.ROOT, "%.4f|%.4f|%d|%.4f|%.4f|%d", canvasW, canvasH, fit, ppb, naturalPpb, style);
+            this.key = String.format(Locale.ROOT, "%.4f|%.4f|%.4f|%d|%.4f|%.4f|%d", canvasW, canvasH, padding, fit, ppb,
+                naturalPpb, style);
         }
 
         /** Та же картина, уменьшенная так, что большая сторона холста — iconPixels пикселей (для иконки предмета). */
         public static Layout icon(PictureFrame tile, int iconPixels) {
             double w = tile.getWidthBlocks(), h = tile.getHeightBlocks();
-            return new Layout(w, h, tile.fitMode, iconPixels / Math.max(w, h), tile.pixelsPerBlock, tile.style);
+            return new Layout(w, h, tile.getPaddingBlocks(), tile.fitMode, iconPixels / Math.max(w, h), tile.pixelsPerBlock,
+                tile.style);
         }
 
         /** Размер холста в блоках: 0 по одной из сторон = подобрать по пропорциям картинки. */
@@ -58,7 +63,8 @@ public final class ImageStylizer {
             if (w <= 0 && h <= 0) w = 1;
             if (h <= 0) h = w * aspect;
             else if (w <= 0) w = h / aspect;
-            return new Layout(w, h, tile.fitMode, tile.pixelsPerBlock, tile.pixelsPerBlock, tile.style);
+            return new Layout(w, h, tile.getPaddingBlocks(), tile.fitMode, tile.pixelsPerBlock, tile.pixelsPerBlock,
+                tile.style);
         }
     }
 
@@ -73,7 +79,13 @@ public final class ImageStylizer {
     /** @param src    пиксели исходника (ARGB), возможно уже уменьшенного @param origW  исходная ширина картинки до уменьшения — нужна для режимов none / scale-down */
     public static Result process(int[] src, int srcW, int srcH, int origW, int origH, Layout l) {
         Result res = new Result();
-        double canvasW = l.canvasW, canvasH = l.canvasH;
+        // Картинка вписывается в холст за вычетом отступа; в конце сдвигаем её обратно на отступ.
+        double pad = l.padding;
+        double canvasW = l.canvasW - 2 * pad, canvasH = l.canvasH - 2 * pad;
+        if (canvasW < 1e-6 || canvasH < 1e-6) {
+            res.empty = true;
+            return res;
+        }
 
         // 1. Размер картинки на холсте (в блоках) по правилам object-fit. Для none "исходный размер" = 1 пиксель картинки на 1 пиксель стилизации.
         double natural = 1.0 / l.naturalPpb;
@@ -148,10 +160,10 @@ public final class ImageStylizer {
         res.pixels = out;
         res.width = outW;
         res.height = outH;
-        res.x0 = (float) vx0;
-        res.y0 = (float) vy0;
-        res.x1 = (float) vx1;
-        res.y1 = (float) vy1;
+        res.x0 = (float) (pad + vx0);
+        res.y0 = (float) (pad + vy0);
+        res.x1 = (float) (pad + vx1);
+        res.y1 = (float) (pad + vy1);
         return res;
     }
 

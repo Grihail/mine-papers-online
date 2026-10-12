@@ -34,6 +34,8 @@ public final class PictureConfig {
     public Boolean sizePixels;
     public Float offsetRight, offsetUp;
     public Boolean offsetPixels;
+    public Float padding;
+    public Boolean paddingPixels;
     public Integer fit, look, style, pixelsPerBlock;
 
     /** Предмет материала: id в реестре и (только для 1.7.10) метаданные; meta < 0 — любые. */
@@ -76,6 +78,11 @@ public final class PictureConfig {
         if (offsetUp != null) offset.addProperty("up", number(offsetUp));
         if (offsetPixels != null) offset.addProperty("pixels", offsetPixels);
         root.add("offset", offset);
+
+        JsonObject pad = new JsonObject();
+        if (padding != null) pad.addProperty("size", number(padding));
+        if (paddingPixels != null) pad.addProperty("pixels", paddingPixels);
+        root.add("padding", pad);
 
         if (fit != null) root.addProperty("fit", name(FITS, fit));
         if (look != null) root.addProperty("look", name(LOOKS, look));
@@ -144,6 +151,11 @@ public final class PictureConfig {
                 c.offsetRight = decimal(offset, "right");
                 c.offsetUp = decimal(offset, "up");
                 c.offsetPixels = bool(offset, "pixels");
+            }
+            JsonObject pad = object(root, "padding");
+            if (pad != null) {
+                c.padding = decimal(pad, "size");
+                c.paddingPixels = bool(pad, "pixels");
             }
             c.fit = value(root, "fit", FITS);
             c.look = value(root, "look", LOOKS);

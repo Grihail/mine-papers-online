@@ -41,7 +41,7 @@ public class GuiPictureFrame extends GuiContainer {
     /** id кнопок: вкладки — 0..3, группы переключателей — начало группы + значение. */
     private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_MODE = 30, ID_STYLE = 40,
         ID_PREV = 50, ID_NEXT = 51, ID_FOLDER = 52, ID_RELOAD = 53, ID_SIZE_PX = 54, ID_POS_PX = 55,
-        ID_COPY = 56, ID_PASTE = 57;
+        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58;
 
     /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
     private static final int WIDTH = 176,
@@ -55,7 +55,7 @@ public class GuiPictureFrame extends GuiContainer {
 
     private int tab = lastTab;
     private int source, fitMode, style, mode;
-    private boolean sizePx, posPx;
+    private boolean sizePx, posPx, padPx;
 
     private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
     private final List<GuiWidgets.Radio> radios = new ArrayList<GuiWidgets.Radio>();
@@ -67,9 +67,9 @@ public class GuiPictureFrame extends GuiContainer {
     /** Вкладка, на которой лежит кнопка (у самих вкладок записи нет — они видны всегда). */
     private final Map<GuiButton, Integer> buttonTab = new HashMap<GuiButton, Integer>();
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
-    private GuiWidgets.Check cbSizePx, cbPosPx;
+    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx;
 
-    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPpb;
+    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fPpb;
     private final List<GuiTextField> fields = new ArrayList<GuiTextField>();
     /** Поле -> {вкладка, x, y, ширина, высота}: видимость и подсказки при наведении. */
     private final Map<GuiTextField, int[]> fieldRect = new HashMap<GuiTextField, int[]>();
@@ -86,6 +86,7 @@ public class GuiPictureFrame extends GuiContainer {
         this.mode = tile.mode;
         this.sizePx = tile.sizeInPixels;
         this.posPx = tile.offsetInPixels;
+        this.padPx = tile.paddingInPixels;
         this.xSize = WIDTH;
         this.ySize = HEIGHT;
     }
@@ -145,6 +146,8 @@ public class GuiPictureFrame extends GuiContainer {
         fOffX = field(TAB_SIZE, x + 9, y + 61, 40, 10, fmt(tile.offsetX));
         fOffY = field(TAB_SIZE, x + 63, y + 61, 40, 10, fmt(tile.offsetY));
         cbPosPx = check(TAB_SIZE, ID_POS_PX, x + 112, y + 62, posPx);
+        fPad = field(TAB_SIZE, x + 9, y + 91, 40, 10, fmt(tile.padding));
+        cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + 112, y + 92, padPx);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
             // Внизу вкладки, над инвентарём
             fitButtons.add(add(new GuiWidgets.Toggle(ID_FIT + i, x + 8 + i * 22, y + 128, i * 16, GuiWidgets.FIT_ICON_V),
@@ -227,6 +230,7 @@ public class GuiPictureFrame extends GuiContainer {
         }
         cbSizePx.checked = sizePx;
         cbPosPx.checked = posPx;
+        cbPadPx.checked = padPx;
         for (GuiTextField f : fields) {
             if (!isActive(f)) f.setFocused(false);
         }
@@ -296,6 +300,10 @@ public class GuiPictureFrame extends GuiContainer {
                     posPx = !posPx;
                     convert(fOffX, posPx);
                     convert(fOffY, posPx);
+                    break;
+                case ID_PAD_PX:
+                    padPx = !padPx;
+                    convert(fPad, padPx);
                     break;
             }
         }
@@ -367,6 +375,8 @@ public class GuiPictureFrame extends GuiContainer {
         c.offsetRight = parse(fOffX.getText());
         c.offsetUp = parse(fOffY.getText());
         c.offsetPixels = posPx;
+        c.padding = parse(fPad.getText());
+        c.paddingPixels = padPx;
         c.fit = fitMode;
         c.look = mode;
         c.style = style;
@@ -399,6 +409,8 @@ public class GuiPictureFrame extends GuiContainer {
         if (c.offsetPixels != null) posPx = c.offsetPixels;
         if (c.offsetRight != null) fOffX.setText(fmt(c.offsetRight));
         if (c.offsetUp != null) fOffY.setText(fmt(c.offsetUp));
+        if (c.paddingPixels != null) padPx = c.paddingPixels;
+        if (c.padding != null) fPad.setText(fmt(c.padding));
         if (c.fit != null) fitMode = c.fit;
         if (c.look != null) mode = c.look;
         if (c.style != null) style = c.style;
@@ -441,6 +453,8 @@ public class GuiPictureFrame extends GuiContainer {
         tile.offsetInPixels = posPx;
         tile.offsetX = orDefault(parse(fOffX.getText()), tile.offsetX);
         tile.offsetY = orDefault(parse(fOffY.getText()), tile.offsetY);
+        tile.paddingInPixels = padPx;
+        tile.padding = orDefault(parse(fPad.getText()), tile.padding);
         tile.fitMode = fitMode;
         tile.style = style;
         tile.mode = mode;
@@ -666,6 +680,7 @@ public class GuiPictureFrame extends GuiContainer {
                 text(I18n.format("minepapers.gui.size"), 8, 18, GuiWidgets.TEXT);
                 text("x", 53, 33, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.offset"), 8, 48, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.padding"), 8, 78, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.fit"), 8, 117, GuiWidgets.TEXT);
                 break;
             case TAB_STYLE:
@@ -751,7 +766,7 @@ public class GuiPictureFrame extends GuiContainer {
             titledTooltip("minepapers.gui.copy", "minepapers.gui.copy.tip", mouseX, mouseY);
         } else if (btnPaste.hovered()) {
             titledTooltip("minepapers.gui.paste", "minepapers.gui.paste.tip", mouseX, mouseY);
-        } else if (cbSizePx.hovered() || cbPosPx.hovered()) {
+        } else if (cbSizePx.hovered() || cbPosPx.hovered() || cbPadPx.hovered()) {
             tooltip("minepapers.gui.pixels.tip", mouseX, mouseY);
         } else if (tab == TAB_SIZE && over(fWidth, mouseX, mouseY)) {
             tooltip("minepapers.gui.width", mouseX, mouseY);
@@ -761,6 +776,8 @@ public class GuiPictureFrame extends GuiContainer {
             tooltip("minepapers.gui.shift.x", mouseX, mouseY);
         } else if (tab == TAB_SIZE && over(fOffY, mouseX, mouseY)) {
             tooltip("minepapers.gui.shift.y", mouseX, mouseY);
+        } else if (tab == TAB_SIZE && over(fPad, mouseX, mouseY)) {
+            tooltip("minepapers.gui.padding.tip", mouseX, mouseY);
         } else if (btnReload.hovered()) {
             tooltip("minepapers.gui.reload", mouseX, mouseY);
         } else if (tab == TAB_STYLE && over(fPpb, mouseX, mouseY)) {

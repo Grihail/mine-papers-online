@@ -93,6 +93,10 @@ public class PictureFrame {
     public float offsetY = 0f;
     public boolean offsetInPixels = false;
 
+    /** Внутренний отступ картинки от краёв холста (со всех сторон): в блоках или в пикселях. */
+    public float padding = 0f;
+    public boolean paddingInPixels = true;
+
     /** Как картинка вписывается в холст (масштабирование всегда от центра) */
     public int fitMode = FIT_COVER;
     /** Разрешение стилизации: пикселей картинки на один блок (128 = как карта, 16 = как ванильная картина) */
@@ -297,6 +301,13 @@ public class PictureFrame {
         return offsetInPixels ? offsetY / 16f : offsetY;
     }
 
+    /** Отступ в блоках; картинке остаётся хотя бы пиксель холста. */
+    public float getPaddingBlocks() {
+        float p = paddingInPixels ? padding / 16f : padding;
+        float max = (Math.min(getWidthBlocks(), getHeightBlocks()) - PIXEL) / 2;
+        return Math.max(0, Math.min(p, max));
+    }
+
     /** Толщина картины от стены (и её хитбокса). */
     public float getDepth() {
         switch (mode) {
@@ -339,6 +350,8 @@ public class PictureFrame {
         tag.putFloat("OX", offsetX);
         tag.putFloat("OY", offsetY);
         tag.putBoolean("PosPx", offsetInPixels);
+        tag.putFloat("Pad", padding);
+        tag.putBoolean("PadPx", paddingInPixels);
         tag.putByte("Fit", (byte) fitMode);
         tag.putShort("PPB", (short) pixelsPerBlock);
         tag.putByte("Style", (byte) style);
@@ -373,6 +386,9 @@ public class PictureFrame {
         float minY = (PIXEL - getHeightBlocks()) * offsetScale, maxY = (1 - PIXEL) * offsetScale;
         offsetX = clamp(tag.getFloat("OX"), minX, maxX);
         offsetY = clamp(tag.getFloat("OY"), minY, maxY);
+
+        paddingInPixels = !tag.contains("PadPx") || tag.getBoolean("PadPx");
+        padding = clamp(tag.getFloat("Pad"), 0, MAX_SIZE_BLOCKS / 2 * (paddingInPixels ? 16f : 1f));
 
         fitMode = tag.contains("Fit") ? range(tag.getByte("Fit"), 0, FIT_COUNT - 1) : FIT_COVER;
         pixelsPerBlock = tag.contains("PPB") ? range(tag.getShort("PPB"), MIN_PPB, MAX_PPB) : 128;

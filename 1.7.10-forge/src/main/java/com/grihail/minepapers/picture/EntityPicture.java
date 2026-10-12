@@ -222,7 +222,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         return true;
     }
 
-    /** Сломать: звук как у блока (без частиц: на больших картинах они тормозят), дроп — предмет с настройками. Только на сервере. */
+    /** Сломать: звук как у блока, дроп — предмет с настройками. Только на сервере. */
     public void breakPicture(boolean drop) {
         if (isDead) return;
         setDead();

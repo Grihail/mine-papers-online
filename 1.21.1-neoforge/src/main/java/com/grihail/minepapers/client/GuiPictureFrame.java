@@ -54,7 +54,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     private int tab = lastTab;
     private int source, fitMode, style, mode;
-    private boolean sizePx, posPx;
+    private boolean sizePx, posPx, padPx;
     private boolean saved;
 
     private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
@@ -66,11 +66,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Вкладка, на которой лежит виджет (у самих вкладок записи нет — они видны всегда). */
     private final Map<AbstractWidget, Integer> widgetTab = new HashMap<AbstractWidget, Integer>();
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
-    private GuiWidgets.Check cbSizePx, cbPosPx;
+    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx;
 
     /** Путь и ссылки — многострочные поля (текст переносится), остальное — обычные. */
     private MultiLineEditBox fPath, fUrl, fFolder, fImage;
-    private EditBox fInterval, fWidth, fHeight, fOffX, fOffY, fPpb;
+    private EditBox fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fPpb;
     /** Все поля по порядку: значения переживают пересоздание виджетов при изменении размера окна. */
     private final List<AbstractWidget> fields = new ArrayList<AbstractWidget>();
 
@@ -86,6 +86,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         this.mode = tile.mode;
         this.sizePx = tile.sizeInPixels;
         this.posPx = tile.offsetInPixels;
+        this.padPx = tile.paddingInPixels;
         this.imageWidth = WIDTH;
         this.imageHeight = HEIGHT;
         this.inventoryLabelY = imageHeight - 94;
@@ -159,6 +160,12 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             posPx = !posPx;
             convert(fOffX, posPx);
             convert(fOffY, posPx);
+            updateWidgets();
+        }), TAB_SIZE);
+        fPad = field(TAB_SIZE, x + 8, y + 90, 42, 10, fmt(tile.padding));
+        cbPadPx = add(new GuiWidgets.Check(x + 112, y + 92, Component.translatable("minepapers.gui.pixels"), padPx, () -> {
+            padPx = !padPx;
+            convert(fPad, padPx);
             updateWidgets();
         }), TAB_SIZE);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
@@ -273,6 +280,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         for (GuiWidgets.Radio r : styleRadios) r.checked = r.value == style;
         cbSizePx.checked = sizePx;
         cbPosPx.checked = posPx;
+        cbPadPx.checked = padPx;
         // Слоты материалов есть всегда (их содержимое синхронизирует сервер), но видны и кликаются только на своей вкладке.
         menu.showMaterials(tab == TAB_FRAME);
     }
@@ -354,6 +362,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         c.offsetRight = parse(fOffX.getValue());
         c.offsetUp = parse(fOffY.getValue());
         c.offsetPixels = posPx;
+        c.padding = parse(fPad.getValue());
+        c.paddingPixels = padPx;
         c.fit = fitMode;
         c.look = mode;
         c.style = style;
@@ -386,6 +396,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (c.offsetPixels != null) posPx = c.offsetPixels;
         if (c.offsetRight != null) fOffX.setValue(fmt(c.offsetRight));
         if (c.offsetUp != null) fOffY.setValue(fmt(c.offsetUp));
+        if (c.paddingPixels != null) padPx = c.paddingPixels;
+        if (c.padding != null) fPad.setValue(fmt(c.padding));
         if (c.fit != null) fitMode = c.fit;
         if (c.look != null) mode = c.look;
         if (c.style != null) style = c.style;
@@ -438,6 +450,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         tile.offsetInPixels = posPx;
         tile.offsetX = orDefault(parse(fOffX.getValue()), tile.offsetX);
         tile.offsetY = orDefault(parse(fOffY.getValue()), tile.offsetY);
+        tile.paddingInPixels = padPx;
+        tile.padding = orDefault(parse(fPad.getValue()), tile.padding);
         tile.fitMode = fitMode;
         tile.style = style;
         tile.mode = mode;
@@ -610,6 +624,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 text(g, I18n.get("minepapers.gui.size"), 8, 18);
                 text(g, "x", 53, 33);
                 text(g, I18n.get("minepapers.gui.offset"), 8, 48);
+                text(g, I18n.get("minepapers.gui.padding"), 8, 78);
                 text(g, I18n.get("minepapers.gui.fit"), 8, 116);
                 break;
             case TAB_STYLE:
@@ -683,7 +698,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             titledTooltip(g, "minepapers.gui.copy", "minepapers.gui.copy.tip", mouseX, mouseY);
         } else if (btnPaste.isHovered()) {
             titledTooltip(g, "minepapers.gui.paste", "minepapers.gui.paste.tip", mouseX, mouseY);
-        } else if ((cbSizePx.visible && cbSizePx.isHovered()) || (cbPosPx.visible && cbPosPx.isHovered())) {
+        } else if (hovered(cbSizePx) || hovered(cbPosPx) || hovered(cbPadPx)) {
             tooltip(g, "minepapers.gui.pixels.tip", mouseX, mouseY);
         } else if (btnReload.visible && btnReload.isHovered()) {
             tooltip(g, "minepapers.gui.reload", mouseX, mouseY);
@@ -695,6 +710,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             tooltip(g, "minepapers.gui.shift.x", mouseX, mouseY);
         } else if (hovered(fOffY)) {
             tooltip(g, "minepapers.gui.shift.y", mouseX, mouseY);
+        } else if (hovered(fPad)) {
+            tooltip(g, "minepapers.gui.padding.tip", mouseX, mouseY);
         } else if (hovered(fPpb)) {
             tooltip(g, "minepapers.gui.ppb.tip", mouseX, mouseY);
         }

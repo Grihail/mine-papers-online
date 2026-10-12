@@ -236,7 +236,7 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
         return true;
     }
 
-    /** Сломать: звук как у деревянного блока (без частиц: на больших картинах они тормозят), дроп — предмет с настройками. Только на сервере. */
+    /** Сломать: звук как у деревянного блока, дроп — предмет с настройками. Только на сервере. */
     public void breakPicture(boolean drop) {
         if (isRemoved() || !(level() instanceof ServerLevel server)) return;
         discard();

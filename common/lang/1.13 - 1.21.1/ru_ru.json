@@ -43,6 +43,8 @@
   "minepapers.gui.height": "Высота (0 = по пропорциям картинки)",
   "minepapers.gui.shift.x": "Сдвиг вправо от клетки, по которой кликнули",
   "minepapers.gui.shift.y": "Сдвиг вверх от клетки, по которой кликнули",
+  "minepapers.gui.padding": "Внутренний отступ:",
+  "minepapers.gui.padding.tip": "Отступ картинки от краёв холста, со всех сторон",
   "minepapers.gui.pixels": "пикс.",
   "minepapers.gui.pixels.tip": "Отмечено - значения в пикселях (1/16 блока).\\nСнято - в блоках.\\nРазмер картины - это и её хитбокс.",
   "minepapers.gui.fit": "Вписывание (от центра):",
