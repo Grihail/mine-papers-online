@@ -256,24 +256,31 @@ public final class ImageSync {
         }
     }
 
-    /** Небольшие png/jpg/gif отправляются как есть, остальное уменьшается до MAX_SIDE и пережимается: с прозрачностью — в PNG, без — в JPEG. Исходный размер записывается в заголовок (от него зависит вписывание). */
+    /** Небольшие png/jpg/gif отправляются как есть, остальное уменьшается до MAX_SIDE и пережимается: с прозрачностью — в PNG, без — в JPEG. Анимированный GIF при пережатии потерял бы анимацию, поэтому он отправляется как есть, пока помещается в лимит сервера (кадры уменьшит уже клиент). Исходный размер записывается в заголовок (от него зависит вписывание). */
     private static byte[] encode(File file) throws IOException {
         if (file.length() > PictureManager.MAX_DOWNLOAD_BYTES) throw new IOException("File is too large");
         byte[] bytes = Files.readAllBytes(file.toPath());
         int w, h;
         String format;
+        boolean animated;
         try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
             Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
             if (!readers.hasNext()) throw new IOException("Unsupported image format");
             ImageReader reader = readers.next();
             try {
-                reader.setInput(in, true, true);
-                w = reader.getWidth(0);
-                h = reader.getHeight(0);
+                reader.setInput(in, false, false);
+                animated = GifFrames.isAnimated(reader);
+                int[] size = animated ? GifFrames.screenSize(reader) : new int[] { reader.getWidth(0), reader.getHeight(0) };
+                w = size[0];
+                h = size[1];
                 format = reader.getFormatName().toLowerCase(Locale.ROOT);
             } finally {
                 reader.dispose();
             }
+        }
+
+        if (animated && bytes.length + SharedImage.HEADER_BYTES <= SharedImage.MAX_BYTES) {
+            return SharedImage.pack(w, h, bytes);
         }
 
         boolean webFormat = format.equals("png") || format.equals("jpeg") || format.equals("jpg")

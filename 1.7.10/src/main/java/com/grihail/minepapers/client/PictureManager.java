@@ -52,6 +52,11 @@ public final class PictureManager {
     private static final long EVICT_AFTER_MS = 30_000L;
     /** Исходник после декодирования сразу уменьшается до этого размера — больше для стилизации не нужно. */
     private static final int MAX_SOURCE_SIZE = 2048;
+    /** Кадры анимации: каждый не больше этого по большей стороне, а все вместе — не больше ANIMATION_PIXELS пикселей (кадров бывают сотни). */
+    private static final int MAX_ANIMATION_SIZE = 512;
+    private static final long ANIMATION_PIXELS = 16L * 1024 * 1024;
+    /** Готовые текстуры всех кадров одной картины вместе — не больше стольких пикселей: иначе показываем каждый k-й кадр. */
+    private static final long STYLED_PIXELS = 16L * 1024 * 1024;
     static final int MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024;
     private static final String USER_AGENT = MinePapers.NAME + "/" + MinePapers.VERSION;
     private static final String YANDEX_API = "https://cloud-api.yandex.net/v1/disk/public/resources";
@@ -95,7 +100,7 @@ public final class PictureManager {
             if (first == null) {
                 thumb.failed = !source.isLoading();
             } else if (first.request()) {
-                thumb.variant = first.newVariant(layout);
+                thumb.variant = first.newVariant(layout, true);
             } else {
                 thumb.failed = first.isFailed();
             }
@@ -331,7 +336,10 @@ public final class PictureManager {
         /** Картинка с сервера: загружать можно, только когда она скачана в кэш. */
         private final String sharedHash;
         private volatile int state = IDLE;
-        private volatile int[] pixels;
+        /** Пиксели кадров; у обычной картинки кадр один. */
+        private volatile int[][] frames;
+        /** Длительности кадров в мс (null, если кадр один). */
+        private volatile int[] delays;
         private volatile int srcW, srcH, origW, origH;
         private final Map<String, Variant> variants = new HashMap<String, Variant>();
         long lastUsed;
@@ -369,15 +377,13 @@ public final class PictureManager {
                     @Override
                     public void run() {
                         try {
-                            int[] size = new int[2];
-                            BufferedImage img = decode(loader.call(), size);
-                            img = limitSize(img, MAX_SOURCE_SIZE);
-                            int w = img.getWidth(), h = img.getHeight();
-                            pixels = img.getRGB(0, 0, w, h, null, 0, w);
-                            srcW = w;
-                            srcH = h;
-                            origW = size[0];
-                            origH = size[1];
+                            Decoded d = decodeFrames(loader.call());
+                            srcW = d.width;
+                            srcH = d.height;
+                            origW = d.origW;
+                            origH = d.origH;
+                            delays = d.delays;
+                            frames = d.frames;
                             state = READY;
                         } catch (Throwable t) {
                             LOG.warn("Не удалось загрузить картинку " + name + ": " + t);
@@ -393,7 +399,7 @@ public final class PictureManager {
         public Variant variant(final ImageStylizer.Layout layout) {
             Variant v = variants.get(layout.key);
             if (v == null) {
-                v = newVariant(layout);
+                v = newVariant(layout, false);
                 variants.put(layout.key, v);
             }
             lastUsed = v.lastUsed = System.currentTimeMillis();
@@ -401,19 +407,20 @@ public final class PictureManager {
             return v;
         }
 
-        /** Запускает стилизацию в фоне; вариант не запоминается в картинке (этим занимается вызывающий). */
-        Variant newVariant(final ImageStylizer.Layout layout) {
+        /** Запускает стилизацию в фоне; вариант не запоминается в картинке (этим занимается вызывающий). @param icon для иконки предмета: только первый кадр */
+        Variant newVariant(final ImageStylizer.Layout layout, boolean icon) {
             final Variant created = new Variant(this);
-            final int[] px = pixels;
+            final int[][] src = frames;
+            final int[] ms = icon ? null : delays;
             final int sw = srcW, sh = srcH, ow = origW, oh = origH;
-            if (px == null) {
+            if (src == null) {
                 created.failed = true;
             } else {
                 EXECUTOR.submit(new Runnable() {
                     @Override
                     public void run() {
                         try {
-                            created.result = ImageStylizer.process(px, sw, sh, ow, oh, layout);
+                            created.result = Styled.of(src, ms, sw, sh, ow, oh, layout);
                         } catch (Throwable t) {
                             LOG.warn("Не удалось обработать картинку " + name, t);
                             created.failed = true;
@@ -445,18 +452,51 @@ public final class PictureManager {
             for (Variant v : variants.values()) v.release();
             variants.clear();
             if (state == READY) {
-                pixels = null;
+                frames = null;
+                delays = null;
                 state = IDLE;
             }
         }
     }
 
-    /** Готовая текстура и прямоугольник на холсте (в блоках от левого нижнего угла холста). */
+    /** Стилизованные кадры одного варианта: у всех один размер и одно место на холсте. */
+    static final class Styled {
+        ImageStylizer.Result[] frames;
+        /** Длительности кадров в мс (null, если кадр один). */
+        int[] delays;
+
+        /** @param delays длительности кадров или null — тогда берётся только первый кадр */
+        static Styled of(int[][] src, int[] delays, int sw, int sh, int ow, int oh, ImageStylizer.Layout layout) {
+            ImageStylizer.Result first = ImageStylizer.process(src[0], sw, sh, ow, oh, layout);
+            int n = delays == null || first.empty ? 1 : src.length;
+            // Текстуры всех кадров вместе — не больше STYLED_PIXELS: иначе берём каждый k-й кадр, он длится за всех пропущенных.
+            int step = n == 1 ? 1 : (int) Math.max(1, Math.ceil((double) n * first.width * first.height / STYLED_PIXELS));
+            List<ImageStylizer.Result> out = new ArrayList<ImageStylizer.Result>();
+            List<Integer> times = new ArrayList<Integer>();
+            for (int i = 0; i < n; i += step) {
+                out.add(i == 0 ? first : ImageStylizer.process(src[i], sw, sh, ow, oh, layout));
+                int t = 0;
+                for (int j = i; j < Math.min(n, i + step); j++) t += delays == null ? 0 : delays[j];
+                times.add(t);
+            }
+            Styled s = new Styled();
+            s.frames = out.toArray(new ImageStylizer.Result[0]);
+            if (s.frames.length > 1) {
+                s.delays = new int[times.size()];
+                for (int i = 0; i < s.delays.length; i++) s.delays[i] = times.get(i);
+            }
+            return s;
+        }
+    }
+
+    /** Готовые текстуры (по одной на кадр) и прямоугольник на холсте (в блоках от левого нижнего угла холста). */
     public static final class Variant {
         private final Picture owner;
-        volatile ImageStylizer.Result result;
+        volatile Styled result;
         volatile boolean failed;
-        private int textureId = -1;
+        private int[] textureIds;
+        /** Момент конца каждого кадра от начала анимации, мс (null, если кадр один). */
+        private int[] frameEnds;
         private boolean empty;
         public float x0, y0, x1, y1;
         /** Размер текстуры в пикселях. */
@@ -469,15 +509,25 @@ public final class PictureManager {
 
         /** Готово к показу (в т.ч. "пусто" — когда картинка целиком вне холста). */
         public boolean isReady() {
-            return textureId != -1 || empty;
+            return textureIds != null || empty;
         }
 
         public boolean hasTexture() {
-            return textureId != -1;
+            return textureIds != null;
         }
 
+        /** Первый кадр. */
         public int getTextureId() {
-            return textureId;
+            return textureIds[0];
+        }
+
+        /** Кадр анимации в момент timeMs (анимация идёт по кругу); у обычной картинки — единственный кадр. */
+        public int getTextureId(long timeMs) {
+            if (frameEnds == null) return textureIds[0];
+            long t = Math.floorMod(timeMs, (long) frameEnds[frameEnds.length - 1]);
+            int i = 0;
+            while (t >= frameEnds[i]) i++;
+            return textureIds[i];
         }
 
         public void touch() {
@@ -485,31 +535,44 @@ public final class PictureManager {
         }
 
         void upload() {
-            ImageStylizer.Result r = result;
-            if (r == null || textureId != -1 || empty) return;
+            Styled s = result;
+            if (s == null || textureIds != null || empty) return;
             result = null;
-            x0 = r.x0;
-            y0 = r.y0;
-            x1 = r.x1;
-            y1 = r.y1;
-            if (r.empty) {
+            ImageStylizer.Result first = s.frames[0];
+            x0 = first.x0;
+            y0 = first.y0;
+            x1 = first.x1;
+            y1 = first.y1;
+            if (first.empty) {
                 empty = true;
                 return;
             }
-            width = r.width;
-            height = r.height;
+            width = first.width;
+            height = first.height;
+            int[] ids = new int[s.frames.length];
+            for (int i = 0; i < ids.length; i++) ids[i] = uploadFrame(s.frames[i]);
+            if (s.delays != null) {
+                frameEnds = new int[s.delays.length];
+                int end = 0;
+                for (int i = 0; i < frameEnds.length; i++) frameEnds[i] = end += s.delays[i];
+            }
+            textureIds = ids;
+        }
+
+        private static int uploadFrame(ImageStylizer.Result r) {
             BufferedImage img = new BufferedImage(r.width, r.height, BufferedImage.TYPE_INT_ARGB);
             img.setRGB(0, 0, r.width, r.height, r.pixels, 0, r.width);
             int id = GL11.glGenTextures();
             // blur = false: чёткие пиксели, как у карт и картин
             TextureUtil.uploadTextureImageAllocate(id, img, false, true);
-            textureId = id;
+            return id;
         }
 
         void release() {
-            if (textureId != -1) {
-                GL11.glDeleteTextures(textureId);
-                textureId = -1;
+            if (textureIds != null) {
+                for (int id : textureIds) GL11.glDeleteTextures(id);
+                textureIds = null;
+                frameEnds = null;
             }
             empty = false;
         }
@@ -591,8 +654,72 @@ public final class PictureManager {
         });
     }
 
-    /** Распаковывает картинку. Огромные изображения (например 7000x5000) читаются сразу прореженными, чтобы не держать в памяти сотни мегабайт ради текстуры, которая всё равно будет маленькой. @param origSize сюда записывается исходный размер {ширина, высота} */
+    /** Распакованная картинка для показа: один кадр или кадры анимации. */
+    static final class Decoded {
+        int[][] frames;
+        /** Длительности кадров в мс (null, если кадр один). */
+        int[] delays;
+        int width, height, origW, origH;
+    }
+
+    /** Картинка для показа: исходник уменьшен до MAX_SOURCE_SIZE, у анимированного GIF — все кадры (см. GifFrames). */
+    static Decoded decodeFrames(Object input) throws IOException {
+        final int[] size = new int[2];
+        Decoded d = withReader(input, size, new ReaderTask<Decoded>() {
+            @Override
+            public Decoded run(ImageReader reader) throws IOException {
+                Decoded r = new Decoded();
+                if (GifFrames.isAnimated(reader)) {
+                    GifFrames.Animation a = GifFrames.read(reader, MAX_ANIMATION_SIZE, ANIMATION_PIXELS);
+                    r.frames = a.frames.toArray(new int[0][]);
+                    r.delays = new int[a.delays.size()];
+                    for (int i = 0; i < r.delays.length; i++) r.delays[i] = a.delays.get(i);
+                    r.width = a.width;
+                    r.height = a.height;
+                    size[0] = a.origW;
+                    size[1] = a.origH;
+                } else {
+                    BufferedImage img = limitSize(readFirst(reader), MAX_SOURCE_SIZE);
+                    r.width = img.getWidth();
+                    r.height = img.getHeight();
+                    r.frames = new int[][] { img.getRGB(0, 0, r.width, r.height, null, 0, r.width) };
+                }
+                return r;
+            }
+        });
+        d.origW = size[0];
+        d.origH = size[1];
+        return d;
+    }
+
+    /** Первый (или единственный) кадр картинки. @param origSize сюда записывается исходный размер {ширина, высота} */
     static BufferedImage decode(Object input, int[] origSize) throws IOException {
+        return withReader(input, origSize, new ReaderTask<BufferedImage>() {
+            @Override
+            public BufferedImage run(ImageReader reader) throws IOException {
+                return readFirst(reader);
+            }
+        });
+    }
+
+    /** Огромные изображения (например 7000x5000) читаются сразу прореженными, чтобы не держать в памяти сотни мегабайт ради текстуры, которая всё равно будет маленькой. */
+    private static BufferedImage readFirst(ImageReader reader) throws IOException {
+        int w = reader.getWidth(0), h = reader.getHeight(0);
+        ImageReadParam param = reader.getDefaultReadParam();
+        // Прореживаем так, чтобы осталось не меньше MAX_SOURCE_SIZE — дальше аккуратно уменьшит limitSize.
+        int step = Math.max(w, h) / MAX_SOURCE_SIZE;
+        if (step > 1) param.setSourceSubsampling(step, step, 0, 0);
+        BufferedImage img = reader.read(0, param);
+        if (img == null) throw new IOException("Unsupported image format");
+        return img;
+    }
+
+    private interface ReaderTask<T> {
+        T run(ImageReader reader) throws IOException;
+    }
+
+    /** Открывает картинку — файл или байты (в т.ч. с заголовком SharedImage) — и отдаёт читатель задаче. Читатель открыт с метаданными и возможностью вернуться назад: без этого не прочитать кадры GIF. @param origSize сюда записывается исходный размер {ширина, высота}; задача может его уточнить */
+    private static <T> T withReader(Object input, int[] origSize, ReaderTask<T> task) throws IOException {
         int[] header = null;
         if (input instanceof byte[]) {
             byte[] bytes = (byte[]) input;
@@ -607,22 +734,16 @@ public final class PictureManager {
             if (!readers.hasNext()) throw new IOException("Unsupported image format");
             ImageReader reader = readers.next();
             try {
-                reader.setInput(in, true, true);
-                int w = reader.getWidth(0), h = reader.getHeight(0);
-                origSize[0] = w;
-                origSize[1] = h;
-                ImageReadParam param = reader.getDefaultReadParam();
-                // Прореживаем так, чтобы осталось не меньше MAX_SOURCE_SIZE — дальше аккуратно уменьшит limitSize.
-                int step = Math.max(w, h) / MAX_SOURCE_SIZE;
-                if (step > 1) param.setSourceSubsampling(step, step, 0, 0);
-                BufferedImage img = reader.read(0, param);
-                if (img == null) throw new IOException("Unsupported image format");
+                reader.setInput(in, false, false);
+                origSize[0] = reader.getWidth(0);
+                origSize[1] = reader.getHeight(0);
+                T result = task.run(reader);
                 // Картинку с сервера могли уменьшить перед отправкой — вписывание считаем по исходному размеру.
                 if (header != null && header[0] > 0 && header[1] > 0) {
                     origSize[0] = header[0];
                     origSize[1] = header[1];
                 }
-                return img;
+                return result;
             } finally {
                 reader.dispose();
             }

@@ -111,8 +111,9 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         if (hasPicture) {
             boolean decal = mode == PictureFrame.MODE_DECAL;
             double d = decal ? DECAL_DEPTH : plate ? PX : PX + 0.002;
-            out = buffers.getBuffer(decal ? PictureRenderTypes.decal(shown.getTexture())
-                : RenderType.entityTranslucent(shown.getTexture()));
+            // Кадр анимации — по игровому времени: у всех игроков одинаковый, как и слайд.
+            ResourceLocation texture = shown.getTexture((long) ((level.getGameTime() + partialTick) * 50));
+            out = buffers.getBuffer(decal ? PictureRenderTypes.decal(texture) : RenderType.entityTranslucent(texture));
             setTint(1f, 1f, 1f);
             double pu0 = u0 + shown.x0, pv0 = v0 + shown.y0, pu1 = u0 + shown.x1, pv1 = v0 + shown.y1;
             picture(pu0, pv0, pu1, pv1, d);
