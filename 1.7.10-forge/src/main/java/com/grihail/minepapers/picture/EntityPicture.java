@@ -19,7 +19,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.DamageSource;
-import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
 
@@ -223,12 +222,13 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         return true;
     }
 
-    /** Сломать: звук и частицы как у блока, дроп — предмет с настройками. Только на сервере. */
+    /** Сломать: звук как у блока (без частиц: на больших картинах они тормозят), дроп — предмет с настройками. Только на сервере. */
     public void breakPicture(boolean drop) {
         if (isDead) return;
         setDead();
-        worldObj.playAuxSFX(2001, MathHelper.floor_double(posX), MathHelper.floor_double(posY),
-            MathHelper.floor_double(posZ), Block.getIdFromBlock(MinePapers.frame));
+        Block.SoundType sound = MinePapers.frame.stepSound;
+        worldObj.playSoundEffect(posX, posY, posZ, sound.getBreakSound(),
+            (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
         if (drop && worldObj.getGameRules().getGameRuleBooleanValue("doTileDrops")) {
             entityDropItem(BlockPictureFrame.makeStack(frame), 0f);
         }

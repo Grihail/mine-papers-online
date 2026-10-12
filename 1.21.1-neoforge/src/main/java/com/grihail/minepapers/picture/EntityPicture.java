@@ -9,8 +9,6 @@ import com.grihail.minepapers.network.PacketBreakPicture;
 import com.grihail.minepapers.network.PacketOpenFrame;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ItemParticleOption;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -238,13 +236,10 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
         return true;
     }
 
-    /** Сломать: звук и частицы как у деревянного блока, дроп — предмет с настройками. Только на сервере. */
+    /** Сломать: звук как у деревянного блока (без частиц: на больших картинах они тормозят), дроп — предмет с настройками. Только на сервере. */
     public void breakPicture(boolean drop) {
         if (isRemoved() || !(level() instanceof ServerLevel server)) return;
         discard();
-        AABB box = getBoundingBox();
-        server.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(MinePapers.FRAME.get())),
-            getX(), getY(), getZ(), 24, box.getXsize() / 4, box.getYsize() / 4, box.getZsize() / 4, 0.05);
         SoundType sound = SoundType.WOOD;
         server.playSound(null, getX(), getY(), getZ(), sound.getBreakSound(), SoundSource.BLOCKS,
             (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
