@@ -1,7 +1,5 @@
 package com.grihail.minepapers.client;
 
-import java.util.Optional;
-
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.network.PacketBreakPicture;
@@ -13,12 +11,12 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.phys.AABB;
@@ -41,7 +39,7 @@ public class PictureControls {
 
     // ---------- Куда смотрит игрок ----------
 
-    /** Ближайшая картина на луче взгляда в пределах досягаемости блоков, если перед ней нет блока. Ванильный выбор цели дотягивается до сущностей только на 3 блока. */
+    /** Ближайшая картина на луче взгляда в пределах досягаемости блоков, если перед ней нет блока. Ванильный выбор цели дотягивается до сущностей только на 3 блока. Поиск и расстояния — только ванильными методами (ProjectileUtil, HitResult.distanceTo): моды, которые переносят блоки и сущности в свои координаты (движущиеся конструкции), поправляют именно их. */
     static EntityHitResult pick(float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         Entity view = mc.getCameraEntity();
@@ -49,32 +47,21 @@ public class PictureControls {
         double reach = mc.player.blockInteractionRange();
         Vec3 eye = view.getEyePosition(partialTick);
         Vec3 look = view.getViewVector(partialTick);
-        Vec3 end = eye.add(look.scale(reach));
-        HitResult block = view.pick(reach, partialTick, false);
-        double nearest = block.getType() == HitResult.Type.BLOCK ? block.getLocation().distanceTo(eye) : reach;
-
-        EntityPicture best = null;
-        Vec3 bestHit = null;
         AABB search = view.getBoundingBox().expandTowards(look.scale(reach)).inflate(1 + FrameGeometry.SEARCH_MARGIN);
-        for (EntityPicture picture : mc.level.getEntitiesOfClass(EntityPicture.class, search)) {
-            if (picture.isRemoved()) continue;
-            AABB box = picture.getBoundingBox();
-            if (box.contains(eye)) {
-                best = picture;
-                bestHit = eye;
-                nearest = 0;
-                continue;
-            }
-            Optional<Vec3> hit = box.clip(eye, end);
-            if (hit.isEmpty()) continue;
-            double dist = eye.distanceTo(hit.get());
-            if (dist < nearest) {
-                best = picture;
-                bestHit = hit.get();
-                nearest = dist;
-            }
-        }
-        return best == null ? null : new EntityHitResult(best, bestHit);
+        EntityHitResult hit = ProjectileUtil.getEntityHitResult(view, eye, eye.add(look.scale(reach)), search,
+            e -> e instanceof EntityPicture && !e.isRemoved(), reach * reach);
+        if (hit == null) return null;
+        // Картина за блоком недоступна. Обе точки лежат на одном луче, поэтому сравнивать можно и от позиции сущности.
+        HitResult block = view.pick(reach, partialTick, false);
+        if (block.getType() == HitResult.Type.BLOCK && block.distanceTo(view) < hit.distanceTo(view)) return null;
+        return hit;
+    }
+
+    /** Картина под прицелом в текущем кадре (считается до отрисовки сущностей). */
+    private static EntityPicture aimed;
+
+    static boolean isAimed(EntityPicture picture) {
+        return picture == aimed;
     }
 
     /** Клик мышью: подставляем картину, до которой ванильный выбор не дотянулся. Тогда ПКМ откроет настройки, колёсико даст копию. ЛКМ ванилью не обрабатываем — иначе она ломала бы блок за картиной: в выживании картину копает onClientTick, в творческом она ломается сразу. */
@@ -152,8 +139,7 @@ public class PictureControls {
     /** Перед блоком висит картина — ванильную обводку блока за ней не рисуем; иначе, с картиной в руке, — контур. */
     @SubscribeEvent
     public void onHighlightBlock(RenderHighlightEvent.Block event) {
-        float partialTick = event.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-        if (pick(partialTick) != null) {
+        if (aimed != null) {
             event.setCanceled(true);
             return;
         }
@@ -163,24 +149,23 @@ public class PictureControls {
         if (!stack.is(MinePapers.FRAME.get())) stack = mc.player.getOffhandItem();
         if (!stack.is(MinePapers.FRAME.get())) return;
         BlockHitResult target = event.getTarget();
+        Vec3 cam = event.getCamera().getPosition();
+        // Блок дальше, чем можно дотянуться: его координаты не мировые (движущиеся конструкции других модов хранят
+        // блоки в своей области и рисуют их со сдвигом и поворотом). Где он на экране, отсюда не узнать — контур не рисуем.
+        double far = mc.player.blockInteractionRange() + 2;
+        if (target.getBlockPos().getCenter().distanceToSqr(cam) > far * far) return;
         PictureFrame ghost = ItemPictureFrame.ghostAt(mc.level, target.getBlockPos(), target.getDirection(),
             mc.player.getYRot(), stack);
         boolean canPlace = !FrameGeometry.isBlocked(mc.level, ghost, null);
-        drawGhost(event.getPoseStack(), event.getMultiBufferSource(), event.getCamera().getPosition(), ghost, canPlace);
+        drawGhost(event.getPoseStack(), event.getMultiBufferSource(), cam, ghost, canPlace);
     }
 
-    /** Обводка хитбокса картины под прицелом — как у блоков. Здесь, а не в RenderHighlightEvent: его не бывает, если за картиной нет блока в пределах досягаемости. */
+    /** Картину под прицелом ищем один раз за кадр, до сущностей: её обводку рисует RenderPicture. */
     @SubscribeEvent
     public void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY) return;
         EntityHitResult hit = pick(event.getPartialTick().getGameTimeDeltaPartialTick(true));
-        if (hit == null) return;
-        Vec3 cam = event.getCamera().getPosition();
-        AABB box = FrameGeometry.canvasBox(((EntityPicture) hit.getEntity()).frame).inflate(0.002)
-            .move(-cam.x, -cam.y, -cam.z);
-        MultiBufferSource.BufferSource buffers = Minecraft.getInstance().renderBuffers().bufferSource();
-        LevelRenderer.renderLineBox(event.getPoseStack(), buffers.getBuffer(RenderType.lines()), box, 0f, 0f, 0f, 0.4f);
-        buffers.endBatch(RenderType.lines());
+        aimed = hit != null ? (EntityPicture) hit.getEntity() : null;
     }
 
     /** Контур будущей картины (он же её хитбокс); красный — если сюда поставить нельзя. Виден сквозь блоки. */

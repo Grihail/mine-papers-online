@@ -25,7 +25,6 @@ import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.SharedImage;
 import com.grihail.minepapers.picture.EntityPicture;
-import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.mojang.logging.LogUtils;
 
@@ -79,13 +78,12 @@ public final class ServerImages {
         dir = null;
     }
 
-    /** Настройки открывают кликом по любой части картины — проверяем расстояние до холста, а не до его центра. */
-    public static boolean canEdit(ServerPlayer player, PictureFrame frame) {
-        AABB box = FrameGeometry.canvasBox(frame);
-        double dx = Math.max(Math.max(box.minX - player.getX(), player.getX() - box.maxX), 0);
-        double dy = Math.max(Math.max(box.minY - player.getY(), player.getY() - box.maxY), 0);
-        double dz = Math.max(Math.max(box.minZ - player.getZ(), player.getZ() - box.maxZ), 0);
-        return dx * dx + dy * dy + dz * dz <= EDIT_DISTANCE * EDIT_DISTANCE;
+    /** Настройки открывают кликом по любой части картины — к расстоянию до центра добавляем полудиагональ холста. Расстояние — ванильным Entity.distanceToSqr: его поправляют моды, которые переносят картину в свои координаты (движущиеся конструкции). */
+    public static boolean canEdit(ServerPlayer player, EntityPicture picture) {
+        AABB box = picture.getBoundingBox();
+        double reach = EDIT_DISTANCE + Math.sqrt(box.getXsize() * box.getXsize() + box.getYsize() * box.getYsize()
+            + box.getZsize() * box.getZsize()) / 2;
+        return player.distanceToSqr(picture.position()) <= reach * reach;
     }
 
     public static EntityPicture pictureById(Level level, int entityId) {
@@ -101,7 +99,7 @@ public final class ServerImages {
         PictureFrame frame = picture != null ? picture.frame : null;
         if (frame == null || hashes.length == 0 || hashes.length > PictureFrame.MAX_FILES * SharedImage.HASH_BYTES
             || !origin.equals(frame.getOriginKey()) || frame.isNetworkSource()
-            || !canEdit(player, frame)) {
+            || !canEdit(player, picture)) {
             return;
         }
         ResourceKey<Level> dim = player.level().dimension();

@@ -36,7 +36,7 @@ public record PacketSaveFrame(int entityId, CompoundTag settings) implements Cus
     public static void handle(PacketSaveFrame msg, IPayloadContext ctx) {
         ServerPlayer player = (ServerPlayer) ctx.player();
         EntityPicture picture = ServerImages.pictureById(player.level(), msg.entityId);
-        if (picture == null || !ServerImages.canEdit(player, picture.frame)) return;
+        if (picture == null || !ServerImages.canEdit(player, picture)) return;
         PictureFrame frame = picture.frame;
         String origin = frame.getOriginKey();
         byte[] files = frame.files;

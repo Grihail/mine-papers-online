@@ -22,6 +22,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /** Рисует картину целиком: холст, рамку (по выбранному виду), саму картинку и трещины, пока её ломают. Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. FrameGeometry. */
@@ -127,6 +128,13 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
             int stage = Math.min(9, (int) (picture.breakProgress * 10));
             out = buffers.getBuffer(ModelBakery.DESTROY_TYPES.get(stage));
             cracks(u0, v0, u1, v1, front);
+        }
+
+        // 4. Обводка хитбокса под прицелом — как у блоков. Здесь, а не в мировых координатах: так она повторяет картину,
+        // даже если её позу меняет кто-то ещё (движущиеся конструкции других модов).
+        if (PictureControls.isAimed(picture)) {
+            AABB box = FrameGeometry.canvasBox(tile).inflate(0.002).move(-ox, -oy, -oz);
+            LevelRenderer.renderLineBox(poseStack, buffers.getBuffer(RenderType.lines()), box, 0f, 0f, 0f, 0.4f);
         }
 
         poseStack.popPose();

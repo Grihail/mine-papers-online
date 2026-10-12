@@ -12,7 +12,7 @@ subprojects {
     version = mod_version
 
     base {
-        // Имя папки подпроекта и есть версия Minecraft: MinePapersOnline-1.7.10-1.2.0.jar
+        // Имя папки подпроекта и есть версия Minecraft: MinePapersOnline-1.7.10-1.2.1.jar
         archivesName = "${mod_name}-${project.name}"
     }
 

@@ -43,7 +43,7 @@ public record PacketBreakPicture(int entityId, byte action) implements CustomPac
             return;
         }
         long[] started = STARTED.remove(player.getUUID());
-        if (picture == null || !ServerImages.canEdit(player, picture.frame)) return;
+        if (picture == null || !ServerImages.canEdit(player, picture)) return;
         if (player.isCreative()) {
             picture.breakPicture(false);
             return;
