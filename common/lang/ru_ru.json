@@ -50,7 +50,7 @@
   "minepapers.gui.description": "Описание:",
   "minepapers.gui.untitled": "Картина без названия",
   "minepapers.gui.lock": "Приват",
-  "minepapers.gui.lock.tip": "Менять картину сможете только вы.\nОстальные увидят только заголовок и описание.",
+  "minepapers.gui.lock.tip": "Менять картину сможете только вы.\\nОстальные увидят только заголовок и описание.",
   "minepapers.gui.owner": "Владелец: %s",
   "minepapers.gui.unlock.tip": "Нажмите, чтобы снять приват",
   "minepapers.tooltip.owner": "Приват: %s",

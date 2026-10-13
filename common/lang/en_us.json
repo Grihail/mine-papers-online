@@ -50,7 +50,7 @@
   "minepapers.gui.description": "Description:",
   "minepapers.gui.untitled": "Untitled picture",
   "minepapers.gui.lock": "Lock",
-  "minepapers.gui.lock.tip": "Only you will be able to change this picture.\nOthers will see only its title and description.",
+  "minepapers.gui.lock.tip": "Only you will be able to change this picture.\\nOthers will see only its title and description.",
   "minepapers.gui.owner": "Owner: %s",
   "minepapers.gui.unlock.tip": "Click to unlock",
   "minepapers.tooltip.owner": "Locked by %s",

@@ -11,6 +11,7 @@ import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -42,6 +43,12 @@ public class BlockPictureFrame extends BlockContainer {
     public void registerBlockIcons(IIconRegister reg) {
         blockIcon = reg.registerIcon(MinePapers.MODID + ":frame_border");
         canvasIcon = reg.registerIcon(MinePapers.MODID + ":frame_canvas");    }
+
+    /** Название — как у предмета картины. */
+    @Override
+    public String getLocalizedName() {
+        return Item.getItemFromBlock(this).getItemStackDisplayName(new ItemStack(this));
+    }
 
     /** В инвентаре — плоская иконка (textures/items/picture_frame.png). */
     @Override

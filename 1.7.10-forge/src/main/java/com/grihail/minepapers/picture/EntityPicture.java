@@ -20,6 +20,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 
 /** Картина — сущность, как ванильные картины и рамки: не занимает клеток, поэтому блоки и другие картины могут стоять вплотную и в той же клетке. Хитбокс — весь холст, сквозь него можно пройти. Опора не нужна: картина держится, даже если убрать блок за ней. Настройки синхронизируются с клиентами через DataWatcher (предмет с настройками в NBT). */
@@ -45,6 +46,12 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         frame.readPlacement(tag);
         frame.readSettings(tag);
         settingsChanged();
+    }
+
+    /** Название по ключу из общих словарей (как в 1.13+), а не по старому entity.*.name. */
+    @Override
+    public String getCommandSenderName() {
+        return StatCollector.translateToLocal("entity." + MinePapers.MODID + ".picture");
     }
 
     @Override

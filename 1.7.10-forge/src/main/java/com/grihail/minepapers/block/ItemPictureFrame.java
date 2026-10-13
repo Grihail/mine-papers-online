@@ -29,6 +29,12 @@ public class ItemPictureFrame extends ItemBlock {
         super(block);
     }
 
+    /** Название по ключу из общих словарей (как в 1.13+), а не по старому tile.*.name. */
+    @Override
+    public String getItemStackDisplayName(ItemStack stack) {
+        return StatCollector.translateToLocal("item." + MinePapers.MODID + ".picture_frame").trim();
+    }
+
     /** Будущая картина при клике по грани side блока (x, y, z), с настройками из предмета. Лежит ровно на этой грани — на настоящей поверхности блока (полублок, ковёр, боковина забора), а не на границе клетки. На полу и потолке верх картинки — в ту сторону, куда смотрит игрок (yaw). */
     public static PictureFrame ghostAt(World world, int x, int y, int z, int side, float yaw, ItemStack stack) {
         if (side < 0 || side > 5) return null;

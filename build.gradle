@@ -19,7 +19,8 @@ def compareVersions = { String a, String b ->
 // Общие файлы лежат в common/:
 //   java/      — исходники, одинаковые для всех версий (только Java 8 и без API Minecraft);
 //   resources/ — ресурсы в раскладке 1.13+ (textures/block, textures/item), до 1.13 папки переименовываются в blocks/items;
-//   lang/      — словари по группам версий: папка "1.7.10 - 1.10.2" подходит версиям из этого диапазона.
+//   lang/      — словари в формате 1.13+ (en_us.json); ключи одинаковы для всех версий.
+//                До 1.13 при сборке они превращаются в .lang: в 1.11–1.12.2 — en_us.lang, до 1.11 — en_US.lang.
 subprojects {
     apply plugin: 'java'
 
@@ -40,15 +41,32 @@ subprojects {
         options.encoding = 'UTF-8'
     }
 
-    // Папка словарей, в диапазон которой попадает версия Minecraft подпроекта.
-    def langDirs = rootProject.file('common/lang').listFiles().findAll { dir ->
-        def (from, to) = dir.name.split(' - ')*.trim()
-        dir.directory && compareVersions(from, mcVersion) <= 0 && compareVersions(mcVersion, to) <= 0
-    }
-    if (langDirs.size() != 1) {
-        throw new GradleException("Для Minecraft ${mcVersion} нужна ровно одна папка словарей в common/lang, найдено: ${langDirs*.name}")
-    }
     def legacyTextures = compareVersions(mcVersion, '1.13') < 0
+    def legacyLang = compareVersions(mcVersion, '1.13') < 0
+    def upperCaseRegion = compareVersions(mcVersion, '1.11') < 0
+    def langSrc = rootProject.file('common/lang')
+
+    // Словари для версий до 1.13: en_us.json -> en_us.lang (1.11–1.12.2) или en_US.lang (до 1.11).
+    // Строки .lang — "ключ=значение"; переносы строк в значении записываются как \n.
+    def convertLang = tasks.register('convertLang') {
+        def out = layout.buildDirectory.dir('generated/lang')
+        inputs.dir langSrc
+        inputs.property 'mcversion', mcVersion
+        outputs.dir out
+        doLast {
+            def dir = out.get().asFile
+            project.delete(dir)
+            dir.mkdirs()
+            langSrc.listFiles().findAll { it.name.endsWith('.json') }.each { json ->
+                def entries = new groovy.json.JsonSlurper().parse(json, 'UTF-8') as Map
+                def (lang, region) = (json.name - '.json').tokenize('_')
+                def name = "${lang}_${upperCaseRegion ? region.toUpperCase() : region}.lang"
+                new File(dir, name).withWriter('UTF-8') { w ->
+                    entries.each { k, v -> w << k << '=' << v.toString().replace('\r', '').replace('\n', '\\n') << '\n' }
+                }
+            }
+        }
+    }
 
     processResources {
         filteringCharset = 'UTF-8'
@@ -63,7 +81,7 @@ subprojects {
                 eachFile { it.path = it.path.replaceFirst('/textures/(block|item)/', '/textures/$1s/') }
             }
         }
-        from(langDirs[0]) {
+        from(legacyLang ? convertLang : langSrc) {
             into 'assets/minepapers/lang'
         }
     }

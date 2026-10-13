@@ -22,6 +22,12 @@ public class BlockPictureFiller extends Block {
         setTickRandomly(true);
     }
 
+    /** Своего ключа в словарях нет: часть картины называется как сама картина. */
+    @Override
+    public String getLocalizedName() {
+        return MinePapers.frame.getLocalizedName();
+    }
+
     @Override
     public void updateTick(World world, int x, int y, int z, Random random) {
         world.setBlockToAir(x, y, z);

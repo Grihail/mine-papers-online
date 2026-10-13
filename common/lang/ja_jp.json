@@ -50,7 +50,7 @@
   "minepapers.gui.description": "説明：",
   "minepapers.gui.untitled": "無題の絵",
   "minepapers.gui.lock": "ロック",
-  "minepapers.gui.lock.tip": "この絵を変更できるのはあなただけになります。\n他の人にはタイトルと説明だけが表示されます。",
+  "minepapers.gui.lock.tip": "この絵を変更できるのはあなただけになります。\\n他の人にはタイトルと説明だけが表示されます。",
   "minepapers.gui.owner": "所有者：%s",
   "minepapers.gui.unlock.tip": "クリックでロック解除",
   "minepapers.tooltip.owner": "%s がロック中",

@@ -50,7 +50,7 @@
   "minepapers.gui.description": "描述：",
   "minepapers.gui.untitled": "无标题画作",
   "minepapers.gui.lock": "锁定",
-  "minepapers.gui.lock.tip": "只有你可以修改这幅画。\n其他人只能看到标题和描述。",
+  "minepapers.gui.lock.tip": "只有你可以修改这幅画。\\n其他人只能看到标题和描述。",
   "minepapers.gui.owner": "所有者：%s",
   "minepapers.gui.unlock.tip": "点击解锁",
   "minepapers.tooltip.owner": "已被 %s 锁定",
