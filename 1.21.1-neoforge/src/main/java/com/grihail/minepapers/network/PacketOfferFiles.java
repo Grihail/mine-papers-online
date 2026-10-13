@@ -10,12 +10,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/** Клиент -> сервер: картинки локального источника рамки (origin — путь, как он записан в рамке). Сервер в ответ просит недостающие (PacketHashes.Need), а когда они все у него, записывает список в рамку. */
-public record PacketOfferFiles(int entityId, String origin, byte[] hashes) implements CustomPacketPayload {
+/** Клиент -> сервер: картинки локального источника картины target (PictureTarget; origin — путь, как он записан в рамке). Сервер в ответ просит недостающие (PacketHashes.Need), а когда они все у него, записывает список в рамку. */
+public record PacketOfferFiles(int target, String origin, byte[] hashes) implements CustomPacketPayload {
 
     public static final Type<PacketOfferFiles> TYPE = new Type<>(MinePapers.id("offer_files"));
     public static final StreamCodec<ByteBuf, PacketOfferFiles> CODEC = StreamCodec.composite(
-        ByteBufCodecs.VAR_INT, PacketOfferFiles::entityId,
+        ByteBufCodecs.VAR_INT, PacketOfferFiles::target,
         ByteBufCodecs.stringUtf8(4096), PacketOfferFiles::origin,
         PacketHashes.HASHES, PacketOfferFiles::hashes,
         PacketOfferFiles::new);
@@ -26,6 +26,6 @@ public record PacketOfferFiles(int entityId, String origin, byte[] hashes) imple
     }
 
     public static void handle(PacketOfferFiles msg, IPayloadContext ctx) {
-        ServerImages.offer((ServerPlayer) ctx.player(), msg.entityId, msg.origin, msg.hashes);
+        ServerImages.offer((ServerPlayer) ctx.player(), msg.target, msg.origin, msg.hashes);
     }
 }

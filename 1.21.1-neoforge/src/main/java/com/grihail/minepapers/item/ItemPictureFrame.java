@@ -5,8 +5,10 @@ import java.util.List;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.Numbers;
+import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.ChatFormatting;
@@ -16,9 +18,12 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -30,7 +35,7 @@ import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-/** Предмет картины: вешает картину-сущность; в подсказке видно, какие настройки в нём сохранены. */
+/** Предмет картины: вешает картину-сущность, ПКМ в воздух — окно её настройки; в подсказке видно, какие настройки в нём сохранены. */
 public class ItemPictureFrame extends Item {
 
     public ItemPictureFrame(Properties properties) {
@@ -56,12 +61,37 @@ public class ItemPictureFrame extends Item {
     /** Предмет картины; настройки сохраняются, если картину настраивали. */
     public static ItemStack makeStack(PictureFrame frame) {
         ItemStack stack = new ItemStack(MinePapers.FRAME.get());
-        if (frame != null && frame.isCustomized()) {
-            CompoundTag settings = new CompoundTag();
-            frame.writeSettings(settings);
-            stack.set(MinePapers.FRAME_SETTINGS.get(), settings);
-        }
+        if (frame != null) store(stack, frame);
         return stack;
+    }
+
+    /** Настройки из предмета (не настраивали — как у новой картины). */
+    public static PictureFrame read(ItemStack stack) {
+        PictureFrame frame = new PictureFrame();
+        CompoundTag settings = settings(stack);
+        if (settings != null) frame.readSettings(settings);
+        return frame;
+    }
+
+    /** Записать настройки в предмет; ненастроенная картина остаётся без них и складывается с новыми. */
+    public static void store(ItemStack stack, PictureFrame frame) {
+        if (!frame.isCustomized()) {
+            stack.remove(MinePapers.FRAME_SETTINGS.get());
+            return;
+        }
+        CompoundTag settings = new CompoundTag();
+        frame.writeSettings(settings);
+        stack.set(MinePapers.FRAME_SETTINGS.get(), settings);
+    }
+
+    /** ПКМ не по блоку — окно настройки этой картины, как у висящей. Окно с инвентарём открывает сервер. */
+    @Override
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        if (player instanceof ServerPlayer sp) {
+            FrameHolder holder = FrameHolder.of(sp, FrameHolder.targetOf(sp, hand));
+            if (holder != null) ContainerPictureFrame.open(sp, holder);
+        }
+        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide);
     }
 
     /** Будущая картина при клике по грани side блока pos, с настройками из предмета. Лежит ровно на этой грани — на настоящей поверхности блока (полублок, ковёр, боковина забора), а не на границе клетки. На полу и потолке верх картинки — в ту сторону, куда смотрит игрок (yaw). */

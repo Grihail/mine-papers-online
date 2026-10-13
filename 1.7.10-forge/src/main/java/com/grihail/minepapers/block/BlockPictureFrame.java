@@ -3,6 +3,7 @@ package com.grihail.minepapers.block;
 import java.util.ArrayList;
 
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.relauncher.Side;
@@ -13,7 +14,6 @@ import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.IIcon;
@@ -60,13 +60,7 @@ public class BlockPictureFrame extends BlockContainer {
     /** Предмет картины; настройки сохраняются, если картину настраивали. */
     public static ItemStack makeStack(PictureFrame frame) {
         ItemStack stack = new ItemStack(MinePapers.frame);
-        if (frame != null && frame.isCustomized()) {
-            NBTTagCompound settings = new NBTTagCompound();
-            frame.writeSettings(settings);
-            NBTTagCompound tag = new NBTTagCompound();
-            tag.setTag(ITEM_TAG, settings);
-            stack.setTagCompound(tag);
-        }
+        if (frame != null) FrameHolder.store(stack, frame);
         return stack;
     }
 

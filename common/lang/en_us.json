@@ -37,6 +37,7 @@
   "minepapers.gui.glow.default": "Does not glow",
   "minepapers.gui.glow.level": "light %d",
   "minepapers.gui.glow.self": "glows by itself",
+  "minepapers.gui.materials.stack": "Materials can be changed only for a single picture, not for a stack.",
   "minepapers.gui.interval": "Interval, sec:",
   "minepapers.gui.size": "Size: width, height:",
   "minepapers.gui.offset": "Offset: right, up:",

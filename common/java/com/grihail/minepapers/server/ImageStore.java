@@ -56,14 +56,14 @@ public final class ImageStore {
 
     // --------------------------------------------------------------------- Выкладывание
 
-    /** Игрок предлагает картинки для рамки entityId; у кого их ещё нет на сервере — просим прислать. Права игрока менять картину версия уже проверила. @param player объект игрока для отправки пакетов */
-    public static void offer(UUID playerId, Object player, Object world, int entityId, String origin, byte[] hashes) {
-        PictureSettings frame = host.frame(world, entityId);
+    /** Игрок предлагает картинки для картины target (PictureTarget); у кого их ещё нет на сервере — просим прислать. Права игрока менять картину версия уже проверила. @param player объект игрока для отправки пакетов @param world мир картины-сущности или UUID владельца картины-предмета (см. ServerHost) */
+    public static void offer(UUID playerId, Object player, Object world, int target, String origin, byte[] hashes) {
+        PictureSettings frame = host.frame(world, target);
         if (frame == null || !origin.equals(frame.getOriginKey())) return;
         for (Iterator<Offer> it = OFFERS.iterator(); it.hasNext();) {
-            if (it.next().isFor(world, entityId)) it.remove();
+            if (it.next().isFor(world, target)) it.remove();
         }
-        Offer offer = new Offer(world, entityId, origin, hashes);
+        Offer offer = new Offer(world, target, origin, hashes);
         Set<String> missing = new LinkedHashSet<String>();
         for (int i = 0; i < hashes.length; i += SharedImage.HASH_BYTES) {
             String hex = SharedImage.hex(hashes, i, SharedImage.HASH_BYTES);
@@ -122,11 +122,10 @@ public final class ImageStore {
     }
 
     private static void apply(Offer offer) {
-        PictureSettings frame = host.frame(offer.world, offer.entityId);
-        // Пока картинки грузились, картину могли сломать или перенастроить на другой источник.
+        PictureSettings frame = host.frame(offer.world, offer.target);
+        // Пока картинки грузились, картину могли сломать (убрать предмет) или перенастроить на другой источник.
         if (frame == null || !offer.origin.equals(frame.getOriginKey())) return;
-        frame.files = offer.hashes;
-        host.settingsChanged(offer.world, offer.entityId);
+        host.shareFiles(offer.world, offer.target, offer.hashes);
     }
 
     // --------------------------------------------------------------------- Скачивание
@@ -245,19 +244,19 @@ public final class ImageStore {
 
     private static final class Offer {
         final Object world;
-        final int entityId;
+        final int target;
         final String origin;
         final byte[] hashes;
 
-        Offer(Object world, int entityId, String origin, byte[] hashes) {
+        Offer(Object world, int target, String origin, byte[] hashes) {
             this.world = world;
-            this.entityId = entityId;
+            this.target = target;
             this.origin = origin;
             this.hashes = hashes;
         }
 
-        boolean isFor(Object world, int entityId) {
-            return this.world.equals(world) && this.entityId == entityId;
+        boolean isFor(Object world, int target) {
+            return this.world.equals(world) && this.target == target;
         }
 
         boolean isComplete() {

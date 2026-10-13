@@ -1,7 +1,7 @@
 package com.grihail.minepapers.network;
 
 import com.grihail.minepapers.MinePapers;
-import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureConfig;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
@@ -23,22 +23,23 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов. Сервер берёт их из инвентаря игрока (прежние возвращает), в творческом режиме недостающие создаёт, а чего нет — перечисляет в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить. */
-public record PacketPasteMaterials(int entityId, CompoundTag materials) implements CustomPacketPayload {
+public record PacketPasteMaterials(int target, CompoundTag materials) implements CustomPacketPayload {
 
     public static final Type<PacketPasteMaterials> TYPE = new Type<>(MinePapers.id("paste_materials"));
     public static final StreamCodec<ByteBuf, PacketPasteMaterials> CODEC = StreamCodec.composite(
-        ByteBufCodecs.VAR_INT, PacketPasteMaterials::entityId,
+        ByteBufCodecs.VAR_INT, PacketPasteMaterials::target,
         ByteBufCodecs.COMPOUND_TAG, PacketPasteMaterials::materials,
         PacketPasteMaterials::new);
 
-    public static PacketPasteMaterials of(int entityId, PictureConfig config) {
+    /** target — PictureTarget. */
+    public static PacketPasteMaterials of(int target, PictureConfig config) {
         CompoundTag tag = new CompoundTag();
         for (int i = 0; i < PictureConfig.MATERIALS.length; i++) {
             if (!config.hasMaterial[i]) continue;
             PictureConfig.Item item = config.materials[i];
             tag.putString(PictureConfig.MATERIALS[i], item != null ? item.id : "");
         }
-        return new PacketPasteMaterials(entityId, tag);
+        return new PacketPasteMaterials(target, tag);
     }
 
     @Override
@@ -48,9 +49,9 @@ public record PacketPasteMaterials(int entityId, CompoundTag materials) implemen
 
     public static void handle(PacketPasteMaterials msg, IPayloadContext ctx) {
         ServerPlayer player = (ServerPlayer) ctx.player();
-        EntityPicture picture = ServerImages.pictureById(player.level(), msg.entityId);
-        if (picture == null || !ServerImages.canChange(player, picture)) return;
-        PictureFrame.Material[] slots = picture.frame.materials();
+        FrameHolder holder = ServerImages.changeable(player, msg.target);
+        if (holder == null || !holder.materialsEditable()) return;
+        PictureFrame.Material[] slots = holder.frame.materials();
         MutableComponent missing = null;
         for (int i = 0; i < slots.length && i < PictureConfig.MATERIALS.length; i++) {
             String key = PictureConfig.MATERIALS[i];
@@ -74,7 +75,7 @@ public record PacketPasteMaterials(int entityId, CompoundTag materials) implemen
             giveBack(player, current);
             m.set(taken);
         }
-        picture.settingsChanged();
+        holder.settingsChanged();
         if (missing != null) {
             player.sendSystemMessage(Component.translatable("minepapers.chat.missing", missing).withStyle(ChatFormatting.YELLOW));
         }
@@ -89,7 +90,8 @@ public record PacketPasteMaterials(int entityId, CompoundTag materials) implemen
         Inventory inv = player.getInventory();
         for (int s = 0; s < inv.items.size(); s++) {
             ItemStack stack = inv.items.get(s);
-            if (matches(stack, id) && m.accepts(stack)) return inv.removeItem(s, 1);
+            // Картину в картину не кладут (и настраиваемую картину-предмет так не забрать).
+            if (matches(stack, id) && m.accepts(stack) && !stack.is(MinePapers.FRAME.get())) return inv.removeItem(s, 1);
         }
         return ItemStack.EMPTY;
     }

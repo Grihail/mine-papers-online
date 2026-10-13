@@ -12,49 +12,74 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
-/** Окно настройки картины: инвентарь игрока и слоты материалов (рамка, холст). Предметы из слотов хранятся в самой картине (PictureFrame.border, canvas); остальные настройки уходят на сервер пакетом PacketSaveFrame. */
+/** Окно настройки картины (сущности или предмета в руке, см. FrameHolder): инвентарь игрока и слоты материалов (рамка, холст). Предметы из слотов хранятся в самой картине (PictureFrame.border, canvas); остальные настройки уходят на сервер пакетом PacketSaveFrame. */
 public class ContainerPictureFrame extends Container {
 
     /** Верх инвентаря игрока в окне; размер окна — в GuiPictureFrame. */
     public static final int INVENTORY_Y = 164;
     /** Слоты материалов — после 36 слотов игрока, списком сверху вниз: x предмета в окне и y первого, шаг строк. */
     public static final int FIRST_MATERIAL_SLOT = 36, MATERIAL_X = 9, MATERIAL_Y = 19, MATERIAL_STEP = 22;
+    /** Режим slotClick: обмен с ячейкой хотбара (цифрой), button — её номер. */
+    private static final int MODE_HOTBAR_SWAP = 2;
 
-    public final EntityPicture picture;
+    public final FrameHolder holder;
 
-    public ContainerPictureFrame(InventoryPlayer inventory, EntityPicture picture) {
-        this.picture = picture;
+    public ContainerPictureFrame(InventoryPlayer inventory, FrameHolder holder) {
+        this.holder = holder;
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
-                addSlotToContainer(new Slot(inventory, col + row * 9 + 9, 8 + col * 18, INVENTORY_Y + row * 18));
+                addSlotToContainer(inventorySlot(inventory, col + row * 9 + 9, 8 + col * 18, INVENTORY_Y + row * 18));
             }
         }
         for (int col = 0; col < 9; col++) {
-            addSlotToContainer(new Slot(inventory, col, 8 + col * 18, INVENTORY_Y + 58));
+            addSlotToContainer(inventorySlot(inventory, col, 8 + col * 18, INVENTORY_Y + 58));
         }
-        PictureFrame.Material[] materials = picture.frame.materials();
+        PictureFrame.Material[] materials = holder.frame.materials();
         for (int i = 0; i < materials.length; i++) {
-            addSlotToContainer(new MaterialSlot(new MaterialInventory(picture, materials[i]), materials[i],
-                inventory.player, picture.frame, MATERIAL_X, MATERIAL_Y + i * MATERIAL_STEP));
+            addSlotToContainer(new MaterialSlot(new MaterialInventory(holder, materials[i]), materials[i], holder,
+                MATERIAL_X, MATERIAL_Y + i * MATERIAL_STEP));
         }
+    }
+
+    /** Слот инвентаря; в слоте с настраиваемой картиной-предметом она заперта: её не взять, и туда ничего не положить. */
+    private Slot inventorySlot(InventoryPlayer inventory, int index, int x, int y) {
+        if (index != holder.slot()) return new Slot(inventory, index, x, y);
+        return new Slot(inventory, index, x, y) {
+            @Override
+            public boolean canTakeStack(EntityPlayer player) {
+                return false;
+            }
+
+            @Override
+            public boolean isItemValid(ItemStack stack) {
+                return false;
+            }
+        };
     }
 
     public boolean isMaterialSlot(int index) {
         return index >= FIRST_MATERIAL_SLOT;
     }
 
+    /** Цифры меняют предмет под мышью с хотбаром мимо проверок слотов: настраиваемую картину-предмет так тоже не переложить. */
+    @Override
+    public ItemStack slotClick(int slotId, int button, int mode, EntityPlayer player) {
+        if (mode == MODE_HOTBAR_SWAP && holder.isItem() && button == holder.slot()) return null;
+        return super.slotClick(slotId, button, mode, player);
+    }
+
     @Override
     public boolean canInteractWith(EntityPlayer player) {
-        // Вызывается только на сервере: ушёл далеко или картину сломали — окно закрывается.
-        return !picture.isDead && (!(player instanceof EntityPlayerMP)
-            || ServerImages.canEdit((EntityPlayerMP) player, picture));
+        // Вызывается только на сервере: ушёл далеко, картину сломали или предмет пропал из слота — окно закрывается.
+        return holder.exists() && (!(player instanceof EntityPlayerMP)
+            || ServerImages.canEdit((EntityPlayerMP) player, holder));
     }
 
     /** Shift+клик: из инвентаря — один предмет в первый пустой слот материала, из слота материала — обратно в инвентарь. */
     @Override
     public ItemStack transferStackInSlot(EntityPlayer player, int index) {
         Slot slot = (Slot) inventorySlots.get(index);
-        if (slot == null || !slot.getHasStack()) return null;
+        if (slot == null || !slot.getHasStack() || !slot.canTakeStack(player)) return null;
         ItemStack stack = slot.getStack();
         ItemStack before = stack.copy();
         if (isMaterialSlot(index)) {
@@ -80,27 +105,28 @@ public class ContainerPictureFrame extends Container {
     private static class MaterialSlot extends Slot {
 
         private final PictureFrame.Material material;
-        /** Чужую заприваченную картину менять нельзя: слоты только для владельца. */
-        private final EntityPlayer player;
-        private final PictureFrame frame;
+        private final FrameHolder holder;
 
-        MaterialSlot(IInventory inventory, PictureFrame.Material material, EntityPlayer player, PictureFrame frame, int x,
-                     int y) {
+        MaterialSlot(IInventory inventory, PictureFrame.Material material, FrameHolder holder, int x, int y) {
             super(inventory, 0, x, y);
             this.material = material;
-            this.player = player;
-            this.frame = frame;
+            this.holder = holder;
         }
 
         @Override
         public boolean isItemValid(ItemStack stack) {
             return stack != null && stack.getItem() != Item.getItemFromBlock(MinePapers.frame) && material.accepts(stack)
-                && frame.mayEdit(player.getUniqueID());
+                && mayChange();
         }
 
         @Override
         public boolean canTakeStack(EntityPlayer player) {
-            return frame.mayEdit(player.getUniqueID());
+            return mayChange();
+        }
+
+        /** Чужую заприваченную картину менять нельзя — слоты только для владельца; у стопки картин-предметов — никому. */
+        private boolean mayChange() {
+            return holder.frame.mayEdit(holder.player.getUniqueID()) && holder.materialsEditable();
         }
 
         @Override
@@ -109,14 +135,14 @@ public class ContainerPictureFrame extends Container {
         }
     }
 
-    /** Один слот, который читает и пишет предмет прямо в материал картины. На сервере изменение сразу рассылается игрокам. */
+    /** Один слот, который читает и пишет предмет прямо в материал картины. На сервере изменение сразу рассылается игрокам (или записывается в картину-предмет). */
     private static class MaterialInventory implements IInventory {
 
-        private final EntityPicture picture;
+        private final FrameHolder holder;
         private final PictureFrame.Material material;
 
-        MaterialInventory(EntityPicture picture, PictureFrame.Material material) {
-            this.picture = picture;
+        MaterialInventory(FrameHolder holder, PictureFrame.Material material) {
+            this.holder = holder;
             this.material = material;
         }
 
@@ -165,12 +191,12 @@ public class ContainerPictureFrame extends Container {
 
         @Override
         public void markDirty() {
-            if (!picture.worldObj.isRemote) picture.settingsChanged();
+            if (!holder.player.worldObj.isRemote) holder.settingsChanged();
         }
 
         @Override
         public boolean isUseableByPlayer(EntityPlayer player) {
-            return !picture.isDead;
+            return holder.exists();
         }
 
         @Override

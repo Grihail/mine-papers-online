@@ -1,10 +1,12 @@
 package com.grihail.minepapers.server;
 
 import java.io.File;
+import java.util.UUID;
 
 import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureSettings;
 
 import net.minecraft.resources.ResourceKey;
@@ -19,7 +21,7 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/** Права игроков на картины и связь общего хранилища картинок (ImageStore) с миром 1.21. Всё работает в серверном потоке: обработчики пакетов NeoForge вызываются в нём. Мир для ImageStore — ResourceKey измерения, игрок — ServerPlayer. */
+/** Права игроков на картины и связь общего хранилища картинок (ImageStore) с миром 1.21. Всё работает в серверном потоке: обработчики пакетов NeoForge вызываются в нём. Мир для ImageStore — ResourceKey измерения (у картины-предмета — UUID игрока), игрок — ServerPlayer. */
 public final class ServerImages extends ServerHost {
 
     private static MinecraftServer server;
@@ -41,6 +43,21 @@ public final class ServerImages extends ServerHost {
         return canEdit(player, picture) && picture.frame.mayEdit(player.getUUID());
     }
 
+    /** Картина-предмет в инвентаре игрока всегда под рукой; у сущности — как canEdit выше. */
+    public static boolean canEdit(ServerPlayer player, FrameHolder holder) {
+        return holder.picture != null ? canEdit(player, holder.picture) : holder.exists();
+    }
+
+    public static boolean canChange(ServerPlayer player, FrameHolder holder) {
+        return canEdit(player, holder) && holder.frame.mayEdit(player.getUUID());
+    }
+
+    /** Картина target (PictureTarget), которую игрок может менять, или null. */
+    public static FrameHolder changeable(ServerPlayer player, int target) {
+        FrameHolder holder = FrameHolder.of(player, target);
+        return holder != null && canChange(player, holder) ? holder : null;
+    }
+
     public static EntityPicture pictureById(Level level, int entityId) {
         Entity entity = level != null ? level.getEntity(entityId) : null;
         return entity instanceof EntityPicture picture && !picture.isRemoved() ? picture : null;
@@ -48,11 +65,12 @@ public final class ServerImages extends ServerHost {
 
     // --------------------------------------------------------------------- Пакеты
 
-    public static void offer(ServerPlayer player, int entityId, String origin, byte[] hashes) {
+    public static void offer(ServerPlayer player, int target, String origin, byte[] hashes) {
         server = player.server;
-        EntityPicture picture = pictureById(player.level(), entityId);
-        if (picture == null || !canChange(player, picture)) return;
-        ImageStore.offer(player.getUUID(), player, player.level().dimension(), entityId, origin, hashes);
+        FrameHolder holder = changeable(player, target);
+        if (holder == null) return;
+        Object world = holder.isItem() ? player.getUUID() : player.level().dimension();
+        ImageStore.offer(player.getUUID(), player, world, target, origin, hashes);
     }
 
     public static void upload(ServerPlayer player, byte[] hash, int total, int offset, byte[] data) {
@@ -73,20 +91,29 @@ public final class ServerImages extends ServerHost {
     }
 
     @Override
-    public PictureSettings frame(Object world, int entityId) {
-        EntityPicture picture = picture(world, entityId);
-        return picture != null ? picture.frame : null;
+    public PictureSettings frame(Object world, int target) {
+        FrameHolder holder = holder(world, target);
+        return holder != null ? holder.frame : null;
     }
 
     @Override
-    public void settingsChanged(Object world, int entityId) {
-        EntityPicture picture = picture(world, entityId);
-        if (picture != null) picture.settingsChanged();
+    public void shareFiles(Object world, int target, byte[] files) {
+        FrameHolder holder = holder(world, target);
+        if (holder == null) return;
+        holder.frame.files = files;
+        holder.settingsChanged();
     }
 
+    /** Мир картины-сущности — ResourceKey измерения, картины-предмета — UUID игрока, у которого она лежит. */
     @SuppressWarnings("unchecked")
-    private static EntityPicture picture(Object world, int entityId) {
-        return server != null ? pictureById(server.getLevel((ResourceKey<Level>) world), entityId) : null;
+    private static FrameHolder holder(Object world, int target) {
+        if (server == null) return null;
+        if (world instanceof UUID id) {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            return player != null ? FrameHolder.of(player, target) : null;
+        }
+        EntityPicture picture = pictureById(server.getLevel((ResourceKey<Level>) world), target);
+        return picture != null ? FrameHolder.of(picture, null) : null;
     }
 
     @Override

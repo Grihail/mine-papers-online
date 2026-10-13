@@ -3,10 +3,12 @@ package com.grihail.minepapers.block;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.grihail.minepapers.CommonProxy;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.relauncher.Side;
@@ -19,11 +21,12 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
+import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-/** Предмет картины: вешает картину-сущность; в подсказке видно, какие настройки в нём сохранены. Остаётся ItemBlock своего блока, чтобы старые предметы в мирах и инвентарях не пропали. */
+/** Предмет картины: вешает картину-сущность, ПКМ в воздух — окно её настройки; в подсказке видно, какие настройки в нём сохранены. Остаётся ItemBlock своего блока, чтобы старые предметы в мирах и инвентарях не пропали. */
 public class ItemPictureFrame extends ItemBlock {
 
     public ItemPictureFrame(Block block) {
@@ -78,6 +81,17 @@ public class ItemPictureFrame extends ItemBlock {
         }
         stack.stackSize--;
         return true;
+    }
+
+    /** ПКМ не по блоку — окно настройки этой картины, как у висящей. Сюда приходит и клик по блоку, если картина там не поместилась: тогда окно не открываем, как и в новых версиях. Окно с инвентарём открывает сервер. */
+    @Override
+    public ItemStack onItemRightClick(ItemStack stack, World world, EntityPlayer player) {
+        MovingObjectPosition hit = getMovingObjectPositionFromPlayer(world, player, false);
+        if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) return stack;
+        if (!world.isRemote) {
+            player.openGui(MinePapers.instance, CommonProxy.GUI_FRAME, world, FrameHolder.targetOfHeld(player), 0, 0);
+        }
+        return stack;
     }
 
     /** Проверка на клиенте перед отправкой клика на сервер. */

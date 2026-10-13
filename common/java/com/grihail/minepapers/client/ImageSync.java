@@ -162,8 +162,8 @@ public final class ImageSync {
 
     // ===================================================================== Выкладывание
 
-    /** Выложить картинки локального источника рамки на сервер, чтобы их увидели все. Если у этого игрока таких файлов нет, ничего не происходит. @param entityId картина-сущность, к которой относятся картинки */
-    public static void offer(final int entityId, PictureSettings frame) {
+    /** Выложить картинки локального источника рамки на сервер, чтобы их увидели все. Если у этого игрока таких файлов нет, ничего не происходит. @param target картина, к которой относятся картинки (PictureTarget) */
+    public static void offer(final int target, PictureSettings frame) {
         final String origin = frame.getOriginKey();
         if (origin == null || frame.isNetworkSource()) return;
         jobOrigin = origin;
@@ -187,7 +187,7 @@ public final class ImageSync {
                     return;
                 }
                 MAIN.add(() -> {
-                    if (isConnected()) ClientHost.get().sendOffer(entityId, origin, list);
+                    if (isConnected()) ClientHost.get().sendOffer(target, origin, list);
                     if (origin.equals(jobOrigin) && jobStage == STAGE_PREPARING) jobStage = STAGE_NONE;
                 });
             } catch (Throwable t) {

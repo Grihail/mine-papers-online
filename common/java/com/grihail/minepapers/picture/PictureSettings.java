@@ -109,6 +109,21 @@ public class PictureSettings {
         return owner == null || owner.equals(player);
     }
 
+    /** Сервер только что прочитал настройки от клиента игрока player (PacketSaveFrame) — возвращает то, что клиент сам менять не может: список картинок на сервере (его меняет только сервер, PacketOfferFiles) и владельца. Владельца клиент только просит: замок закрыт — картина становится его (если ничья), открыт — снова ничья; чужое имя подставить нельзя. Параметры — значения до чтения. */
+    public void keepServerFields(String origin, byte[] files, UUID owner, String ownerName, UUID player, String playerName) {
+        this.files = origin != null && origin.equals(getOriginKey()) ? files : NO_FILES;
+        boolean lock = this.owner != null;
+        this.owner = owner;
+        this.ownerName = ownerName;
+        if (lock && owner == null) {
+            this.owner = player;
+            this.ownerName = playerName;
+        } else if (!lock) {
+            this.owner = null; // сюда доходит только владелец или когда картина ничья
+            this.ownerName = "";
+        }
+    }
+
     /** Как картинка вписывается в холст (масштабирование всегда от центра) */
     public int fitMode = FIT_COVER;
     /** Разрешение стилизации: пикселей картинки на один блок (128 = как карта, 16 = как ванильная картина) */

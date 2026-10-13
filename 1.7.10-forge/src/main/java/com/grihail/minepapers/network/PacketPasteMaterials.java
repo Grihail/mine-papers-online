@@ -1,6 +1,7 @@
 package com.grihail.minepapers.network;
 
-import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureConfig;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
@@ -22,13 +23,13 @@ import net.minecraft.util.IChatComponent;
 /** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов. Сервер берёт их из инвентаря игрока (прежние возвращает), в творческом режиме недостающие создаёт, а чего нет — перечисляет в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить; meta — в ключе + "Meta" (-1 — любые). */
 public class PacketPasteMaterials implements IMessage {
 
-    private int entityId;
+    private int target;
     private NBTTagCompound materials;
 
     public PacketPasteMaterials() {}
 
-    public PacketPasteMaterials(int entityId, PictureConfig config) {
-        this.entityId = entityId;
+    public PacketPasteMaterials(int target, PictureConfig config) {
+        this.target = target;
         this.materials = new NBTTagCompound();
         for (int i = 0; i < PictureConfig.MATERIALS.length; i++) {
             if (!config.hasMaterial[i]) continue;
@@ -40,20 +41,20 @@ public class PacketPasteMaterials implements IMessage {
 
     @Override
     public void fromBytes(ByteBuf buf) {
-        entityId = buf.readInt();
+        target = buf.readInt();
         materials = ByteBufUtils.readTag(buf);
     }
 
     @Override
     public void toBytes(ByteBuf buf) {
-        buf.writeInt(entityId);
+        buf.writeInt(target);
         ByteBufUtils.writeTag(buf, materials);
     }
 
     private static void apply(EntityPlayerMP player, PacketPasteMaterials msg) {
-        EntityPicture picture = ServerImages.pictureById(player.worldObj, msg.entityId);
-        if (picture == null || msg.materials == null || !ServerImages.canChange(player, picture)) return;
-        PictureFrame.Material[] slots = picture.frame.materials();
+        FrameHolder holder = ServerImages.changeable(player, msg.target);
+        if (holder == null || msg.materials == null || !holder.materialsEditable()) return;
+        PictureFrame.Material[] slots = holder.frame.materials();
         IChatComponent missing = null;
         for (int i = 0; i < slots.length && i < PictureConfig.MATERIALS.length; i++) {
             String key = PictureConfig.MATERIALS[i];
@@ -81,7 +82,7 @@ public class PacketPasteMaterials implements IMessage {
             giveBack(player, m.stack);
             m.set(taken);
         }
-        picture.settingsChanged();
+        holder.settingsChanged();
         if (missing != null) {
             IChatComponent text = new ChatComponentTranslation("minepapers.chat.missing", missing);
             text.getChatStyle().setColor(EnumChatFormatting.YELLOW);
@@ -98,7 +99,8 @@ public class PacketPasteMaterials implements IMessage {
     private static ItemStack take(EntityPlayerMP player, PictureFrame.Material m, String id, int meta) {
         ItemStack[] inv = player.inventory.mainInventory;
         for (int s = 0; s < inv.length; s++) {
-            if (matches(inv[s], id, meta) && m.accepts(inv[s])) {
+            // Картину в картину не кладут (и настраиваемую картину-предмет так не забрать).
+            if (matches(inv[s], id, meta) && m.accepts(inv[s]) && inv[s].getItem() != Item.getItemFromBlock(MinePapers.frame)) {
                 ItemStack taken = player.inventory.decrStackSize(s, 1);
                 player.inventoryContainer.detectAndSendChanges();
                 return taken;

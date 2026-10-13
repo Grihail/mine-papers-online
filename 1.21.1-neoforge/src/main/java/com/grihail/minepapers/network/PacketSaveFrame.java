@@ -3,7 +3,7 @@ package com.grihail.minepapers.network;
 import java.util.UUID;
 
 import com.grihail.minepapers.MinePapers;
-import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
@@ -15,19 +15,19 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/** Клиент -> сервер: новые настройки картины. */
-public record PacketSaveFrame(int entityId, CompoundTag settings) implements CustomPacketPayload {
+/** Клиент -> сервер: новые настройки картины target (PictureTarget: сущность или предмет в инвентаре). */
+public record PacketSaveFrame(int target, CompoundTag settings) implements CustomPacketPayload {
 
     public static final Type<PacketSaveFrame> TYPE = new Type<>(MinePapers.id("save_frame"));
     public static final StreamCodec<ByteBuf, PacketSaveFrame> CODEC = StreamCodec.composite(
-        ByteBufCodecs.VAR_INT, PacketSaveFrame::entityId,
+        ByteBufCodecs.VAR_INT, PacketSaveFrame::target,
         ByteBufCodecs.COMPOUND_TAG, PacketSaveFrame::settings,
         PacketSaveFrame::new);
 
-    public static PacketSaveFrame of(EntityPicture picture) {
+    public static PacketSaveFrame of(FrameHolder holder) {
         CompoundTag settings = new CompoundTag();
-        picture.frame.writeSettings(settings);
-        return new PacketSaveFrame(picture.getId(), settings);
+        holder.frame.writeSettings(settings);
+        return new PacketSaveFrame(holder.target, settings);
     }
 
     @Override
@@ -37,9 +37,9 @@ public record PacketSaveFrame(int entityId, CompoundTag settings) implements Cus
 
     public static void handle(PacketSaveFrame msg, IPayloadContext ctx) {
         ServerPlayer player = (ServerPlayer) ctx.player();
-        EntityPicture picture = ServerImages.pictureById(player.level(), msg.entityId);
-        if (picture == null || !ServerImages.canChange(player, picture)) return;
-        PictureFrame frame = picture.frame;
+        FrameHolder holder = ServerImages.changeable(player, msg.target);
+        if (holder == null) return;
+        PictureFrame frame = holder.frame;
         String origin = frame.getOriginKey();
         byte[] files = frame.files;
         UUID owner = frame.owner;
@@ -48,20 +48,8 @@ public record PacketSaveFrame(int entityId, CompoundTag settings) implements Cus
         CompoundTag materials = new CompoundTag();
         frame.writeSettings(materials);
         frame.readSettings(msg.settings);
-        // Список картинок на сервере меняет только сервер (PacketOfferFiles), клиенту здесь не верим.
-        frame.files = origin != null && origin.equals(frame.getOriginKey()) ? files : PictureFrame.NO_FILES;
         for (PictureFrame.Material m : frame.materials()) m.read(materials);
-        // Владельца клиент только просит: замок закрыт — картина становится его (если ничья), открыт — снова ничья. Чужое имя подставить нельзя.
-        boolean lock = frame.owner != null;
-        frame.owner = owner;
-        frame.ownerName = ownerName;
-        if (lock && owner == null) {
-            frame.owner = player.getUUID();
-            frame.ownerName = player.getGameProfile().getName();
-        } else if (!lock) {
-            frame.owner = null; // сюда доходит только владелец или когда картина ничья (canChange)
-            frame.ownerName = "";
-        }
-        picture.settingsChanged();
+        frame.keepServerFields(origin, files, owner, ownerName, player.getUUID(), player.getGameProfile().getName());
+        holder.settingsChanged();
     }
 }

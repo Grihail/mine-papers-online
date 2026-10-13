@@ -37,6 +37,7 @@
   "minepapers.gui.glow.default": "不发光",
   "minepapers.gui.glow.level": "亮度 %d",
   "minepapers.gui.glow.self": "仅自身发光",
+  "minepapers.gui.materials.stack": "只能更改单幅画的材质，不能更改一组画的材质。",
   "minepapers.gui.interval": "间隔（秒）：",
   "minepapers.gui.size": "尺寸：宽, 高：",
   "minepapers.gui.offset": "偏移：向右, 向上：",

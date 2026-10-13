@@ -2,7 +2,7 @@ package com.grihail.minepapers.network;
 
 import java.util.UUID;
 
-import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
@@ -14,36 +14,36 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 
-/** Клиент -> сервер: новые настройки картины. */
+/** Клиент -> сервер: новые настройки картины target (PictureTarget: сущность или предмет в инвентаре). */
 public class PacketSaveFrame implements IMessage {
 
-    private int entityId;
+    private int target;
     private NBTTagCompound settings;
 
     public PacketSaveFrame() {}
 
-    public PacketSaveFrame(EntityPicture picture) {
-        this.entityId = picture.getEntityId();
+    public PacketSaveFrame(FrameHolder holder) {
+        this.target = holder.target;
         this.settings = new NBTTagCompound();
-        picture.frame.writeSettings(settings);
+        holder.frame.writeSettings(settings);
     }
 
     @Override
     public void fromBytes(ByteBuf buf) {
-        entityId = buf.readInt();
+        target = buf.readInt();
         settings = ByteBufUtils.readTag(buf);
     }
 
     @Override
     public void toBytes(ByteBuf buf) {
-        buf.writeInt(entityId);
+        buf.writeInt(target);
         ByteBufUtils.writeTag(buf, settings);
     }
 
     private static void apply(EntityPlayerMP player, PacketSaveFrame msg) {
-        EntityPicture picture = ServerImages.pictureById(player.worldObj, msg.entityId);
-        if (picture == null || !ServerImages.canChange(player, picture)) return;
-        PictureFrame frame = picture.frame;
+        FrameHolder holder = ServerImages.changeable(player, msg.target);
+        if (holder == null || msg.settings == null) return;
+        PictureFrame frame = holder.frame;
         String origin = frame.getOriginKey();
         byte[] files = frame.files;
         UUID owner = frame.owner;
@@ -52,21 +52,9 @@ public class PacketSaveFrame implements IMessage {
         NBTTagCompound materials = new NBTTagCompound();
         frame.writeSettings(materials);
         frame.readSettings(msg.settings);
-        // Список картинок на сервере меняет только сервер (PacketOfferFiles), клиенту здесь не верим.
-        frame.files = origin != null && origin.equals(frame.getOriginKey()) ? files : PictureFrame.NO_FILES;
         for (PictureFrame.Material m : frame.materials()) m.read(materials);
-        // Владельца клиент только просит: замок закрыт — картина становится его (если ничья), открыт — снова ничья. Чужое имя подставить нельзя.
-        boolean lock = frame.owner != null;
-        frame.owner = owner;
-        frame.ownerName = ownerName;
-        if (lock && owner == null) {
-            frame.owner = player.getUniqueID();
-            frame.ownerName = player.getCommandSenderName();
-        } else if (!lock) {
-            frame.owner = null; // сюда доходит только владелец или когда картина ничья (canChange)
-            frame.ownerName = "";
-        }
-        picture.settingsChanged();
+        frame.keepServerFields(origin, files, owner, ownerName, player.getUniqueID(), player.getCommandSenderName());
+        holder.settingsChanged();
     }
 
     public static class Handler implements IMessageHandler<PacketSaveFrame, IMessage> {

@@ -15,7 +15,7 @@ import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.PictureConfig;
-import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.Links;
 import com.grihail.minepapers.picture.PictureFrame;
 
@@ -58,7 +58,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Последняя открытая вкладка — с неё окно откроется в следующий раз. */
     private static int lastTab = TAB_SOURCE;
 
-    private final EntityPicture picture;
+    /** Картина-сущность или картина-предмет в руке. */
+    private final FrameHolder holder;
     private final PictureFrame tile;
 
     private int tab = lastTab;
@@ -94,8 +95,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     public GuiPictureFrame(ContainerPictureFrame menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        this.picture = menu.picture;
-        this.tile = picture.frame;
+        this.holder = menu.holder;
+        this.tile = holder.frame;
         this.source = tile.source;
         this.fitMode = tile.fitMode;
         this.style = tile.style;
@@ -417,7 +418,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         // Перечитать папку и выложить на сервер то, что в ней появилось.
         if (key.equals(tile.getOriginKey())) {
             if (tile.hasSharedFiles()) PictureManager.reload(tile.getSourceKey());
-            ImageSync.offer(picture.getId(), picture.frame);
+            ImageSync.offer(holder.target, tile);
         }
     }
 
@@ -519,8 +520,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             });
         }
         for (boolean has : c.hasMaterial) {
-            if (has) {
-                PacketDistributor.sendToServer(PacketPasteMaterials.of(picture.getId(), c));
+            if (has && holder.materialsEditable()) {
+                PacketDistributor.sendToServer(PacketPasteMaterials.of(holder.target, c));
                 break;
             }
         }
@@ -535,7 +536,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Настройки применяются при любом закрытии окна: Esc, E, Enter или сервер закрыл его сам. */
     @Override
     public void removed() {
-        if (!saved && !readOnly && minecraft.getConnection() != null && !picture.isRemoved()) save();
+        if (!saved && !readOnly && minecraft.getConnection() != null && holder.exists()) save();
         saved = true;
         super.removed();
     }
@@ -584,10 +585,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         tile.writeSettings(after);
         if (after.equals(before)) return; // окно открыли и закрыли — серверу отправлять нечего
 
-        picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
-        PacketDistributor.sendToServer(PacketSaveFrame.of(picture));
+        if (holder.picture != null) holder.picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
+        PacketDistributor.sendToServer(PacketSaveFrame.of(holder));
         // Файлы с этого компьютера другие игроки увидят, только когда они окажутся на сервере.
-        ImageSync.offer(picture.getId(), picture.frame);
+        ImageSync.offer(holder.target, tile);
     }
 
     /** Хитбокс должен быть известен серверу, поэтому "0 = авто" превращаем в конкретный размер по пропорциям текущей картинки (если она ещё не загружена — квадрат). Округляем до пикселя. */
@@ -612,7 +613,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private double currentAspect() {
         PictureManager.Source s = PictureManager.peek(shownKey());
         if (s != null) {
-            PictureManager.Picture p = s.slide(picture.level().getGameTime(), tile.interval, 0, tile.getSlideSeed());
+            PictureManager.Picture p = s.slide(minecraft.level.getGameTime(), tile.interval, 0, tile.getSlideSeed());
             if (p != null && p.request() && p.getOrigWidth() > 0) {
                 return (double) p.getOrigHeight() / p.getOrigWidth();
             }
@@ -771,6 +772,13 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                     int ty = ContainerPictureFrame.MATERIAL_Y + 1 + i * ContainerPictureFrame.MATERIAL_STEP;
                     text(g, I18n.get(key), 30, ty - 1);
                     g.drawString(font, font.plainSubstrByWidth(name, 138), 30, ty + 8, GuiWidgets.HINT, false);
+                }
+                if (!holder.materialsEditable()) {
+                    int y = ContainerPictureFrame.MATERIAL_Y + materials.length * ContainerPictureFrame.MATERIAL_STEP + 2;
+                    for (FormattedCharSequence line : font.split(Component.translatable("minepapers.gui.materials.stack"), 160)) {
+                        g.drawString(font, line, 8, y, GuiWidgets.HINT, false);
+                        y += 10;
+                    }
                 }
                 break;
             }

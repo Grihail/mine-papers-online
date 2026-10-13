@@ -19,7 +19,7 @@ import com.grihail.minepapers.network.PacketPasteMaterials;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
-import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.Links;
 import com.grihail.minepapers.picture.PictureConfig;
 import com.grihail.minepapers.picture.PictureFrame;
@@ -58,7 +58,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Последняя открытая вкладка — с неё окно откроется в следующий раз. */
     private static int lastTab = TAB_SOURCE;
 
-    private final EntityPicture picture;
+    /** Картина-сущность или картина-предмет в руке. */
+    private final FrameHolder holder;
     private final PictureFrame tile;
 
     private int tab = lastTab;
@@ -95,8 +96,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
     public GuiPictureFrame(ContainerPictureFrame container) {
         super(container);
-        this.picture = container.picture;
-        this.tile = picture.frame;
+        this.holder = container.holder;
+        this.tile = holder.frame;
         this.source = tile.source;
         this.fitMode = tile.fitMode;
         this.style = tile.style;
@@ -359,7 +360,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         // Перечитать папку и выложить на сервер то, что в ней появилось.
         if (key.equals(tile.getOriginKey())) {
             if (tile.hasSharedFiles()) PictureManager.reload(tile.getSourceKey());
-            ImageSync.offer(picture.getEntityId(), picture.frame);
+            ImageSync.offer(holder.target, tile);
         }
     }
 
@@ -466,8 +467,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             c.materials[i] = c.translate(c.materials[i], false, id -> Item.itemRegistry.getObject(id) != null);
         }
         for (boolean has : c.hasMaterial) {
-            if (has) {
-                MinePapers.network.sendToServer(new PacketPasteMaterials(picture.getEntityId(), c));
+            if (has && holder.materialsEditable()) {
+                MinePapers.network.sendToServer(new PacketPasteMaterials(holder.target, c));
                 break;
             }
         }
@@ -524,10 +525,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         tile.writeSettings(after);
         if (after.equals(before)) return; // окно открыли и закрыли — серверу отправлять нечего
 
-        picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
-        MinePapers.network.sendToServer(new PacketSaveFrame(picture));
+        if (holder.picture != null) holder.picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
+        MinePapers.network.sendToServer(new PacketSaveFrame(holder));
         // Файлы с этого компьютера другие игроки увидят, только когда они окажутся на сервере.
-        ImageSync.offer(picture.getEntityId(), picture.frame);
+        ImageSync.offer(holder.target, tile);
     }
 
     /** Хитбокс должен быть известен серверу, поэтому "0 = авто" превращаем в конкретный размер по пропорциям текущей картинки (если она ещё не загружена — квадрат). Округляем до пикселя. */
@@ -552,7 +553,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private double currentAspect() {
         PictureManager.Source s = PictureManager.peek(shownKey());
         if (s != null) {
-            PictureManager.Picture p = s.slide(picture.worldObj.getTotalWorldTime(), tile.interval, 0, tile.getSlideSeed());
+            PictureManager.Picture p = s.slide(mc.theWorld.getTotalWorldTime(), tile.interval, 0, tile.getSlideSeed());
             if (p != null && p.request() && p.getOrigWidth() > 0) {
                 return (double) p.getOrigHeight() / p.getOrigWidth();
             }
@@ -687,7 +688,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         super.onGuiClosed();
         Keyboard.enableRepeatEvents(false);
         // Настройки применяются при любом закрытии окна: Esc, E, Enter или сервер закрыл его сам.
-        if (!readOnly && mc.thePlayer != null && mc.getNetHandler() != null && !picture.isDead) save();
+        if (!readOnly && mc.thePlayer != null && mc.getNetHandler() != null && holder.exists()) save();
     }
 
     // ---------- Отрисовка ----------
@@ -771,6 +772,11 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                     int ty = ContainerPictureFrame.MATERIAL_Y + 1 + i * ContainerPictureFrame.MATERIAL_STEP;
                     text(I18n.format(key), 30, ty - 1, GuiWidgets.TEXT);
                     text(fontRendererObj.trimStringToWidth(name, 138), 30, ty + 8, GuiWidgets.HINT);
+                }
+                if (!holder.materialsEditable()) {
+                    lines(I18n.format("minepapers.gui.materials.stack"), 8,
+                        ContainerPictureFrame.MATERIAL_Y + materials.length * ContainerPictureFrame.MATERIAL_STEP + 2, 160, 4,
+                        GuiWidgets.HINT);
                 }
                 break;
             }

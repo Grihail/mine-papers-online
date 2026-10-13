@@ -4,7 +4,7 @@ import com.grihail.minepapers.CommonProxy;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
-import com.grihail.minepapers.server.ServerImages;
+import com.grihail.minepapers.picture.FrameHolder;
 
 import cpw.mods.fml.client.registry.RenderingRegistry;
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -34,9 +34,8 @@ public class ClientProxy extends CommonProxy {
 
     @Override
     public Object getClientGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
-        EntityPicture picture = ServerImages.pictureById(world, x);
-        if (id != GUI_FRAME || picture == null) return null;
-        return new GuiPictureFrame(new ContainerPictureFrame(player.inventory, picture));
+        FrameHolder holder = id == GUI_FRAME ? FrameHolder.of(player, x) : null;
+        return holder != null ? new GuiPictureFrame(new ContainerPictureFrame(player.inventory, holder)) : null;
     }
 
     @Override

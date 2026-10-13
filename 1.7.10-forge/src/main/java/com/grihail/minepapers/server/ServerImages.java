@@ -2,6 +2,7 @@ package com.grihail.minepapers.server;
 
 import java.io.File;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.logging.log4j.LogManager;
@@ -11,6 +12,7 @@ import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureSettings;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -18,10 +20,11 @@ import cpw.mods.fml.common.gameevent.PlayerEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
 
-/** Права игроков на картины и связь общего хранилища картинок (ImageStore) с миром 1.7.10. Всё, кроме приёма пакетов, работает в серверном потоке: обработчики пакетов только ставят задачи в очередь (schedule). Мир для ImageStore — номер измерения, игрок — EntityPlayerMP. */
+/** Права игроков на картины и связь общего хранилища картинок (ImageStore) с миром 1.7.10. Всё, кроме приёма пакетов, работает в серверном потоке: обработчики пакетов только ставят задачи в очередь (schedule). Мир для ImageStore — номер измерения (у картины-предмета — UUID игрока), игрок — EntityPlayerMP. */
 public final class ServerImages extends ServerHost {
 
     private static final Logger LOG = LogManager.getLogger(MinePapers.MODID);
@@ -56,6 +59,21 @@ public final class ServerImages extends ServerHost {
         return canEdit(player, picture) && picture.frame.mayEdit(player.getUniqueID());
     }
 
+    /** Картина-предмет в инвентаре игрока всегда под рукой; у сущности — как canEdit выше. */
+    public static boolean canEdit(EntityPlayerMP player, FrameHolder holder) {
+        return holder.picture != null ? canEdit(player, holder.picture) : holder.exists();
+    }
+
+    public static boolean canChange(EntityPlayerMP player, FrameHolder holder) {
+        return canEdit(player, holder) && holder.frame.mayEdit(player.getUniqueID());
+    }
+
+    /** Картина target (PictureTarget), которую игрок может менять, или null. */
+    public static FrameHolder changeable(EntityPlayerMP player, int target) {
+        FrameHolder holder = FrameHolder.of(player, target);
+        return holder != null && canChange(player, holder) ? holder : null;
+    }
+
     public static EntityPicture pictureById(World world, int entityId) {
         Entity entity = world != null ? world.getEntityByID(entityId) : null;
         return entity instanceof EntityPicture && !entity.isDead ? (EntityPicture) entity : null;
@@ -63,10 +81,11 @@ public final class ServerImages extends ServerHost {
 
     // --------------------------------------------------------------------- Пакеты (в серверном потоке)
 
-    public static void offer(EntityPlayerMP player, int entityId, String origin, byte[] hashes) {
-        EntityPicture picture = pictureById(player.worldObj, entityId);
-        if (picture == null || !canChange(player, picture)) return;
-        ImageStore.offer(player.getUniqueID(), player, player.dimension, entityId, origin, hashes);
+    public static void offer(EntityPlayerMP player, int target, String origin, byte[] hashes) {
+        FrameHolder holder = changeable(player, target);
+        if (holder == null) return;
+        Object world = holder.isItem() ? player.getUniqueID() : (Object) player.dimension;
+        ImageStore.offer(player.getUniqueID(), player, world, target, origin, hashes);
     }
 
     public static void upload(EntityPlayerMP player, byte[] hash, int total, int offset, byte[] data) {
@@ -85,19 +104,32 @@ public final class ServerImages extends ServerHost {
     }
 
     @Override
-    public PictureSettings frame(Object world, int entityId) {
-        EntityPicture picture = picture(world, entityId);
-        return picture != null ? picture.frame : null;
+    public PictureSettings frame(Object world, int target) {
+        FrameHolder holder = holder(world, target);
+        return holder != null ? holder.frame : null;
     }
 
     @Override
-    public void settingsChanged(Object world, int entityId) {
-        EntityPicture picture = picture(world, entityId);
-        if (picture != null) picture.settingsChanged();
+    public void shareFiles(Object world, int target, byte[] files) {
+        FrameHolder holder = holder(world, target);
+        if (holder == null) return;
+        holder.frame.files = files;
+        holder.settingsChanged();
     }
 
-    private static EntityPicture picture(Object world, int entityId) {
-        return pictureById(DimensionManager.getWorld((Integer) world), entityId);
+    /** Мир картины-сущности — номер измерения, картины-предмета — UUID игрока, у которого она лежит. */
+    private static FrameHolder holder(Object world, int target) {
+        if (world instanceof UUID) {
+            MinecraftServer server = MinecraftServer.getServer();
+            if (server == null) return null;
+            for (Object o : server.getConfigurationManager().playerEntityList) {
+                EntityPlayerMP player = (EntityPlayerMP) o;
+                if (player.getUniqueID().equals(world)) return FrameHolder.of(player, target);
+            }
+            return null;
+        }
+        EntityPicture picture = pictureById(DimensionManager.getWorld((Integer) world), target);
+        return picture != null ? FrameHolder.of(picture, null) : null;
     }
 
     @Override

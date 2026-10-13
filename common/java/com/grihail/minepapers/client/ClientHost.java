@@ -38,8 +38,8 @@ public abstract class ClientHost {
 
     public abstract void releaseTexture(Object texture);
 
-    /** Пакет "у меня есть эти картинки для рамки entityId". */
-    public abstract void sendOffer(int entityId, String origin, byte[] hashes);
+    /** Пакет "у меня есть эти картинки для картины target" (PictureTarget). */
+    public abstract void sendOffer(int target, String origin, byte[] hashes);
 
     /** Пакет "пришли мне эти картинки". */
     public abstract void sendRequest(byte[] hashes);
