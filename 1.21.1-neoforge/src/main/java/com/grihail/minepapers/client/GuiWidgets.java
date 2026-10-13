@@ -3,6 +3,10 @@ package com.grihail.minepapers.client;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.Util;
+import com.mojang.authlib.properties.Property;
+import com.mojang.authlib.GameProfile;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import org.joml.Matrix4f;
@@ -255,7 +259,7 @@ final class GuiWidgets {
             if (owner == null || mine) {
                 icon(g, getX() + 5, getY() + 5, owner == null ? ICON_UNLOCKED_U : ICON_LOCKED_U, 0, 10, 10);
             } else {
-                PlayerFaceRenderer.draw(g, skin(owner), getX() + 2, getY() + 2, 16);
+                PlayerFaceRenderer.draw(g, skin(owner, ownerName), getX() + 2, getY() + 2, 16);
             }
         }
     }
@@ -265,6 +269,7 @@ final class GuiWidgets {
 
         /** Кто подписал; null — никто. */
         UUID signer;
+        String signerName = "";
 
         Sign(int x, int y, Runnable action) {
             super(x, y, 20, 20, Component.translatable("minepapers.gui.sign"), action);
@@ -276,7 +281,7 @@ final class GuiWidgets {
             if (signer == null) {
                 icon(g, getX() + 2, getY() + 2, PEN_U, PEN_V, 16, 16);
             } else {
-                PlayerFaceRenderer.draw(g, skin(signer), getX() + 2, getY() + 2, 16);
+                PlayerFaceRenderer.draw(g, skin(signer, signerName), getX() + 2, getY() + 2, 16);
             }
         }
     }
@@ -284,8 +289,8 @@ final class GuiWidgets {
     /** Скины владельцев: пока настоящий не загружен — стандартный (Стив, Алекс...). */
     private static final Map<UUID, PlayerSkin> SKINS = new HashMap<UUID, PlayerSkin>();
 
-    /** Скин игрока: если он на сервере — из списка игроков, иначе его профиль запрашивается (как у голов игроков) и скин подгружается. */
-    static PlayerSkin skin(UUID id) {
+    /** Скин игрока: если он на сервере — из списка игроков, иначе его профиль запрашивается (как у голов игроков) и скин подгружается. Не нашлось (офлайн-сервер, лаунчер с прокси) — прямо у Mojang, см. MojangProfiles. */
+    static PlayerSkin skin(UUID id, String name) {
         Minecraft mc = Minecraft.getInstance();
         PlayerInfo info = mc.getConnection() != null ? mc.getConnection().getPlayerInfo(id) : null;
         if (info != null) return info.getSkin();
@@ -294,6 +299,14 @@ final class GuiWidgets {
         PlayerSkin fallback = DefaultPlayerSkin.get(id);
         SKINS.put(id, fallback);
         SkullBlockEntity.fetchGameProfile(id)
+            .thenCompose(p -> p.isPresent() && p.get().getProperties().containsKey("textures") ? CompletableFuture.completedFuture(p)
+                : CompletableFuture.supplyAsync(() -> {
+                    String[] textures = MojangProfiles.textures(id, name);
+                    if (textures == null) return Optional.<GameProfile>empty();
+                    GameProfile profile = new GameProfile(id, name);
+                    profile.getProperties().put("textures", new Property("textures", textures[0], textures[1]));
+                    return Optional.of(profile);
+                }, Util.backgroundExecutor()))
             .thenCompose(p -> p.map(mc.getSkinManager()::getOrLoad).orElseGet(() -> CompletableFuture.completedFuture(null)))
             .thenAccept(s -> {
                 if (s != null) mc.execute(() -> SKINS.put(id, s));

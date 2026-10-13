@@ -9,6 +9,7 @@ import org.lwjgl.opengl.GL11;
 import com.grihail.minepapers.MinePapers;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
+import com.mojang.authlib.properties.Property;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
@@ -332,8 +333,8 @@ final class GuiWidgets {
     /** Скины владельцев: пока настоящий не загружен — Стив. */
     private static final Map<UUID, ResourceLocation> SKINS = new HashMap<UUID, ResourceLocation>();
 
-    /** Скин игрока: если он рядом — его, иначе профиль запрашивается у сервиса Mojang (в фоне, как у голов игроков) и скин подгружается. */
-    static ResourceLocation skin(final UUID id, String name) {
+    /** Скин игрока: если он рядом — его, иначе профиль запрашивается у сервиса Mojang (в фоне, как у голов игроков) и скин подгружается. Не нашлось (офлайн-сервер, лаунчер с прокси) — прямо у Mojang, см. MojangProfiles. */
+    static ResourceLocation skin(final UUID id, final String name) {
         final Minecraft mc = Minecraft.getMinecraft();
         EntityPlayer near = mc.theWorld != null ? mc.theWorld.func_152378_a(id) : null;
         if (near instanceof AbstractClientPlayer) return ((AbstractClientPlayer) near).getLocationSkin();
@@ -343,7 +344,15 @@ final class GuiWidgets {
         final GameProfile bare = new GameProfile(id, name);
         Thread thread = new Thread(() -> {
             GameProfile profile = mc.func_152347_ac().fillProfileProperties(bare, false);
-            mc.func_152344_a(() -> mc.func_152342_ad().func_152790_a(profile, (type, location) -> {
+            if (!profile.getProperties().containsKey("textures")) {
+                String[] textures = MojangProfiles.textures(id, name);
+                if (textures != null) {
+                    profile = new GameProfile(id, name);
+                    profile.getProperties().put("textures", new Property("textures", textures[0], textures[1]));
+                }
+            }
+            final GameProfile found = profile;
+            mc.func_152344_a(() -> mc.func_152342_ad().func_152790_a(found, (type, location) -> {
                 if (type == MinecraftProfileTexture.Type.SKIN) SKINS.put(id, location);
             }, false));
         }, "MinePapers skin");

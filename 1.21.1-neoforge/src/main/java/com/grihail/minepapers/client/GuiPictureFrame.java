@@ -433,6 +433,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         }
         // Подписать можно только одну картину без привата и только один раз; подтверждённую подпись уже не отменить (поставится при закрытии окна, даже если закрыть и замок). Чужим подпись видна, если она есть.
         btnSign.signer = tile.signer != null ? tile.signer : sign ? me : null;
+        btnSign.signerName = tile.signer != null ? tile.signerName : myName;
         btnSign.active = !readOnly && !tile.isSigned() && !sign && !locked && holder.count() == 1;
         btnSign.visible = !readOnly || tile.isSigned();
         if (tile.isSigned()) {
