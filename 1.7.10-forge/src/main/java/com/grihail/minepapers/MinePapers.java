@@ -58,6 +58,7 @@ public class MinePapers {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         picturesDir = new File(event.getModConfigurationDirectory(), MODID);
+        ModConfig.load(event.getModConfigurationDirectory());
         if (!picturesDir.exists()) {
             picturesDir.mkdirs();
         }

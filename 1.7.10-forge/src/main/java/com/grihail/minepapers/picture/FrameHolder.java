@@ -88,10 +88,24 @@ public final class FrameHolder {
         return picture != null ? !picture.isDead : stack(player, target) != null;
     }
 
-    /** См. PictureTarget.materialsEditable. */
-    public boolean materialsEditable() {
-        ItemStack stack = isItem() ? stack(player, target) : null;
-        return PictureTarget.materialsEditable(target, stack != null ? stack.stackSize : 1);
+    /** Картина-предмет (null — это сущность или предмета уже нет). */
+    public ItemStack stack() {
+        return isItem() ? stack(player, target) : null;
+    }
+
+    /** Сколько картин настраивается: вся стопка картин-предметов или одна висящая картина. */
+    public int count() {
+        ItemStack stack = stack();
+        return stack != null ? stack.stackSize : 1;
+    }
+
+    /** Перечитать настройки из предмета: его могли поменять мимо окна (выложены картинки, отделились картины). */
+    public void reload() {
+        ItemStack stack = stack();
+        if (stack == null) return;
+        NBTTagCompound settings = new NBTTagCompound();
+        read(stack).writeSettings(settings);
+        frame.readSettings(settings);
     }
 
     /** Настройки изменились (на сервере): сущность рассылает их игрокам, предмет записывает в себя. */

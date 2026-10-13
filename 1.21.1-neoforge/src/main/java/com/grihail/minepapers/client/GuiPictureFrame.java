@@ -520,7 +520,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             });
         }
         for (boolean has : c.hasMaterial) {
-            if (has && holder.materialsEditable()) {
+            if (has && menu.materialsEditable()) {
                 PacketDistributor.sendToServer(PacketPasteMaterials.of(holder.target, c));
                 break;
             }
@@ -773,7 +773,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                     text(g, I18n.get(key), 30, ty - 1);
                     g.drawString(font, font.plainSubstrByWidth(name, 138), 30, ty + 8, GuiWidgets.HINT, false);
                 }
-                if (!holder.materialsEditable()) {
+                if (!menu.materialsEditable()) {
                     int y = ContainerPictureFrame.MATERIAL_Y + materials.length * ContainerPictureFrame.MATERIAL_STEP + 2;
                     for (FormattedCharSequence line : font.split(Component.translatable("minepapers.gui.materials.stack"), 160)) {
                         g.drawString(font, line, 8, y, GuiWidgets.HINT, false);

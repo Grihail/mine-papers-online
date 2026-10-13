@@ -1,7 +1,6 @@
 package com.grihail.minepapers.network;
 
 import com.grihail.minepapers.CommonProxy;
-import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.server.ServerImages;
 
@@ -35,7 +34,7 @@ public class PacketOpenFrame implements IMessage {
     private static void apply(EntityPlayerMP player, PacketOpenFrame msg) {
         EntityPicture picture = ServerImages.pictureById(player.worldObj, msg.entityId);
         if (picture == null || !ServerImages.canEdit(player, picture)) return;
-        player.openGui(MinePapers.instance, CommonProxy.GUI_FRAME, player.worldObj, msg.entityId, 0, 0);
+        CommonProxy.openFrame(player, msg.entityId);
     }
 
     public static class Handler implements IMessageHandler<PacketOpenFrame, IMessage> {

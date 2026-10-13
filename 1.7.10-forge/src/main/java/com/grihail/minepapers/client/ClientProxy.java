@@ -35,7 +35,7 @@ public class ClientProxy extends CommonProxy {
     @Override
     public Object getClientGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
         FrameHolder holder = id == GUI_FRAME ? FrameHolder.of(player, x) : null;
-        return holder != null ? new GuiPictureFrame(new ContainerPictureFrame(player.inventory, holder)) : null;
+        return holder != null ? new GuiPictureFrame(new ContainerPictureFrame(player.inventory, holder, y != 0)) : null;
     }
 
     @Override

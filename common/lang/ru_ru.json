@@ -37,7 +37,7 @@
   "minepapers.gui.glow.default": "Не светится",
   "minepapers.gui.glow.level": "свет %d",
   "minepapers.gui.glow.self": "светится сама",
-  "minepapers.gui.materials.stack": "Материалы меняются только у одной картины, а не у стопки.",
+  "minepapers.gui.materials.stack": "На этом сервере материалы меняются только у одной картины, а не у стопки.",
   "minepapers.gui.interval": "Интервал, сек:",
   "minepapers.gui.size": "Размер: ширина, высота:",
   "minepapers.gui.offset": "Смещение: вправо, вверх:",

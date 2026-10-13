@@ -37,7 +37,7 @@
   "minepapers.gui.glow.default": "発光しない",
   "minepapers.gui.glow.level": "明るさ %d",
   "minepapers.gui.glow.self": "自身のみ発光",
-  "minepapers.gui.materials.stack": "素材を変更できるのは1枚の絵だけで、スタックでは変更できません。",
+  "minepapers.gui.materials.stack": "このサーバーでは、素材を変更できるのは1枚の絵だけで、スタックでは変更できません。",
   "minepapers.gui.interval": "間隔（秒）：",
   "minepapers.gui.size": "サイズ：幅, 高さ：",
   "minepapers.gui.offset": "オフセット：右, 上：",

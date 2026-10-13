@@ -21,9 +21,4 @@ public final class PictureTarget {
     public static int slot(int target) {
         return -1 - target;
     }
-
-    /** Материалы — настоящие предметы, по одному на картину: у стопки картин их не поменять, иначе они размножились бы (или пропали) на всю стопку. */
-    public static boolean materialsEditable(int target, int stackSize) {
-        return !isItem(target) || stackSize == 1;
-    }
 }

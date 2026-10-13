@@ -467,7 +467,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             c.materials[i] = c.translate(c.materials[i], false, id -> Item.itemRegistry.getObject(id) != null);
         }
         for (boolean has : c.hasMaterial) {
-            if (has && holder.materialsEditable()) {
+            if (has && container().materialsEditable()) {
                 MinePapers.network.sendToServer(new PacketPasteMaterials(holder.target, c));
                 break;
             }
@@ -773,7 +773,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                     text(I18n.format(key), 30, ty - 1, GuiWidgets.TEXT);
                     text(fontRendererObj.trimStringToWidth(name, 138), 30, ty + 8, GuiWidgets.HINT);
                 }
-                if (!holder.materialsEditable()) {
+                if (!container().materialsEditable()) {
                     lines(I18n.format("minepapers.gui.materials.stack"), 8,
                         ContainerPictureFrame.MATERIAL_Y + materials.length * ContainerPictureFrame.MATERIAL_STEP + 2, 160, 4,
                         GuiWidgets.HINT);

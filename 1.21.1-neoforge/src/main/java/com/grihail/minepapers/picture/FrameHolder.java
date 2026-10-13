@@ -3,6 +3,7 @@ package com.grihail.minepapers.picture;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.item.ItemPictureFrame;
 
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
@@ -68,10 +69,24 @@ public final class FrameHolder {
         return picture != null ? !picture.isRemoved() : stack(player, target) != null;
     }
 
-    /** См. PictureTarget.materialsEditable. */
-    public boolean materialsEditable() {
-        ItemStack stack = isItem() ? stack(player, target) : null;
-        return PictureTarget.materialsEditable(target, stack != null ? stack.getCount() : 1);
+    /** Картина-предмет (null — это сущность или предмета уже нет). */
+    public ItemStack stack() {
+        return isItem() ? stack(player, target) : null;
+    }
+
+    /** Сколько картин настраивается: вся стопка картин-предметов или одна висящая картина. */
+    public int count() {
+        ItemStack stack = stack();
+        return stack != null ? stack.getCount() : 1;
+    }
+
+    /** Перечитать настройки из предмета: его могли поменять мимо окна (выложены картинки, отделились картины). */
+    public void reload() {
+        ItemStack stack = stack();
+        if (stack == null) return;
+        CompoundTag settings = new CompoundTag();
+        ItemPictureFrame.read(stack).writeSettings(settings);
+        frame.readSettings(settings);
     }
 
     /** Настройки изменились (на сервере): сущность рассылает их игрокам, предмет записывает в себя. */

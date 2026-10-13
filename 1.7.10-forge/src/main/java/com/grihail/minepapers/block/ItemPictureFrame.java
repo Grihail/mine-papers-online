@@ -88,9 +88,7 @@ public class ItemPictureFrame extends ItemBlock {
     public ItemStack onItemRightClick(ItemStack stack, World world, EntityPlayer player) {
         MovingObjectPosition hit = getMovingObjectPositionFromPlayer(world, player, false);
         if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) return stack;
-        if (!world.isRemote) {
-            player.openGui(MinePapers.instance, CommonProxy.GUI_FRAME, world, FrameHolder.targetOfHeld(player), 0, 0);
-        }
+        if (!world.isRemote) CommonProxy.openFrame(player, FrameHolder.targetOfHeld(player));
         return stack;
     }
 

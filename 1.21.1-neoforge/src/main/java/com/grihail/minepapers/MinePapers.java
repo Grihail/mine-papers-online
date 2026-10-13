@@ -83,6 +83,7 @@ public class MinePapers {
     public MinePapers(IEventBus modBus, ModContainer container) {
         VERSION = container.getModInfo().getVersion().toString();
         picturesDir = FMLPaths.CONFIGDIR.get().resolve(MODID);
+        ModConfig.load(FMLPaths.CONFIGDIR.get().toFile());
         try {
             Files.createDirectories(picturesDir);
         } catch (IOException e) {
