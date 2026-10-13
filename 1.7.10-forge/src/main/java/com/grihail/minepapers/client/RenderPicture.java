@@ -8,6 +8,7 @@ import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.Render;
@@ -146,9 +147,10 @@ public class RenderPicture extends Render {
         bindTexture(TextureMap.locationBlocksTexture);
         GL11.glPopMatrix();
 
-        // 3. Под прицелом — заголовок картины, как имя переименованного предмета в рамке.
+        // 3. Под прицелом с зажатым Shift — заголовок картины, как имя переименованного предмета в рамке.
         MovingObjectPosition hit = Minecraft.getMinecraft().objectMouseOver;
-        if (!tile.title.isEmpty() && hit != null && hit.entityHit == picture && Minecraft.isGuiEnabled()) {
+        if (!tile.title.isEmpty() && hit != null && hit.entityHit == picture && GuiScreen.isShiftKeyDown()
+            && Minecraft.isGuiEnabled()) {
             double[] p = FrameGeometry.labelPos(tile);
             titleLabel(tile.title, p[0] - RenderManager.renderPosX, p[1] - RenderManager.renderPosY,
                 p[2] - RenderManager.renderPosZ);

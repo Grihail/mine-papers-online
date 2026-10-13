@@ -12,6 +12,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import org.joml.Matrix4f;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.LightTexture;
@@ -143,8 +144,9 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         out = null;
         pose = null;
 
-        // 4. Под прицелом — заголовок картины, как имя переименованного предмета в рамке.
-        if (!tile.title.isEmpty() && PictureControls.isAimed(picture) && Minecraft.renderNames()) {
+        // 4. Под прицелом с зажатым Shift — заголовок картины, как имя переименованного предмета в рамке.
+        if (!tile.title.isEmpty() && PictureControls.isAimed(picture) && Screen.hasShiftDown()
+            && Minecraft.renderNames()) {
             double[] p = FrameGeometry.labelPos(tile);
             titleLabel(Component.literal(tile.title), p[0] - at.x, p[1] - at.y, p[2] - at.z, poseStack, buffers, packedLight);
         }
