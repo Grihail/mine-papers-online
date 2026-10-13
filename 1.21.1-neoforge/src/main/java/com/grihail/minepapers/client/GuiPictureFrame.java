@@ -177,29 +177,29 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         btnReload.setTooltip(tip("minepapers.gui.reload"));
 
         // Размер и позиция
-        fWidth = field(TAB_SIZE, x + 8, y + 30, 42, 10, Numbers.fmt(tile.width));
-        fHeight = field(TAB_SIZE, x + 62, y + 30, 42, 10, Numbers.fmt(tile.height));
-        cbSizePx = add(new GuiWidgets.Check(x + 112, y + 32, Component.translatable("minepapers.gui.pixels"), sizePx, () -> {
+        fWidth = field(TAB_SIZE, x + 8, y + 18, 42, 10, Numbers.fmt(tile.width));
+        fHeight = field(TAB_SIZE, x + 62, y + 18, 42, 10, Numbers.fmt(tile.height));
+        cbSizePx = add(new GuiWidgets.Check(x + 112, y + 20, Component.translatable("minepapers.gui.pixels"), sizePx, () -> {
             sizePx = !sizePx;
             convert(fWidth, sizePx);
             convert(fHeight, sizePx);
             updateWidgets();
         }), TAB_SIZE);
-        fOffX = field(TAB_SIZE, x + 8, y + 60, 42, 10, Numbers.fmt(tile.offsetX));
-        fOffY = field(TAB_SIZE, x + 62, y + 60, 42, 10, Numbers.fmt(tile.offsetY));
-        cbPosPx = add(new GuiWidgets.Check(x + 112, y + 62, Component.translatable("minepapers.gui.pixels"), posPx, () -> {
+        fOffX = field(TAB_SIZE, x + 8, y + 48, 42, 10, Numbers.fmt(tile.offsetX));
+        fOffY = field(TAB_SIZE, x + 62, y + 48, 42, 10, Numbers.fmt(tile.offsetY));
+        cbPosPx = add(new GuiWidgets.Check(x + 112, y + 50, Component.translatable("minepapers.gui.pixels"), posPx, () -> {
             posPx = !posPx;
             convert(fOffX, posPx);
             convert(fOffY, posPx);
             updateWidgets();
         }), TAB_SIZE);
-        fPad = field(TAB_SIZE, x + 8, y + 90, 42, 10, Numbers.fmt(tile.padding));
+        fPad = field(TAB_SIZE, x + 8, y + 78, 42, 10, Numbers.fmt(tile.padding));
         fWidth.setTooltip(tip("minepapers.gui.width"));
         fHeight.setTooltip(tip("minepapers.gui.height"));
         fOffX.setTooltip(tip("minepapers.gui.shift.x"));
         fOffY.setTooltip(tip("minepapers.gui.shift.y"));
         fPad.setTooltip(tip("minepapers.gui.padding.tip"));
-        cbPadPx = add(new GuiWidgets.Check(x + 112, y + 92, Component.translatable("minepapers.gui.pixels"), padPx, () -> {
+        cbPadPx = add(new GuiWidgets.Check(x + 112, y + 80, Component.translatable("minepapers.gui.pixels"), padPx, () -> {
             padPx = !padPx;
             convert(fPad, padPx);
             updateWidgets();
@@ -239,8 +239,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         for (GuiWidgets.Check c : new GuiWidgets.Check[] { cbSizePx, cbPosPx, cbPadPx }) c.setTooltip(tip("minepapers.gui.pixels.tip"));
 
         // Описание
-        fTitle = field(TAB_INFO, x + 8, y + 29, 160, PictureFrame.MAX_TITLE, tile.title);
-        fDesc = area(TAB_INFO, x + 8, y + 59, 82, tile.description, true);
+        fTitle = field(TAB_INFO, x + 8, y + 17, 160, PictureFrame.MAX_TITLE, tile.title);
+        fDesc = area(TAB_INFO, x + 8, y + 47, 94, tile.description, true);
 
         if (old != null && old.size() == fields.size()) {
             for (int i = 0; i < fields.size(); i++) setValue(fields.get(i), old.get(i));
@@ -727,7 +727,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             }
             return;
         }
-        text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
+        if (tab != TAB_SIZE && tab != TAB_INFO) text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
         switch (tab) {
             case TAB_SOURCE: {
                 text(g, I18n.get("minepapers.gui.path." + source), 8, 42);
@@ -742,10 +742,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 break;
             }
             case TAB_SIZE:
-                text(g, I18n.get("minepapers.gui.size"), 8, 18);
-                text(g, "x", 53, 33);
-                text(g, I18n.get("minepapers.gui.offset"), 8, 48);
-                text(g, I18n.get("minepapers.gui.padding"), 8, 78);
+                text(g, I18n.get("minepapers.gui.size"), 8, 6);
+                text(g, "x", 53, 21);
+                text(g, I18n.get("minepapers.gui.offset"), 8, 36);
+                text(g, I18n.get("minepapers.gui.padding"), 8, 66);
                 text(g, I18n.get("minepapers.gui.fit"), 8, 116);
                 break;
             case TAB_STYLE:
@@ -754,8 +754,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 text(g, I18n.get("minepapers.gui.ppb"), 8, 135);
                 break;
             case TAB_INFO:
-                text(g, I18n.get("minepapers.gui.titleLabel"), 8, 18);
-                text(g, I18n.get("minepapers.gui.description"), 8, 48);
+                text(g, I18n.get("minepapers.gui.titleLabel"), 8, 6);
+                text(g, I18n.get("minepapers.gui.description"), 8, 36);
                 break;
             case TAB_FRAME: {
                 // Список материалов: слот, справа — что это и какой блок в нём лежит.

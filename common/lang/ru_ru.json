@@ -38,7 +38,7 @@
   "minepapers.gui.glow.level": "свет %d",
   "minepapers.gui.glow.self": "светится сама",
   "minepapers.gui.interval": "Интервал, сек:",
-  "minepapers.gui.size": "Размер (0 = по картинке):",
+  "minepapers.gui.size": "Размер: ширина, высота:",
   "minepapers.gui.offset": "Смещение: вправо, вверх:",
   "minepapers.gui.width": "Ширина (0 = по пропорциям картинки)",
   "minepapers.gui.height": "Высота (0 = по пропорциям картинки)",

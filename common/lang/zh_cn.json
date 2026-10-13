@@ -38,7 +38,7 @@
   "minepapers.gui.glow.level": "亮度 %d",
   "minepapers.gui.glow.self": "仅自身发光",
   "minepapers.gui.interval": "间隔（秒）：",
-  "minepapers.gui.size": "尺寸（0 = 按图片）：",
+  "minepapers.gui.size": "尺寸：宽, 高：",
   "minepapers.gui.offset": "偏移：向右, 向上：",
   "minepapers.gui.width": "宽度（0 = 按图片比例）",
   "minepapers.gui.height": "高度（0 = 按图片比例）",

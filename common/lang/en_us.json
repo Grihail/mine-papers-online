@@ -38,7 +38,7 @@
   "minepapers.gui.glow.level": "light %d",
   "minepapers.gui.glow.self": "glows by itself",
   "minepapers.gui.interval": "Interval, sec:",
-  "minepapers.gui.size": "Size (0 = from picture):",
+  "minepapers.gui.size": "Size: width, height:",
   "minepapers.gui.offset": "Offset: right, up:",
   "minepapers.gui.width": "Width (0 = from picture proportions)",
   "minepapers.gui.height": "Height (0 = from picture proportions)",

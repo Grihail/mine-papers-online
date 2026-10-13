@@ -38,7 +38,7 @@
   "minepapers.gui.glow.level": "明るさ %d",
   "minepapers.gui.glow.self": "自身のみ発光",
   "minepapers.gui.interval": "間隔（秒）：",
-  "minepapers.gui.size": "サイズ（0 = 画像どおり）：",
+  "minepapers.gui.size": "サイズ：幅, 高さ：",
   "minepapers.gui.offset": "オフセット：右, 上：",
   "minepapers.gui.width": "幅（0 = 画像の縦横比どおり）",
   "minepapers.gui.height": "高さ（0 = 画像の縦横比どおり）",

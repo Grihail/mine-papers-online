@@ -165,14 +165,14 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         btnReload = small(TAB_SOURCE, ID_RELOAD, x + 154, y + 131, 14, 14, "", GuiWidgets.ICON_RELOAD_U);
 
         // Размер и позиция
-        fWidth = field(TAB_SIZE, x + 9, y + 31, 40, 10, Numbers.fmt(tile.width));
-        fHeight = field(TAB_SIZE, x + 63, y + 31, 40, 10, Numbers.fmt(tile.height));
-        cbSizePx = check(TAB_SIZE, ID_SIZE_PX, x + 112, y + 32, sizePx);
-        fOffX = field(TAB_SIZE, x + 9, y + 61, 40, 10, Numbers.fmt(tile.offsetX));
-        fOffY = field(TAB_SIZE, x + 63, y + 61, 40, 10, Numbers.fmt(tile.offsetY));
-        cbPosPx = check(TAB_SIZE, ID_POS_PX, x + 112, y + 62, posPx);
-        fPad = field(TAB_SIZE, x + 9, y + 91, 40, 10, Numbers.fmt(tile.padding));
-        cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + 112, y + 92, padPx);
+        fWidth = field(TAB_SIZE, x + 9, y + 19, 40, 10, Numbers.fmt(tile.width));
+        fHeight = field(TAB_SIZE, x + 63, y + 19, 40, 10, Numbers.fmt(tile.height));
+        cbSizePx = check(TAB_SIZE, ID_SIZE_PX, x + 112, y + 20, sizePx);
+        fOffX = field(TAB_SIZE, x + 9, y + 49, 40, 10, Numbers.fmt(tile.offsetX));
+        fOffY = field(TAB_SIZE, x + 63, y + 49, 40, 10, Numbers.fmt(tile.offsetY));
+        cbPosPx = check(TAB_SIZE, ID_POS_PX, x + 112, y + 50, posPx);
+        fPad = field(TAB_SIZE, x + 9, y + 79, 40, 10, Numbers.fmt(tile.padding));
+        cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + 112, y + 80, padPx);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
             // Внизу вкладки, над инвентарём
             fitButtons.add(add(new GuiWidgets.Toggle(ID_FIT + i, x + 8 + i * 22, y + 128, i * 16, GuiWidgets.FIT_ICON_V),
@@ -189,8 +189,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         fPpb = field(TAB_STYLE, x + 129, y + 133, 38, 3, String.valueOf(tile.pixelsPerBlock));
 
         // Описание
-        fTitle = field(TAB_INFO, x + 9, y + 30, 158, PictureFrame.MAX_TITLE, tile.title);
-        fDesc = area(new GuiTextArea(fontRendererObj, x + 9, y + 60, 158, 80).multiline(), TAB_INFO, x + 9, y + 60, 158, 80,
+        fTitle = field(TAB_INFO, x + 9, y + 18, 158, PictureFrame.MAX_TITLE, tile.title);
+        fDesc = area(new GuiTextArea(fontRendererObj, x + 9, y + 48, 158, 92).multiline(), TAB_INFO, x + 9, y + 48, 158, 92,
             tile.description);
 
         if (old != null && old.size() == fields.size()) {
@@ -733,7 +733,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             }
             return;
         }
-        text(I18n.format("minepapers.gui.tab." + tab), 8, 6, GuiWidgets.TEXT);
+        if (tab != TAB_SIZE && tab != TAB_INFO) text(I18n.format("minepapers.gui.tab." + tab), 8, 6, GuiWidgets.TEXT);
         switch (tab) {
             case TAB_SOURCE: {
                 text(I18n.format("minepapers.gui.path." + source), 8, 42, GuiWidgets.TEXT);
@@ -743,10 +743,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 break;
             }
             case TAB_SIZE:
-                text(I18n.format("minepapers.gui.size"), 8, 18, GuiWidgets.TEXT);
-                text("x", 53, 33, GuiWidgets.TEXT);
-                text(I18n.format("minepapers.gui.offset"), 8, 48, GuiWidgets.TEXT);
-                text(I18n.format("minepapers.gui.padding"), 8, 78, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.size"), 8, 6, GuiWidgets.TEXT);
+                text("x", 53, 21, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.offset"), 8, 36, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.padding"), 8, 66, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.fit"), 8, 117, GuiWidgets.TEXT);
                 break;
             case TAB_STYLE:
@@ -755,8 +755,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 text(I18n.format("minepapers.gui.ppb"), 8, 135, GuiWidgets.TEXT);
                 break;
             case TAB_INFO:
-                text(I18n.format("minepapers.gui.titleLabel"), 8, 18, GuiWidgets.TEXT);
-                text(I18n.format("minepapers.gui.description"), 8, 48, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.titleLabel"), 8, 6, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.description"), 8, 36, GuiWidgets.TEXT);
                 break;
             case TAB_FRAME: {
                 // Список материалов: слот, справа — что это и какой блок в нём лежит.
