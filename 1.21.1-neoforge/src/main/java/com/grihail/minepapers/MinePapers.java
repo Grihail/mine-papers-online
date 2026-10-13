@@ -97,6 +97,7 @@ public class MinePapers {
         modBus.addListener(Network::register);
         modBus.addListener(MinePapers::fillCreativeTab);
 
+        ServerImages.install();
         NeoForge.EVENT_BUS.register(new ServerImages.Events());
         NeoForge.EVENT_BUS.register(new RecipePictureFrame.Events());
     }

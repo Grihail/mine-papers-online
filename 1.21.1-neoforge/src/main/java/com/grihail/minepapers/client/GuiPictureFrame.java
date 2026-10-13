@@ -12,6 +12,7 @@ import org.lwjgl.glfw.GLFW;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketPasteMaterials;
 import com.grihail.minepapers.network.PacketSaveFrame;
+import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.PictureConfig;
 import com.grihail.minepapers.picture.EntityPicture;
@@ -170,23 +171,23 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             GuiWidgets.ICON_RELOAD_U, this::reload);
 
         // Размер и позиция
-        fWidth = field(TAB_SIZE, x + 8, y + 30, 42, 10, fmt(tile.width));
-        fHeight = field(TAB_SIZE, x + 62, y + 30, 42, 10, fmt(tile.height));
+        fWidth = field(TAB_SIZE, x + 8, y + 30, 42, 10, Numbers.fmt(tile.width));
+        fHeight = field(TAB_SIZE, x + 62, y + 30, 42, 10, Numbers.fmt(tile.height));
         cbSizePx = add(new GuiWidgets.Check(x + 112, y + 32, Component.translatable("minepapers.gui.pixels"), sizePx, () -> {
             sizePx = !sizePx;
             convert(fWidth, sizePx);
             convert(fHeight, sizePx);
             updateWidgets();
         }), TAB_SIZE);
-        fOffX = field(TAB_SIZE, x + 8, y + 60, 42, 10, fmt(tile.offsetX));
-        fOffY = field(TAB_SIZE, x + 62, y + 60, 42, 10, fmt(tile.offsetY));
+        fOffX = field(TAB_SIZE, x + 8, y + 60, 42, 10, Numbers.fmt(tile.offsetX));
+        fOffY = field(TAB_SIZE, x + 62, y + 60, 42, 10, Numbers.fmt(tile.offsetY));
         cbPosPx = add(new GuiWidgets.Check(x + 112, y + 62, Component.translatable("minepapers.gui.pixels"), posPx, () -> {
             posPx = !posPx;
             convert(fOffX, posPx);
             convert(fOffY, posPx);
             updateWidgets();
         }), TAB_SIZE);
-        fPad = field(TAB_SIZE, x + 8, y + 90, 42, 10, fmt(tile.padding));
+        fPad = field(TAB_SIZE, x + 8, y + 90, 42, 10, Numbers.fmt(tile.padding));
         cbPadPx = add(new GuiWidgets.Check(x + 112, y + 92, Component.translatable("minepapers.gui.pixels"), padPx, () -> {
             padPx = !padPx;
             convert(fPad, padPx);
@@ -392,15 +393,15 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         // Перечитать папку и выложить на сервер то, что в ней появилось.
         if (key.equals(tile.getOriginKey())) {
             if (tile.hasSharedFiles()) PictureManager.reload(tile.getSourceKey());
-            ImageSync.offer(picture);
+            ImageSync.offer(picture.getId(), picture.frame);
         }
     }
 
     /** Переключение блоки <-> пиксели: пересчитываем значение, чтобы картинка не "прыгала". */
     private void convert(EditBox f, boolean toPixels) {
-        Float v = parse(f.getValue());
+        Float v = Numbers.parse(f.getValue());
         if (v != null) {
-            f.setValue(fmt(toPixels ? v * 16f : v / 16f));
+            f.setValue(Numbers.fmt(toPixels ? v * 16f : v / 16f));
         }
     }
 
@@ -435,20 +436,20 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         c.description = fDesc.getValue().trim();
         c.source = source;
         c.path = line(pathField(source));
-        Float interval = parse(fInterval.getValue());
+        Float interval = Numbers.parse(fInterval.getValue());
         if (interval != null) c.interval = Math.round(interval);
-        c.width = parse(fWidth.getValue());
-        c.height = parse(fHeight.getValue());
+        c.width = Numbers.parse(fWidth.getValue());
+        c.height = Numbers.parse(fHeight.getValue());
         c.sizePixels = sizePx;
-        c.offsetRight = parse(fOffX.getValue());
-        c.offsetUp = parse(fOffY.getValue());
+        c.offsetRight = Numbers.parse(fOffX.getValue());
+        c.offsetUp = Numbers.parse(fOffY.getValue());
         c.offsetPixels = posPx;
-        c.padding = parse(fPad.getValue());
+        c.padding = Numbers.parse(fPad.getValue());
         c.paddingPixels = padPx;
         c.fit = fitMode;
         c.look = mode;
         c.style = style;
-        Float ppb = parse(fPpb.getValue());
+        Float ppb = Numbers.parse(fPpb.getValue());
         if (ppb != null) c.pixelsPerBlock = Math.round(ppb);
         PictureFrame.Material[] materials = tile.materials();
         for (int i = 0; i < materials.length && i < PictureConfig.MATERIALS.length; i++) {
@@ -474,13 +475,13 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (c.path != null) pathField(source).setValue(c.path);
         if (c.interval != null) fInterval.setValue(String.valueOf(c.interval));
         if (c.sizePixels != null) sizePx = c.sizePixels;
-        if (c.width != null) fWidth.setValue(fmt(c.width));
-        if (c.height != null) fHeight.setValue(fmt(c.height));
+        if (c.width != null) fWidth.setValue(Numbers.fmt(c.width));
+        if (c.height != null) fHeight.setValue(Numbers.fmt(c.height));
         if (c.offsetPixels != null) posPx = c.offsetPixels;
-        if (c.offsetRight != null) fOffX.setValue(fmt(c.offsetRight));
-        if (c.offsetUp != null) fOffY.setValue(fmt(c.offsetUp));
+        if (c.offsetRight != null) fOffX.setValue(Numbers.fmt(c.offsetRight));
+        if (c.offsetUp != null) fOffY.setValue(Numbers.fmt(c.offsetUp));
         if (c.paddingPixels != null) padPx = c.paddingPixels;
-        if (c.padding != null) fPad.setValue(fmt(c.padding));
+        if (c.padding != null) fPad.setValue(Numbers.fmt(c.padding));
         if (c.fit != null) fitMode = c.fit;
         if (c.look != null) mode = c.look;
         if (c.style != null) style = c.style;
@@ -534,21 +535,21 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         tile.yandexUrl = line(fUrl);
         tile.folderPath = line(fFolder);
         tile.imageUrl = line(fImage);
-        Float interval = parse(fInterval.getValue());
+        Float interval = Numbers.parse(fInterval.getValue());
         if (interval != null) tile.interval = Math.round(interval);
         tile.sizeInPixels = sizePx;
-        float[] size = resolveSize(parse(fWidth.getValue()), parse(fHeight.getValue()));
+        float[] size = resolveSize(Numbers.parse(fWidth.getValue()), Numbers.parse(fHeight.getValue()));
         tile.width = size[0];
         tile.height = size[1];
         tile.offsetInPixels = posPx;
-        tile.offsetX = orDefault(parse(fOffX.getValue()), tile.offsetX);
-        tile.offsetY = orDefault(parse(fOffY.getValue()), tile.offsetY);
+        tile.offsetX = Numbers.orDefault(Numbers.parse(fOffX.getValue()), tile.offsetX);
+        tile.offsetY = Numbers.orDefault(Numbers.parse(fOffY.getValue()), tile.offsetY);
         tile.paddingInPixels = padPx;
-        tile.padding = orDefault(parse(fPad.getValue()), tile.padding);
+        tile.padding = Numbers.orDefault(Numbers.parse(fPad.getValue()), tile.padding);
         tile.fitMode = fitMode;
         tile.style = style;
         tile.mode = mode;
-        Float ppb = parse(fPpb.getValue());
+        Float ppb = Numbers.parse(fPpb.getValue());
         if (ppb != null) tile.pixelsPerBlock = Math.round(ppb);
 
         // Прогоняем через те же ограничения, что и сервер.
@@ -562,7 +563,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
         PacketDistributor.sendToServer(PacketSaveFrame.of(picture));
         // Файлы с этого компьютера другие игроки увидят, только когда они окажутся на сервере.
-        ImageSync.offer(picture);
+        ImageSync.offer(picture.getId(), picture.frame);
     }
 
     /** Хитбокс должен быть известен серверу, поэтому "0 = авто" превращаем в конкретный размер по пропорциям текущей картинки (если она ещё не загружена — квадрат). Округляем до пикселя. */
@@ -580,12 +581,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 w = (float) (h / aspect);
             }
         }
-        return new float[] { snap(w, sizePx), snap(h, sizePx) };
-    }
-
-    private static float snap(float v, boolean px) {
-        float pixels = Math.max(1, Math.round(px ? v : v * 16));
-        return px ? pixels : pixels / 16f;
+        return new float[] { Numbers.snap(w, sizePx), Numbers.snap(h, sizePx) };
     }
 
     /** Высота / ширина картинки, которая сейчас показывается в рамке (1, если неизвестно). */
@@ -598,26 +594,6 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             }
         }
         return 1.0;
-    }
-
-    private static float orDefault(Float v, float def) {
-        return v != null ? v : def;
-    }
-
-    private static Float parse(String s) {
-        try {
-            float v = Float.parseFloat(s.trim().replace(',', '.'));
-            return Float.isNaN(v) || Float.isInfinite(v) ? null : v;
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private static String fmt(float v) {
-        if (v == Math.round(v)) return String.valueOf(Math.round(v));
-        String s = String.format(Locale.ROOT, "%.4f", v);
-        s = s.replaceAll("0+$", "");
-        return s.endsWith(".") ? s.substring(0, s.length() - 1) : s;
     }
 
     // ---------- Ввод ----------

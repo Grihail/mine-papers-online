@@ -23,6 +23,7 @@ public class ClientProxy extends CommonProxy {
 
     @Override
     public void preInit() {
+        ClientHost.install(new MinePapersClientHost());
         RenderingRegistry.registerEntityRenderingHandler(EntityPicture.class, new RenderPicture());
         MinecraftForgeClient.registerItemRenderer(Item.getItemFromBlock(MinePapers.frame), new RenderPictureItem());
         FMLCommonHandler.instance().bus().register(this);

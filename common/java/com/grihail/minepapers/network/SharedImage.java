@@ -10,6 +10,11 @@ public final class SharedImage {
     public static final int HEX_CHARS = HASH_BYTES * 2;
     public static final int MAX_BYTES = 16 * 1024 * 1024;
     public static final int HEADER_BYTES = 12;
+    /** Сколько хешей помещается в один пакет списка. */
+    public static final int MAX_HASHES = 1024;
+    /** Кусок картинки в пакете: от клиента к серверу и от сервера к клиенту. */
+    public static final int UPLOAD_CHUNK = 30000;
+    public static final int DOWNLOAD_CHUNK = 32 * 1024;
     private static final int MAGIC = 0x4D504931;
     private static final char[] HEX = "0123456789abcdef".toCharArray();
 

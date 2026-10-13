@@ -47,7 +47,7 @@ public class ContainerPictureFrame extends Container {
     public boolean canInteractWith(EntityPlayer player) {
         // Вызывается только на сервере: ушёл далеко или картину сломали — окно закрывается.
         return !picture.isDead && (!(player instanceof EntityPlayerMP)
-            || ServerImages.canEdit((EntityPlayerMP) player, picture.frame));
+            || ServerImages.canEdit((EntityPlayerMP) player, picture));
     }
 
     /** Shift+клик: из инвентаря — один предмет в первый пустой слот материала, из слота материала — обратно в инвентарь. */

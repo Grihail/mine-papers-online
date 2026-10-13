@@ -26,7 +26,7 @@ public class CommonProxy implements IGuiHandler {
     public Object getServerGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
         EntityPicture picture = ServerImages.pictureById(world, x);
         if (id != GUI_FRAME || picture == null || !(player instanceof EntityPlayerMP)
-            || !ServerImages.canEdit((EntityPlayerMP) player, picture.frame)) return null;
+            || !ServerImages.canEdit((EntityPlayerMP) player, picture)) return null;
         return new ContainerPictureFrame(player.inventory, picture);
     }
 

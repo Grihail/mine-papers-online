@@ -44,7 +44,7 @@ public record PacketFileChunk(byte[] hash, int total, int offset, byte[] data)
     /** Кусок файла картинки: клиент -> сервер (выкладывание). */
     public record Upload(byte[] hash, int total, int offset, byte[] data) implements CustomPacketPayload, FileChunkFields {
         /** Пакет клиент -> сервер ограничен 32 КБ. */
-        public static final int MAX_DATA = 30000;
+        public static final int MAX_DATA = SharedImage.UPLOAD_CHUNK;
 
         public static final Type<Upload> TYPE = new Type<>(MinePapers.id("upload_chunk"));
         public static final StreamCodec<ByteBuf, Upload> CODEC = codec(MAX_DATA, Upload::new);

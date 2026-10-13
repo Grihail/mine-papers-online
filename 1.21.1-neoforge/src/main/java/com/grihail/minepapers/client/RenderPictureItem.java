@@ -12,6 +12,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.nbt.CompoundTag;
@@ -86,7 +87,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 for (int face = 0; face < faces(); face++) atlasRect(canvas.sprite, face, cx0, cy0, cx1, cy1);
                 color(1f, 1f, 1f);
             }
-            out = buffers.getBuffer(RenderType.entityTranslucent(thumb.getTexture()));
+            out = buffers.getBuffer(RenderType.entityTranslucent((ResourceLocation) thumb.getTexture()));
             // Настоящая рамка в мире заходит на холст: на иконке её кольцо и есть эта часть, внутри — только то, что видно из-под неё.
             double ov = s.mode == PictureFrame.MODE_REALISTIC ? Math.min(2 * PictureFrame.PIXEL, Math.min(w, h) / 2) : 0;
             if (w - 2 * ov < 1e-6 || h - 2 * ov < 1e-6) ov = 0;

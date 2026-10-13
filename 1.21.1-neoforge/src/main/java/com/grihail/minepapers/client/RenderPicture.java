@@ -118,7 +118,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
             boolean decal = mode == PictureFrame.MODE_DECAL;
             double d = decal ? DECAL_DEPTH : plate ? PX : PX + 0.002;
             // Кадр анимации — по игровому времени: у всех игроков одинаковый, как и слайд.
-            ResourceLocation texture = shown.getTexture((long) ((level.getGameTime() + partialTick) * 50));
+            ResourceLocation texture = (ResourceLocation) shown.getTexture((long) ((level.getGameTime() + partialTick) * 50));
             out = buffers.getBuffer(decal ? PictureRenderTypes.decal(texture) : RenderType.entityTranslucent(texture));
             setTint(1f, 1f, 1f);
             double pu0 = u0 + shown.x0, pv0 = v0 + shown.y0, pu1 = u0 + shown.x1, pv1 = v0 + shown.y1;
@@ -416,7 +416,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         PictureFrame tile = picture.frame;
         String key = tile.getSourceKey();
         if (key == null) return null;
-        if (!tile.hasSharedFiles() && !tile.isNetworkSource()) ImageSync.autoOffer(picture);
+        if (!tile.hasSharedFiles() && !tile.isNetworkSource()) ImageSync.autoOffer(picture.level().dimension().location(), picture.getId(), tile);
 
         PictureManager.Source source = PictureManager.get(key);
         long time = picture.level().getGameTime();

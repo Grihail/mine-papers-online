@@ -15,7 +15,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 public abstract class PacketHashes implements IMessage {
 
     /** Больше одного пакета клиент -> сервер (32 КБ) не влезет. */
-    public static final int MAX_HASHES = 1024;
+    public static final int MAX_HASHES = SharedImage.MAX_HASHES;
 
     public byte[] hashes;
 

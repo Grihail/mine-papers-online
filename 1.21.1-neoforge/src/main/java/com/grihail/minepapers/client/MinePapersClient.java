@@ -27,6 +27,7 @@ public class MinePapersClient {
 
     public MinePapersClient(IEventBus modBus) {
         MinePapers.proxy = new ClientProxy();
+        ClientHost.install(new MinePapersClientHost());
 
         modBus.addListener(MinePapersClient::registerRenderers);
         modBus.addListener(MinePapersClient::registerItemRenderer);

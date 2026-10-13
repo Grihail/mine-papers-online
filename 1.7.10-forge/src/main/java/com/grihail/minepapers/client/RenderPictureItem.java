@@ -99,7 +99,7 @@ public class RenderPictureItem implements IItemRenderer {
 
             GL11.glEnable(GL11.GL_BLEND);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, thumb.getTextureId());
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, (Integer) thumb.getTexture());
             // Настоящая рамка в мире заходит на холст: на иконке её кольцо и есть эта часть, внутри — только то, что видно из-под неё.
             double ov = s.mode == PictureFrame.MODE_REALISTIC ? Math.min(2 * PictureFrame.PIXEL, Math.min(w, h) / 2) : 0;
             if (w - 2 * ov < 1e-6 || h - 2 * ov < 1e-6) ov = 0;

@@ -34,7 +34,7 @@ public class PacketOpenFrame implements IMessage {
 
     private static void apply(EntityPlayerMP player, PacketOpenFrame msg) {
         EntityPicture picture = ServerImages.pictureById(player.worldObj, msg.entityId);
-        if (picture == null || !ServerImages.canEdit(player, picture.frame)) return;
+        if (picture == null || !ServerImages.canEdit(player, picture)) return;
         player.openGui(MinePapers.instance, CommonProxy.GUI_FRAME, player.worldObj, msg.entityId, 0, 0);
     }
 

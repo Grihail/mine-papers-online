@@ -2,9 +2,9 @@ package com.grihail.minepapers.item;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
@@ -129,7 +129,7 @@ public class ItemPictureFrame extends Item {
         lines.add(path.isEmpty() ? source : Component.empty().append(source)
             .append(Component.literal(": ").withStyle(ChatFormatting.GRAY))
             .append(Component.literal(path).withStyle(ChatFormatting.WHITE)));
-        lines.add(Component.translatable("minepapers.tooltip.size", fmt(s.getWidthBlocks()), fmt(s.getHeightBlocks()))
+        lines.add(Component.translatable("minepapers.tooltip.size", Numbers.blocks(s.getWidthBlocks()), Numbers.blocks(s.getHeightBlocks()))
             .append(", ").append(Component.translatable("minepapers.gui.mode." + s.mode))
             .withStyle(ChatFormatting.GRAY));
         material(lines, s.border, "minepapers.tooltip.border");
@@ -171,8 +171,4 @@ public class ItemPictureFrame extends Item {
         return item != null ? new ItemStack(item) : null;
     }
 
-    private static String fmt(float blocks) {
-        if (blocks == Math.round(blocks)) return String.valueOf(Math.round(blocks));
-        return String.format(Locale.ROOT, "%.2f", blocks);
-    }
 }

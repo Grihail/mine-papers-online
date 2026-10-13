@@ -67,7 +67,7 @@ public class PacketFileChunk implements IMessage {
     /** Кусок файла картинки: клиент -> сервер (выкладывание). */
     public static class Upload extends PacketFileChunk {
         /** Пакет клиент -> сервер ограничен 32 КБ. */
-        public static final int MAX_DATA = 30000;
+        public static final int MAX_DATA = SharedImage.UPLOAD_CHUNK;
 
         public Upload() {}
 

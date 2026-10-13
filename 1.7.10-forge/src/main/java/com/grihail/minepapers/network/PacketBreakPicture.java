@@ -51,7 +51,7 @@ public class PacketBreakPicture implements IMessage {
             return;
         }
         long[] started = STARTED.remove(player.getUniqueID());
-        if (picture == null || !ServerImages.canEdit(player, picture.frame)) return;
+        if (picture == null || !ServerImages.canEdit(player, picture)) return;
         if (player.capabilities.isCreativeMode) {
             picture.breakPicture(false);
             return;

@@ -1,123 +1,14 @@
 package com.grihail.minepapers.picture;
 
-import java.util.UUID;
-
-import com.grihail.minepapers.network.SharedImage;
-
 import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 
-/** Настройки и место картины. Живёт внутри EntityPicture, а также служит "призраком" будущей картины (подсказка перед установкой, проверки) и разбором настроек из предмета. Место: (x, y, z) — клетка "рамки", от левого нижнего угла которой отсчитывается холст; facing — сторона (2..5), куда смотрит картина. Картинки грузятся только на клиенте. */
-public class PictureFrame {
-
-    public static final int SOURCE_LOCAL = 0;
-    public static final int SOURCE_YANDEX = 1;
-    public static final int SOURCE_FOLDER = 2;
-    /** Одна картинка по прямой ссылке (http/https). */
-    public static final int SOURCE_URL = 3;
-    public static final int SOURCE_COUNT = 4;
-
-    /** Режимы вписывания картинки в холст — как CSS object-fit. */
-    public static final int FIT_FILL = 0;
-    public static final int FIT_CONTAIN = 1;
-    public static final int FIT_COVER = 2;
-    public static final int FIT_NONE = 3;
-    public static final int FIT_SCALE_DOWN = 4;
-    public static final int FIT_COUNT = 5;
-
-    /** Стилизация цветов. */
-    public static final int STYLE_ORIGINAL = 0;
-    public static final int STYLE_MAP = 1;
-    public static final int STYLE_MAP_DITHER = 2;
-    public static final int STYLE_MAP_SOFT_DITHER = 3;
-    public static final int STYLE_COUNT = 4;
-
-    /** Вид картины. */
-    public static final int MODE_PANEL = 0;     // холст-панель, торцы обшиты рамкой
-    public static final int MODE_REALISTIC = 1; // настоящая рамка: заходит на картину и выступает над ней
-    public static final int MODE_DECAL = 2;     // граффити: без рамки, вплотную к стене
-    public static final int MODE_PLATE = 3;     // пластина: сама картинка толщиной в пиксель, торцы — её крайние пиксели
-    public static final int MODE_COUNT = 4;
-
-    public static final float PIXEL = 1f / 16f;
-    public static final float MIN_SIZE_BLOCKS = PIXEL;
-    public static final float MAX_SIZE_BLOCKS = 64f;
-    public static final int MIN_PPB = 1;
-    public static final int MAX_PPB = 256;
-    public static final int MAX_STRING = 512;
-    public static final int MAX_TITLE = 64;
-    /** Сколько картинок из локальной папки можно выложить на сервер для одной рамки. */
-    public static final int MAX_FILES = 256;
-    public static final byte[] NO_FILES = new byte[0];
-
-    // ---------- Место ----------
-
-    public int x, y, z;
-    /** Сторона (0..5, как у граней блока), куда смотрит картина: 0 — с потолка вниз, 1 — с пола вверх, 2..5 — со стен. */
-    public int facing = 3;
-    /** На полу и потолке: куда смотрел игрок при установке (0 — юг, 1 — запад, 2 — север, 3 — восток), там верх картинки. */
-    public int rotation;
-    /** Где задняя сторона картины относительно границы клетки рамки, в блоках вдоль нормали (0 или меньше): картина лежит ровно на грани, по которой кликнули, — на полублоке, ковре, боковине забора. */
-    public float surface;
-
-    // ---------- Настройки ----------
-
-    public int source = SOURCE_LOCAL;
-    /** Картинки локального источника, выложенные на сервер: подряд идущие SHA-1 (по 20 байт). Их видят все игроки; пусто — файлы ещё не отправлены, и картинку видит только тот, у кого они есть. */
-    public byte[] files = NO_FILES;
-    private byte[] keyFiles;
-    private String filesKey;
-    /** Имя файла или подпапки внутри config/minepapers */
-    public String localPath = "";
-    /** Ссылка на публичную папку Яндекс Диска */
-    public String yandexUrl = "";
-    /** Абсолютный путь к папке (или файлу) на компьютере игрока */
-    public String folderPath = "";
-    /** Прямая ссылка на картинку */
-    public String imageUrl = "";
-    /** Интервал слайдшоу в секундах */
-    public int interval = 10;
-
-    /** Ширина и высота холста (и хитбокса): в блоках или в пикселях (1/16 блока). */
-    public float width = 1f;
-    public float height = 1f;
-    public boolean sizeInPixels = false;
-
-    /** Смещение левого нижнего угла холста от левого нижнего угла клетки рамки: вправо и вверх */
-    public float offsetX = 0f;
-    public float offsetY = 0f;
-    public boolean offsetInPixels = false;
-
-    /** Внутренний отступ картинки от краёв холста (со всех сторон): в блоках или в пикселях. */
-    public float padding = 0f;
-    public boolean paddingInPixels = true;
-
-    /** Заголовок и описание картины (вкладка "Описание"), видны в подсказке предмета. */
-    public String title = "";
-    public String description = "";
-
-    /** Владелец заприваченной картины (null — картину может менять любой) и его ник — для подсказок. Меняет только сервер (PacketSaveFrame), в конфиг JSON не попадает. */
-    public UUID owner;
-    public String ownerName = "";
-
-    public boolean isLocked() {
-        return owner != null;
-    }
-
-    /** Может ли игрок менять настройки и материалы картины. */
-    public boolean mayEdit(UUID player) {
-        return owner == null || owner.equals(player);
-    }
-
-    /** Как картинка вписывается в холст (масштабирование всегда от центра) */
-    public int fitMode = FIT_COVER;
-    /** Разрешение стилизации: пикселей картинки на один блок (128 = как карта, 16 = как ванильная картина) */
-    public int pixelsPerBlock = 128;
-    public int style = STYLE_MAP_SOFT_DITHER;
-    public int mode = MODE_PANEL;
+/** Настройки и место картины (общая часть — PictureSettings) с материалами. Живёт внутри EntityPicture, а также служит "призраком" будущей картины (подсказка перед установкой, проверки) и разбором настроек из предмета. Картинки грузятся только на клиенте. */
+public class PictureFrame extends PictureSettings {
 
     /** Материалы (слоты на вкладке "Рамка"): из текстуры лежащего в слоте блока сделаны рамка и холст; светящийся блок в слоте свечения делает картину источником света его силы. */
     public final Material border = new Material("Border", false);
@@ -139,28 +30,14 @@ public class PictureFrame {
         return stack != null && stack.getItem() == Items.glowstone_dust;
     }
 
-    /** Сколько света даёт блок, из которого сделан предмет (0 — не блок или не светится). Без списков: берём у самого блока. */
+    /** Сколько света даёт блок, из которого сделан предмет (0 — не блок или не светится). Без списков: берём у самого блока, а у ламп, печей и руды — у их включённого варианта (в 1.7.10 это отдельные блоки без своих предметов). */
     public static int lightOf(ItemStack stack) {
         if (stack == null) return 0;
         Block block = Block.getBlockFromItem(stack.getItem());
+        if (block == Blocks.redstone_lamp) block = Blocks.lit_redstone_lamp;
+        else if (block == Blocks.furnace) block = Blocks.lit_furnace;
+        else if (block == Blocks.redstone_ore) block = Blocks.lit_redstone_ore;
         return block != null ? Math.max(0, Math.min(15, block.getLightValue())) : 0;
-    }
-
-    /** Клиентский кэш последнего нарисованного варианта картинки (см. client.RenderPicture). На сервере не используется. */
-    public Object clientRenderState;
-
-    /** Сторона (0..5), в которую смотрит картина. */
-    public int getFacing() {
-        return facing >= 0 && facing <= 5 ? facing : 3;
-    }
-
-    public int getRotation() {
-        return rotation & 3;
-    }
-
-    /** Своё зерно случайного порядка слайдшоу у каждой рамки (одинаковое у всех игроков). */
-    public long getSlideSeed() {
-        return x * 73856093L ^ y * 19349663L ^ z * 83492791L;
     }
 
     public Material[] materials() {
@@ -227,178 +104,23 @@ public class PictureFrame {
         }
     }
 
-    /** Ключ источника картинок, по которому клиент кэширует загруженные изображения. */
-    public String getSourceKey() {
-        if (hasSharedFiles()) {
-            if (keyFiles != files) {
-                filesKey = "shared:" + SharedImage.hex(files);
-                keyFiles = files;
-            }
-            return filesKey;
-        }
-        return getOriginKey();
-    }
-
-    /** Источник, как его задал игрок (путь на его компьютере или ссылка) — без учёта копий на сервере. */
-    public String getOriginKey() {
-        return makeSourceKey(source, localPath, yandexUrl, folderPath, imageUrl);
-    }
-
-    public boolean hasSharedFiles() {
-        return !isNetworkSource() && files.length > 0;
-    }
-
-    /** Картинки из интернета (Яндекс Диск, прямая ссылка): каждый игрок скачивает их сам, выкладывать на сервер не нужно. */
-    public boolean isNetworkSource() {
-        return source == SOURCE_YANDEX || source == SOURCE_URL;
-    }
-
-    public static String makeSourceKey(int source, String localPath, String yandexUrl, String folderPath, String imageUrl) {
-        switch (source) {
-            case SOURCE_YANDEX:
-                return yandexUrl.trim().isEmpty() ? null : "yandex:" + yandexUrl.trim();
-            case SOURCE_FOLDER:
-                return folderPath.trim().isEmpty() ? null : "folder:" + folderPath.trim();
-            case SOURCE_URL:
-                return imageUrl.trim().isEmpty() ? null : "url:" + imageUrl.trim();
-            default:
-                return localPath.trim().isEmpty() ? null : "local:" + localPath.trim();
-        }
-    }
-
-    /** Путь или ссылка текущего источника (для подсказки предмета). */
-    public String getSourcePath() {
-        switch (source) {
-            case SOURCE_YANDEX: return yandexUrl;
-            case SOURCE_FOLDER: return folderPath;
-            case SOURCE_URL: return imageUrl;
-            default: return localPath;
-        }
-    }
-
-    public float getWidthBlocks() {
-        return sizeInPixels ? width / 16f : width;
-    }
-
-    public float getHeightBlocks() {
-        return sizeInPixels ? height / 16f : height;
-    }
-
-    public float getOffsetXBlocks() {
-        return offsetInPixels ? offsetX / 16f : offsetX;
-    }
-
-    public float getOffsetYBlocks() {
-        return offsetInPixels ? offsetY / 16f : offsetY;
-    }
-
-    /** Отступ в блоках; картинке остаётся хотя бы пиксель холста. */
-    public float getPaddingBlocks() {
-        float p = paddingInPixels ? padding / 16f : padding;
-        float max = (Math.min(getWidthBlocks(), getHeightBlocks()) - PIXEL) / 2;
-        return Math.max(0, Math.min(p, max));
-    }
-
-    /** Толщина картины от стены (и её хитбокса). */
-    public float getDepth() {
-        switch (mode) {
-            case MODE_REALISTIC: return 2 * PIXEL;
-            case MODE_DECAL: return PIXEL / 2;
-            default: return PIXEL;
-        }
-    }
-
     public void writePlacement(NBTTagCompound tag) {
-        tag.setInteger("FX", x);
-        tag.setInteger("FY", y);
-        tag.setInteger("FZ", z);
-        tag.setByte("Facing", (byte) getFacing());
-        tag.setByte("Rot", (byte) getRotation());
-        tag.setFloat("Surface", surface);
+        writePlacement(new NbtTag(tag));
     }
 
     public void readPlacement(NBTTagCompound tag) {
-        x = tag.getInteger("FX");
-        y = tag.getInteger("FY");
-        z = tag.getInteger("FZ");
-        facing = tag.getByte("Facing");
-        facing = getFacing();
-        rotation = tag.getByte("Rot") & 3;
-        float s = tag.getFloat("Surface");
-        surface = s >= -1f && s <= 0f ? s : 0f;
+        readPlacement(new NbtTag(tag));
     }
 
     public void writeSettings(NBTTagCompound tag) {
-        tag.setByte("Src", (byte) source);
-        tag.setString("Local", localPath);
-        tag.setString("Url", yandexUrl);
-        tag.setString("Folder", folderPath);
-        tag.setString("ImageUrl", imageUrl);
-        tag.setInteger("Interval", interval);
-        tag.setFloat("W", width);
-        tag.setFloat("H", height);
-        tag.setBoolean("SizePx", sizeInPixels);
-        tag.setFloat("OX", offsetX);
-        tag.setFloat("OY", offsetY);
-        tag.setBoolean("PosPx", offsetInPixels);
-        tag.setFloat("Pad", padding);
-        tag.setBoolean("PadPx", paddingInPixels);
-        if (!title.isEmpty()) tag.setString("Title", title);
-        if (!description.isEmpty()) tag.setString("Desc", description);
-        if (owner != null) {
-            tag.setString("Owner", owner.toString());
-            tag.setString("OwnerName", ownerName);
-        }
-        tag.setByte("Fit", (byte) fitMode);
-        tag.setShort("PPB", (short) pixelsPerBlock);
-        tag.setByte("Style", (byte) style);
-        tag.setByte("Mode", (byte) mode);
+        writeSettings(new NbtTag(tag));
         for (Material m : materials()) m.write(tag);
-        if (files.length > 0) tag.setByteArray("Files", files);
     }
 
     /** Читает настройки и приводит их к допустимым значениям (данные могут прийти от клиента). */
     public void readSettings(NBTTagCompound tag) {
-        source = range(tag.getByte("Src"), 0, SOURCE_COUNT - 1);
-        localPath = limit(tag.getString("Local"));
-        yandexUrl = limit(tag.getString("Url"));
-        folderPath = limit(tag.getString("Folder"));
-        imageUrl = limit(tag.getString("ImageUrl"));
-        interval = range(tag.getInteger("Interval"), 1, 86400);
-
-        // Размер всегда явный: от него зависит хитбокс. Старое "0 = авто" превращаем в квадрат.
-        sizeInPixels = tag.getBoolean("SizePx");
-        float sizeScale = sizeInPixels ? 16f : 1f;
-        float w = tag.hasKey("W") ? tag.getFloat("W") : 1f;
-        float h = tag.hasKey("H") ? tag.getFloat("H") : 1f;
-        if (!(w > 0)) w = h > 0 ? h : sizeScale;
-        if (!(h > 0)) h = w;
-        width = clamp(w, MIN_SIZE_BLOCKS * sizeScale, MAX_SIZE_BLOCKS * sizeScale);
-        height = clamp(h, MIN_SIZE_BLOCKS * sizeScale, MAX_SIZE_BLOCKS * sizeScale);
-
-        // Холст должен перекрывать клетку рамки (где кликнули при установке) хотя бы на пиксель.
-        offsetInPixels = tag.getBoolean("PosPx");
-        float offsetScale = offsetInPixels ? 16f : 1f;
-        float minX = (PIXEL - getWidthBlocks()) * offsetScale, maxX = (1 - PIXEL) * offsetScale;
-        float minY = (PIXEL - getHeightBlocks()) * offsetScale, maxY = (1 - PIXEL) * offsetScale;
-        offsetX = clamp(tag.getFloat("OX"), minX, maxX);
-        offsetY = clamp(tag.getFloat("OY"), minY, maxY);
-
-        paddingInPixels = !tag.hasKey("PadPx") || tag.getBoolean("PadPx");
-        padding = clamp(tag.getFloat("Pad"), 0, MAX_SIZE_BLOCKS / 2 * (paddingInPixels ? 16f : 1f));
-
-        title = limit(tag.getString("Title").replace("\r", "").replace("\n", " "), MAX_TITLE);
-        description = limit(tag.getString("Desc").replace("\r", ""), MAX_STRING);
-        owner = parseUuid(tag.getString("Owner"));
-        ownerName = owner != null ? limit(tag.getString("OwnerName"), MAX_TITLE) : "";
-
-        fitMode = tag.hasKey("Fit") ? range(tag.getByte("Fit"), 0, FIT_COUNT - 1) : FIT_COVER;
-        pixelsPerBlock = tag.hasKey("PPB") ? range(tag.getShort("PPB"), MIN_PPB, MAX_PPB) : 128;
-        style = tag.hasKey("Style") ? range(tag.getByte("Style"), 0, STYLE_COUNT - 1) : STYLE_MAP_SOFT_DITHER;
-        mode = range(tag.getByte("Mode"), 0, MODE_COUNT - 1);
+        readSettings(new NbtTag(tag));
         for (Material m : materials()) m.read(tag);
-        byte[] f = tag.getByteArray("Files");
-        files = f.length % SharedImage.HASH_BYTES == 0 && f.length <= MAX_FILES * SharedImage.HASH_BYTES ? f : NO_FILES;
     }
 
     /** true, если настройки отличаются от новой рамки (тогда их стоит сохранить в выпавшем предмете). */
@@ -407,58 +129,5 @@ public class PictureFrame {
         writeSettings(mine);
         new PictureFrame().writeSettings(def);
         return !mine.equals(def);
-    }
-
-    /** Текст, разбитый на строки не длиннее width символов (по словам; переводы строк сохраняются) — для подсказки предмета. */
-    public static java.util.List<String> wrap(String text, int width) {
-        java.util.List<String> lines = new java.util.ArrayList<String>();
-        for (String paragraph : text.split("\n")) {
-            StringBuilder line = new StringBuilder();
-            for (String word : paragraph.trim().split(" +")) {
-                while (word.length() > width) {
-                    if (line.length() > 0) {
-                        lines.add(line.toString());
-                        line.setLength(0);
-                    }
-                    lines.add(word.substring(0, width));
-                    word = word.substring(width);
-                }
-                if (line.length() > 0 && line.length() + 1 + word.length() > width) {
-                    lines.add(line.toString());
-                    line.setLength(0);
-                }
-                if (line.length() > 0) line.append(' ');
-                line.append(word);
-            }
-            if (line.length() > 0) lines.add(line.toString());
-        }
-        return lines;
-    }
-
-    /** UUID из строки (пустая или испорченная — null). */
-    public static UUID parseUuid(String s) {
-        if (s == null || s.isEmpty()) return null;
-        try {
-            return UUID.fromString(s);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
-    private static String limit(String s) {
-        return limit(s, MAX_STRING);
-    }
-
-    private static String limit(String s, int max) {
-        return s.length() > max ? s.substring(0, max) : s;
-    }
-
-    private static int range(int v, int min, int max) {
-        return Math.max(min, Math.min(max, v));
-    }
-
-    private static float clamp(float v, float min, float max) {
-        if (Float.isNaN(v)) return min > 0 ? min : Math.min(0, max);
-        return Math.max(min, Math.min(max, v));
     }
 }

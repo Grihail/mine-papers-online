@@ -15,7 +15,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 public final class PacketHashes {
 
     /** Больше одного пакета клиент -> сервер (32 КБ) не влезет. */
-    public static final int MAX_HASHES = 1024;
+    public static final int MAX_HASHES = SharedImage.MAX_HASHES;
 
     /** Список хешей; неполный или слишком длинный читается как пустой. */
     static final StreamCodec<ByteBuf, byte[]> HASHES = StreamCodec.of(

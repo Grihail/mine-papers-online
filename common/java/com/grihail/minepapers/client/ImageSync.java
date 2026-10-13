@@ -31,23 +31,16 @@ import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 
-import org.slf4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import com.grihail.minepapers.network.PacketFileChunk;
-import com.grihail.minepapers.network.PacketHashes;
-import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.SharedImage;
-import com.grihail.minepapers.picture.EntityPicture;
-import com.grihail.minepapers.picture.PictureFrame;
-import com.mojang.logging.LogUtils;
+import com.grihail.minepapers.picture.PictureSettings;
 
-import net.minecraft.client.Minecraft;
-import net.neoforged.neoforge.network.PacketDistributor;
-
-/** Обмен картинками с сервером. Выкладывание: файлы локального источника рамки готовятся в фоне (большие уменьшаются), сервер получает их список и просит только те, которых у него ещё нет. Скачивание: картинки рамок с сервера по одной, в кэш на диске. Все методы, кроме помеченных, вызываются из клиентского потока. */
+/** Обмен картинками с сервером. Выкладывание: файлы локального источника рамки готовятся в фоне (большие уменьшаются), сервер получает их список и просит только те, которых у него ещё нет. Скачивание: картинки рамок с сервера по одной, в кэш на диске. Пакеты отправляет версия (ClientHost). Все методы, кроме помеченных, вызываются из клиентского потока. */
 public final class ImageSync {
 
-    private static final Logger LOG = LogUtils.getLogger();
+    private static final Logger LOG = LogManager.getLogger("minepapers");
 
     /** Отправка на сервер: 2 куска по 30 КБ за тик (~1.2 МБ/с), чтобы не забивать канал игрока. */
     private static final int UPLOAD_CHUNKS_PER_TICK = 2;
@@ -64,7 +57,7 @@ public final class ImageSync {
         return t;
     });
 
-    /** Задачи для клиентского потока (из фонового). */
+    /** Задачи для клиентского потока (из сетевого и фонового). */
     private static final Queue<Runnable> MAIN = new ConcurrentLinkedQueue<Runnable>();
 
     private static final Set<String> CACHED = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
@@ -81,12 +74,12 @@ public final class ImageSync {
     /** Состояние последней отправки (для экрана настроек). */
     private static volatile String jobOrigin;
     private static volatile int jobStage, jobDone, jobTotal;
-    static final int STAGE_NONE = 0, STAGE_PREPARING = 1, STAGE_UPLOADING = 2;
+    public static final int STAGE_NONE = 0, STAGE_PREPARING = 1, STAGE_UPLOADING = 2;
 
     private ImageSync() {}
 
     static File cacheDir() {
-        return new File(Minecraft.getInstance().gameDirectory, "minepapers-cache");
+        return new File(ClientHost.get().gameDir(), "minepapers-cache");
     }
 
     private static File cacheFile(String hex) {
@@ -123,8 +116,9 @@ public final class ImageSync {
         FAILED.clear();
     }
 
-    public static void onFileChunk(byte[] hash, int total, int offset, byte[] data) {
-        String hex = SharedImage.hex(hash);
+    /** Кусок картинки с сервера; total < 0 — у сервера её нет. Может вызываться из сетевого потока. */
+    public static void onFileChunk(final byte[] hash, int total, int offset, byte[] data) {
+        final String hex = SharedImage.hex(hash);
         if (total < 0) {
             DOWNLOADS.remove(hex);
             failed(hex);
@@ -146,7 +140,7 @@ public final class ImageSync {
         if (p.received < p.data.length) return;
 
         DOWNLOADS.remove(hex);
-        byte[] blob = p.data;
+        final byte[] blob = p.data;
         WORKER.submit(() -> {
             if (Arrays.equals(SharedImage.sha1(blob), hash) && writeCache(hex, blob)) {
                 CACHED.add(hex);
@@ -157,7 +151,7 @@ public final class ImageSync {
         });
     }
 
-    private static void failed(String hex) {
+    private static void failed(final String hex) {
         FAILED.add(hex);
         MAIN.add(() -> REQUESTED.remove(hex));
     }
@@ -184,11 +178,10 @@ public final class ImageSync {
 
     // ===================================================================== Выкладывание
 
-    /** Выложить картинки локального источника рамки на сервер, чтобы их увидели все. Если у этого игрока таких файлов нет, ничего не происходит. */
-    public static void offer(EntityPicture picture) {
-        String origin = picture.frame.getOriginKey();
-        if (origin == null || picture.frame.isNetworkSource()) return;
-        int entityId = picture.getId();
+    /** Выложить картинки локального источника рамки на сервер, чтобы их увидели все. Если у этого игрока таких файлов нет, ничего не происходит. @param entityId картина-сущность, к которой относятся картинки */
+    public static void offer(final int entityId, PictureSettings frame) {
+        final String origin = frame.getOriginKey();
+        if (origin == null || frame.isNetworkSource()) return;
         jobOrigin = origin;
         jobStage = STAGE_PREPARING;
         jobDone = 0;
@@ -196,7 +189,7 @@ public final class ImageSync {
         WORKER.submit(() -> {
             try {
                 List<File> files = PictureManager.sourceFiles(origin);
-                int n = Math.min(files.size(), PictureFrame.MAX_FILES);
+                int n = Math.min(files.size(), PictureSettings.MAX_FILES);
                 jobTotal = n;
                 ByteArrayOutputStream hashes = new ByteArrayOutputStream();
                 for (int i = 0; i < n; i++) {
@@ -204,13 +197,13 @@ public final class ImageSync {
                     if (hex != null) hashes.write(SharedImage.unhex(hex));
                     jobDone = i + 1;
                 }
-                byte[] list = hashes.toByteArray();
+                final byte[] list = hashes.toByteArray();
                 if (list.length == 0) {
                     finishJob(origin);
                     return;
                 }
                 MAIN.add(() -> {
-                    if (isConnected()) PacketDistributor.sendToServer(new PacketOfferFiles(entityId, origin, list));
+                    if (isConnected()) ClientHost.get().sendOffer(entityId, origin, list);
                     if (origin.equals(jobOrigin) && jobStage == STAGE_PREPARING) jobStage = STAGE_NONE;
                 });
             } catch (Throwable t) {
@@ -220,22 +213,23 @@ public final class ImageSync {
         });
     }
 
-    /** Рамки без выложенных картинок хост одиночной игры / LAN выкладывает сам: файлы с его компьютера, значит, это его картины. */
-    static void autoOffer(EntityPicture picture) {
-        if (!Minecraft.getInstance().hasSingleplayerServer()) return;
-        String key = picture.level().dimension().location() + "," + picture.getId() + "|"
-            + picture.frame.getOriginKey();
-        if (AUTO_OFFERED.add(key)) offer(picture);
+    /** Рамки без выложенных картинок хост одиночной игры / LAN выкладывает сам: файлы с его компьютера, значит, это его картины. @param world измерение картины (вместе с entityId отличает одну картину от другой) */
+    public static void autoOffer(Object world, int entityId, PictureSettings frame) {
+        if (!ClientHost.get().isSingleplayerHost()) return;
+        String key = world + "," + entityId + "|" + frame.getOriginKey();
+        if (AUTO_OFFERED.add(key)) offer(entityId, frame);
     }
 
-    /** Сервер попросил эти картинки. */
-    public static void onFilesNeeded(byte[] hashes) {
-        for (int i = 0; i + SharedImage.HASH_BYTES <= hashes.length; i += SharedImage.HASH_BYTES) {
-            UPLOADS.add(new Upload(Arrays.copyOfRange(hashes, i, i + SharedImage.HASH_BYTES)));
-        }
-        jobStage = STAGE_UPLOADING;
-        jobDone = 0;
-        jobTotal = UPLOADS.size();
+    /** Сервер попросил эти картинки. Может вызываться из сетевого потока. */
+    public static void onFilesNeeded(final byte[] hashes) {
+        MAIN.add(() -> {
+            for (int i = 0; i + SharedImage.HASH_BYTES <= hashes.length; i += SharedImage.HASH_BYTES) {
+                UPLOADS.add(new Upload(Arrays.copyOfRange(hashes, i, i + SharedImage.HASH_BYTES)));
+            }
+            jobStage = STAGE_UPLOADING;
+            jobDone = 0;
+            jobTotal = UPLOADS.size();
+        });
     }
 
     /** Фоновый поток: готовит файл к отправке и кладёт в кэш. Возвращает хеш или null, если файл не читается. */
@@ -341,31 +335,30 @@ public final class ImageSync {
     // =====================================================================
 
     /** Состояние отправки для экрана настроек: {этап, готово, всего} или null, если это не наша рамка. */
-    static int[] jobStatus(String origin) {
+    public static int[] jobStatus(String origin) {
         if (origin == null || !origin.equals(jobOrigin) || jobStage == STAGE_NONE) return null;
         return new int[] { jobStage, jobDone, jobTotal };
     }
 
     private static boolean isConnected() {
-        Minecraft mc = Minecraft.getInstance();
-        return mc.player != null && mc.getConnection() != null;
+        return ClientHost.get().isConnected();
     }
 
     /** Каждый клиентский тик. */
-    static void tick() {
+    public static void tick() {
         Runnable task;
         while ((task = MAIN.poll()) != null) task.run();
         if (!isConnected()) return;
 
         if (!TO_REQUEST.isEmpty()) {
-            int n = Math.min(TO_REQUEST.size(), PacketHashes.MAX_HASHES);
+            int n = Math.min(TO_REQUEST.size(), SharedImage.MAX_HASHES);
             byte[] hashes = new byte[n * SharedImage.HASH_BYTES];
             for (int i = 0; i < n; i++) {
                 System.arraycopy(SharedImage.unhex(TO_REQUEST.get(i)), 0, hashes, i * SharedImage.HASH_BYTES,
                     SharedImage.HASH_BYTES);
             }
             TO_REQUEST.subList(0, n).clear();
-            PacketDistributor.sendToServer(new PacketHashes.Request(hashes));
+            ClientHost.get().sendRequest(hashes);
         }
 
         for (int i = 0; i < UPLOAD_CHUNKS_PER_TICK && !UPLOADS.isEmpty(); i++) {
@@ -379,9 +372,8 @@ public final class ImageSync {
                     continue;
                 }
             }
-            int len = Math.min(PacketFileChunk.Upload.MAX_DATA, u.data.length - u.offset);
-            PacketDistributor.sendToServer(new PacketFileChunk.Upload(u.hash, u.data.length, u.offset,
-                Arrays.copyOfRange(u.data, u.offset, u.offset + len)));
+            int len = Math.min(SharedImage.UPLOAD_CHUNK, u.data.length - u.offset);
+            ClientHost.get().sendUpload(u.hash, u.data.length, u.offset, Arrays.copyOfRange(u.data, u.offset, u.offset + len));
             u.offset += len;
             if (u.offset >= u.data.length) {
                 UPLOADS.poll();
@@ -391,7 +383,7 @@ public final class ImageSync {
         }
     }
 
-    /** Отключились от сервера: всё, что было в пути, пропало. */
+    /** Отключились от сервера: всё, что было в пути, пропало. Может вызываться из сетевого потока. */
     public static void onDisconnect() {
         MAIN.add(() -> {
             REQUESTED.clear();

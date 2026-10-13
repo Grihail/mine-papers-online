@@ -17,6 +17,7 @@ import org.lwjgl.opengl.GL11;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketPasteMaterials;
 import com.grihail.minepapers.network.PacketSaveFrame;
+import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.Links;
@@ -164,13 +165,13 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         btnReload = small(TAB_SOURCE, ID_RELOAD, x + 154, y + 131, 14, 14, "", GuiWidgets.ICON_RELOAD_U);
 
         // Размер и позиция
-        fWidth = field(TAB_SIZE, x + 9, y + 31, 40, 10, fmt(tile.width));
-        fHeight = field(TAB_SIZE, x + 63, y + 31, 40, 10, fmt(tile.height));
+        fWidth = field(TAB_SIZE, x + 9, y + 31, 40, 10, Numbers.fmt(tile.width));
+        fHeight = field(TAB_SIZE, x + 63, y + 31, 40, 10, Numbers.fmt(tile.height));
         cbSizePx = check(TAB_SIZE, ID_SIZE_PX, x + 112, y + 32, sizePx);
-        fOffX = field(TAB_SIZE, x + 9, y + 61, 40, 10, fmt(tile.offsetX));
-        fOffY = field(TAB_SIZE, x + 63, y + 61, 40, 10, fmt(tile.offsetY));
+        fOffX = field(TAB_SIZE, x + 9, y + 61, 40, 10, Numbers.fmt(tile.offsetX));
+        fOffY = field(TAB_SIZE, x + 63, y + 61, 40, 10, Numbers.fmt(tile.offsetY));
         cbPosPx = check(TAB_SIZE, ID_POS_PX, x + 112, y + 62, posPx);
-        fPad = field(TAB_SIZE, x + 9, y + 91, 40, 10, fmt(tile.padding));
+        fPad = field(TAB_SIZE, x + 9, y + 91, 40, 10, Numbers.fmt(tile.padding));
         cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + 112, y + 92, padPx);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
             // Внизу вкладки, над инвентарём
@@ -358,15 +359,15 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         // Перечитать папку и выложить на сервер то, что в ней появилось.
         if (key.equals(tile.getOriginKey())) {
             if (tile.hasSharedFiles()) PictureManager.reload(tile.getSourceKey());
-            ImageSync.offer(picture);
+            ImageSync.offer(picture.getEntityId(), picture.frame);
         }
     }
 
     /** Переключение блоки <-> пиксели: пересчитываем значение, чтобы картинка не "прыгала". */
     private void convert(GuiTextField f, boolean toPixels) {
-        Float v = parse(f.getText());
+        Float v = Numbers.parse(f.getText());
         if (v != null) {
-            f.setText(fmt(toPixels ? v * 16f : v / 16f));
+            f.setText(Numbers.fmt(toPixels ? v * 16f : v / 16f));
         }
     }
 
@@ -409,20 +410,20 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         c.description = fDesc.getText().trim();
         c.source = source;
         c.path = pathField(source).getText().trim();
-        Float interval = parse(fInterval.getText());
+        Float interval = Numbers.parse(fInterval.getText());
         if (interval != null) c.interval = Math.round(interval);
-        c.width = parse(fWidth.getText());
-        c.height = parse(fHeight.getText());
+        c.width = Numbers.parse(fWidth.getText());
+        c.height = Numbers.parse(fHeight.getText());
         c.sizePixels = sizePx;
-        c.offsetRight = parse(fOffX.getText());
-        c.offsetUp = parse(fOffY.getText());
+        c.offsetRight = Numbers.parse(fOffX.getText());
+        c.offsetUp = Numbers.parse(fOffY.getText());
         c.offsetPixels = posPx;
-        c.padding = parse(fPad.getText());
+        c.padding = Numbers.parse(fPad.getText());
         c.paddingPixels = padPx;
         c.fit = fitMode;
         c.look = mode;
         c.style = style;
-        Float ppb = parse(fPpb.getText());
+        Float ppb = Numbers.parse(fPpb.getText());
         if (ppb != null) c.pixelsPerBlock = Math.round(ppb);
         PictureFrame.Material[] materials = tile.materials();
         for (int i = 0; i < materials.length && i < PictureConfig.MATERIALS.length; i++) {
@@ -448,13 +449,13 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         if (c.path != null) pathField(source).setText(c.path);
         if (c.interval != null) fInterval.setText(String.valueOf(c.interval));
         if (c.sizePixels != null) sizePx = c.sizePixels;
-        if (c.width != null) fWidth.setText(fmt(c.width));
-        if (c.height != null) fHeight.setText(fmt(c.height));
+        if (c.width != null) fWidth.setText(Numbers.fmt(c.width));
+        if (c.height != null) fHeight.setText(Numbers.fmt(c.height));
         if (c.offsetPixels != null) posPx = c.offsetPixels;
-        if (c.offsetRight != null) fOffX.setText(fmt(c.offsetRight));
-        if (c.offsetUp != null) fOffY.setText(fmt(c.offsetUp));
+        if (c.offsetRight != null) fOffX.setText(Numbers.fmt(c.offsetRight));
+        if (c.offsetUp != null) fOffY.setText(Numbers.fmt(c.offsetUp));
         if (c.paddingPixels != null) padPx = c.paddingPixels;
-        if (c.padding != null) fPad.setText(fmt(c.padding));
+        if (c.padding != null) fPad.setText(Numbers.fmt(c.padding));
         if (c.fit != null) fitMode = c.fit;
         if (c.look != null) mode = c.look;
         if (c.style != null) style = c.style;
@@ -498,21 +499,21 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         tile.yandexUrl = fUrl.getText().trim();
         tile.folderPath = fFolder.getText().trim();
         tile.imageUrl = fImage.getText().trim();
-        Float interval = parse(fInterval.getText());
+        Float interval = Numbers.parse(fInterval.getText());
         if (interval != null) tile.interval = Math.round(interval);
         tile.sizeInPixels = sizePx;
-        float[] size = resolveSize(parse(fWidth.getText()), parse(fHeight.getText()));
+        float[] size = resolveSize(Numbers.parse(fWidth.getText()), Numbers.parse(fHeight.getText()));
         tile.width = size[0];
         tile.height = size[1];
         tile.offsetInPixels = posPx;
-        tile.offsetX = orDefault(parse(fOffX.getText()), tile.offsetX);
-        tile.offsetY = orDefault(parse(fOffY.getText()), tile.offsetY);
+        tile.offsetX = Numbers.orDefault(Numbers.parse(fOffX.getText()), tile.offsetX);
+        tile.offsetY = Numbers.orDefault(Numbers.parse(fOffY.getText()), tile.offsetY);
         tile.paddingInPixels = padPx;
-        tile.padding = orDefault(parse(fPad.getText()), tile.padding);
+        tile.padding = Numbers.orDefault(Numbers.parse(fPad.getText()), tile.padding);
         tile.fitMode = fitMode;
         tile.style = style;
         tile.mode = mode;
-        Float ppb = parse(fPpb.getText());
+        Float ppb = Numbers.parse(fPpb.getText());
         if (ppb != null) tile.pixelsPerBlock = Math.round(ppb);
 
         // Прогоняем через те же ограничения, что и сервер.
@@ -526,7 +527,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
         MinePapers.network.sendToServer(new PacketSaveFrame(picture));
         // Файлы с этого компьютера другие игроки увидят, только когда они окажутся на сервере.
-        ImageSync.offer(picture);
+        ImageSync.offer(picture.getEntityId(), picture.frame);
     }
 
     /** Хитбокс должен быть известен серверу, поэтому "0 = авто" превращаем в конкретный размер по пропорциям текущей картинки (если она ещё не загружена — квадрат). Округляем до пикселя. */
@@ -544,12 +545,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 w = (float) (h / aspect);
             }
         }
-        return new float[] { snap(w, sizePx), snap(h, sizePx) };
-    }
-
-    private static float snap(float v, boolean px) {
-        float pixels = Math.max(1, Math.round(px ? v : v * 16));
-        return px ? pixels : pixels / 16f;
+        return new float[] { Numbers.snap(w, sizePx), Numbers.snap(h, sizePx) };
     }
 
     /** Высота / ширина картинки, которая сейчас показывается в рамке (1, если неизвестно). */
@@ -562,26 +558,6 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             }
         }
         return 1.0;
-    }
-
-    private static float orDefault(Float v, float def) {
-        return v != null ? v : def;
-    }
-
-    private static Float parse(String s) {
-        try {
-            float v = Float.parseFloat(s.trim().replace(',', '.'));
-            return Float.isNaN(v) || Float.isInfinite(v) ? null : v;
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private static String fmt(float v) {
-        if (v == Math.round(v)) return String.valueOf(Math.round(v));
-        String s = String.format(java.util.Locale.ROOT, "%.4f", v);
-        s = s.replaceAll("0+$", "");
-        return s.endsWith(".") ? s.substring(0, s.length() - 1) : s;
     }
 
     // ---------- Ввод ----------

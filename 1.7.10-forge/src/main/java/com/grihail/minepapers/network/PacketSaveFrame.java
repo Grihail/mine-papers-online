@@ -42,7 +42,7 @@ public class PacketSaveFrame implements IMessage {
 
     private static void apply(EntityPlayerMP player, PacketSaveFrame msg) {
         EntityPicture picture = ServerImages.pictureById(player.worldObj, msg.entityId);
-        if (picture == null || !ServerImages.canChange(player, picture.frame)) return;
+        if (picture == null || !ServerImages.canChange(player, picture)) return;
         PictureFrame frame = picture.frame;
         String origin = frame.getOriginKey();
         byte[] files = frame.files;

@@ -30,25 +30,19 @@ import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 
-import org.slf4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.SharedImage;
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.logging.LogUtils;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.ResourceLocation;
-
-/** Загрузка и кэширование картинок на клиенте. Все публичные методы вызываются только из клиентского (рендер) потока; скачивание, декодирование и стилизация идут в фоновых потоках. */
+/** Загрузка и кэширование картинок на клиенте; текстуры в видеопамять загружает версия (ClientHost). Все публичные методы вызываются только из клиентского (рендер) потока; скачивание, декодирование и стилизация идут в фоновых потоках. */
 public final class PictureManager {
 
-    private static final Logger LOG = LogUtils.getLogger();
+    private static final Logger LOG = LogManager.getLogger("minepapers");
 
     /** Текстура выгружается из видеопамяти, если её не рисовали столько миллисекунд. */
     private static final long EVICT_AFTER_MS = 30_000L;
@@ -73,7 +67,6 @@ public final class PictureManager {
         t.setPriority(Thread.MIN_PRIORITY);
         return t;
     });
-    private static final AtomicInteger TEXTURES = new AtomicInteger();
 
     private static final Map<String, Source> SOURCES = new HashMap<String, Source>();
 
@@ -82,10 +75,6 @@ public final class PictureManager {
     private static final Map<String, Thumb> THUMBS = new HashMap<String, Thumb>();
 
     private PictureManager() {}
-
-    private static String userAgent() {
-        return MinePapers.NAME + "/" + MinePapers.VERSION;
-    }
 
     /** Миниатюра первой картинки источника для иконки предмета (null, пока не готова или если не вышло). Источник загружается только до тех пор, пока миниатюра не посчитана, дальше его можно выгрузить. */
     public static Variant thumbnail(String sourceKey, ImageStylizer.Layout layout) {
@@ -174,7 +163,7 @@ public final class PictureManager {
     /** Файлы-картинки и подпапки в config/minepapers (для выбора в интерфейсе). */
     public static List<String> listLocalEntries() {
         List<String> result = new ArrayList<String>();
-        File[] files = MinePapers.picturesDir.toFile().listFiles();
+        File[] files = ClientHost.get().picturesDir().listFiles();
         if (files != null) {
             for (File f : files) {
                 if (f.isDirectory()) {
@@ -400,11 +389,11 @@ public final class PictureManager {
         }
 
         /** Запускает стилизацию в фоне; вариант не запоминается в картинке (этим занимается вызывающий). @param icon для иконки предмета: только первый кадр, а пиксели сохраняются и после загрузки в видеопамять (для объёмной иконки) */
-        Variant newVariant(ImageStylizer.Layout layout, boolean icon) {
-            Variant created = new Variant(this, icon);
-            int[][] src = frames;
-            int[] ms = delays;
-            int sw = srcW, sh = srcH, ow = origW, oh = origH;
+        Variant newVariant(final ImageStylizer.Layout layout, final boolean icon) {
+            final Variant created = new Variant(this, icon);
+            final int[][] src = frames;
+            final int[] ms = delays;
+            final int sw = srcW, sh = srcH, ow = origW, oh = origH;
             if (src == null) {
                 created.failed = true;
             } else {
@@ -484,7 +473,8 @@ public final class PictureManager {
         private final boolean keepPixels;
         volatile Styled result;
         volatile boolean failed;
-        private ResourceLocation[] textures;
+        /** Текстуры кадров — то, что вернул ClientHost.uploadTexture. */
+        private Object[] textures;
         /** Момент конца каждого кадра от начала анимации, мс (null, если кадр один). */
         private int[] frameEnds;
         private boolean empty;
@@ -510,12 +500,12 @@ public final class PictureManager {
         }
 
         /** Первый кадр. */
-        public ResourceLocation getTexture() {
+        public Object getTexture() {
             return textures[0];
         }
 
         /** Кадр анимации в момент timeMs (анимация идёт по кругу); у обычной картинки — единственный кадр. */
-        public ResourceLocation getTexture(long timeMs) {
+        public Object getTexture(long timeMs) {
             if (frameEnds == null) return textures[0];
             long t = Math.floorMod(timeMs, (long) frameEnds[frameEnds.length - 1]);
             int i = 0;
@@ -543,8 +533,11 @@ public final class PictureManager {
             width = first.width;
             height = first.height;
             if (keepPixels) pixels = first.pixels;
-            ResourceLocation[] ids = new ResourceLocation[s.frames.length];
-            for (int i = 0; i < ids.length; i++) ids[i] = uploadFrame(s.frames[i]);
+            Object[] ids = new Object[s.frames.length];
+            for (int i = 0; i < ids.length; i++) {
+                ImageStylizer.Result r = s.frames[i];
+                ids[i] = ClientHost.get().uploadTexture(r.pixels, r.width, r.height);
+            }
             if (s.delays != null) {
                 frameEnds = new int[s.delays.length];
                 int end = 0;
@@ -553,24 +546,9 @@ public final class PictureManager {
             textures = ids;
         }
 
-        private static ResourceLocation uploadFrame(ImageStylizer.Result r) {
-            NativeImage img = new NativeImage(r.width, r.height, false);
-            for (int y = 0; y < r.height; y++) {
-                for (int x = 0; x < r.width; x++) {
-                    int c = r.pixels[y * r.width + x];
-                    // NativeImage хранит ABGR: меняем местами красный и синий.
-                    img.setPixelRGBA(x, y, (c & 0xFF00FF00) | (c >> 16 & 0xFF) | (c & 0xFF) << 16);
-                }
-            }
-            // Фильтрация по умолчанию — ближайший пиксель: чёткие пиксели, как у карт и картин.
-            ResourceLocation id = MinePapers.id("picture/" + TEXTURES.incrementAndGet());
-            Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(img));
-            return id;
-        }
-
         void release() {
             if (textures != null) {
-                for (ResourceLocation id : textures) Minecraft.getInstance().getTextureManager().release(id);
+                for (Object id : textures) ClientHost.get().releaseTexture(id);
                 textures = null;
                 frameEnds = null;
             }
@@ -590,7 +568,7 @@ public final class PictureManager {
 
     /** Файл или подпапка внутри config/minepapers. */
     private static List<File> listLocal(String relative) throws IOException {
-        File base = MinePapers.picturesDir.toFile().getCanonicalFile();
+        File base = ClientHost.get().picturesDir().getCanonicalFile();
         File target = new File(base, relative).getCanonicalFile();
         if (!target.getPath().startsWith(base.getPath())) {
             throw new SourceException("minepapers.error.outside");
@@ -635,13 +613,13 @@ public final class PictureManager {
     private static List<Picture> listShared(String hexes) {
         List<Picture> result = new ArrayList<Picture>();
         for (int i = 0; i + SharedImage.HEX_CHARS <= hexes.length(); i += SharedImage.HEX_CHARS) {
-            String hex = hexes.substring(i, i + SharedImage.HEX_CHARS);
+            final String hex = hexes.substring(i, i + SharedImage.HEX_CHARS);
             result.add(new Picture(hex, () -> ImageSync.read(hex), hex));
         }
         return result;
     }
 
-    private static Picture filePicture(File file) {
+    private static Picture filePicture(final File file) {
         return new Picture(file.getName(), () -> file);
     }
 
@@ -655,7 +633,7 @@ public final class PictureManager {
 
     /** Картинка для показа: исходник уменьшен до MAX_SOURCE_SIZE, у анимированного GIF — все кадры (см. GifFrames). */
     static Decoded decodeFrames(Object input) throws IOException {
-        int[] size = new int[2];
+        final int[] size = new int[2];
         Decoded d = withReader(input, size, reader -> {
             Decoded r = new Decoded();
             if (GifFrames.isAnimated(reader)) {
@@ -704,7 +682,8 @@ public final class PictureManager {
     /** Открывает картинку — файл или байты (в т.ч. с заголовком SharedImage) — и отдаёт читатель задаче. Читатель открыт с метаданными и возможностью вернуться назад: без этого не прочитать кадры GIF. @param origSize сюда записывается исходный размер {ширина, высота}; задача может его уточнить */
     private static <T> T withReader(Object input, int[] origSize, ReaderTask<T> task) throws IOException {
         int[] header = null;
-        if (input instanceof byte[] bytes) {
+        if (input instanceof byte[]) {
+            byte[] bytes = (byte[]) input;
             header = SharedImage.readHeader(bytes);
             input = header == null ? new ByteArrayInputStream(bytes)
                 : new ByteArrayInputStream(bytes, SharedImage.HEADER_BYTES, bytes.length - SharedImage.HEADER_BYTES);
@@ -774,7 +753,7 @@ public final class PictureManager {
         return name != null && isImageFile(new File(name));
     }
 
-    private static Picture yandexPicture(String publicUrl, String path, String name) {
+    private static Picture yandexPicture(final String publicUrl, final String path, String name) {
         return new Picture(name, () -> {
             // Прямые ссылки на скачивание живут недолго, поэтому получаем свежую при каждой загрузке.
             String api = YANDEX_API + "/download?public_key=" + encode(publicUrl)
@@ -787,7 +766,7 @@ public final class PictureManager {
 
     // ===================================================================== Прямая ссылка на картинку
 
-    private static List<Picture> listUrl(String url) throws IOException {
+    private static List<Picture> listUrl(final String url) throws IOException {
         String lower = url.toLowerCase(Locale.ROOT);
         if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
             throw new SourceException("minepapers.error.badUrl");
@@ -801,7 +780,7 @@ public final class PictureManager {
             if (in != null) in.close();
         }
         // Первый показ берёт уже скачанное, после выгрузки из памяти картинка скачивается заново.
-        AtomicReference<byte[]> first = new AtomicReference<byte[]>(data);
+        final AtomicReference<byte[]> first = new AtomicReference<byte[]>(data);
         String name = url.substring(url.lastIndexOf('/') + 1);
         List<Picture> list = new ArrayList<Picture>();
         list.add(new Picture(name.isEmpty() ? url : name, () -> {
@@ -820,12 +799,12 @@ public final class PictureManager {
             String body = readAll(conn.getErrorStream(), 1024 * 1024);
             String description = null;
             try {
-                description = getString(JsonParser.parseString(body).getAsJsonObject(), "description");
+                description = getString(new JsonParser().parse(body).getAsJsonObject(), "description");
             } catch (Exception ignored) {}
             if (code == 404) throw new SourceException("minepapers.error.notFound");
             throw new IOException("HTTP " + code + (description != null ? ": " + description : ""));
         }
-        return JsonParser.parseString(readAll(conn.getInputStream(), 16 * 1024 * 1024)).getAsJsonObject();
+        return new JsonParser().parse(readAll(conn.getInputStream(), 16 * 1024 * 1024)).getAsJsonObject();
     }
 
     private static byte[] download(String url) throws IOException {
@@ -846,7 +825,7 @@ public final class PictureManager {
         conn.setConnectTimeout(10_000);
         conn.setReadTimeout(30_000);
         conn.setInstanceFollowRedirects(true);
-        conn.setRequestProperty("User-Agent", userAgent());
+        conn.setRequestProperty("User-Agent", ClientHost.get().userAgent());
         conn.setRequestProperty("Accept", "*/*");
         return conn;
     }
@@ -856,7 +835,7 @@ public final class PictureManager {
     }
 
     private static byte[] readBytes(InputStream in, int limit) throws IOException {
-        try (in) {
+        try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buf = new byte[16384];
             int r;
@@ -865,6 +844,8 @@ public final class PictureManager {
                 if (out.size() > limit) throw new IOException("File is too large");
             }
             return out.toByteArray();
+        } finally {
+            in.close();
         }
     }
 
@@ -873,8 +854,8 @@ public final class PictureManager {
         return el != null && el.isJsonPrimitive() ? el.getAsString() : null;
     }
 
-    private static String encode(String s) {
-        return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    private static String encode(String s) throws IOException {
+        return URLEncoder.encode(s, "UTF-8");
     }
 
     /** Уменьшает слишком большие картинки (с сохранением пропорций). */

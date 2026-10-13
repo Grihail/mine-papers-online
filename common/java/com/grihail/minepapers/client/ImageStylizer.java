@@ -1,12 +1,11 @@
 package com.grihail.minepapers.client;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-import com.grihail.minepapers.picture.PictureFrame;
-
-import net.minecraft.block.material.MapColor;
+import com.grihail.minepapers.picture.PictureSettings;
 
 /** Готовит текстуру под конкретный холст: вписывание по правилам CSS object-fit (от центра), пикселизация до N пикселей на блок и, при желании, перевод в палитру цветов карт Minecraft. Работает в фоновом потоке, OpenGL не трогает. */
 public final class ImageStylizer {
@@ -20,6 +19,7 @@ public final class ImageStylizer {
     /** Сила мягкого дизеринга (доля переносимой ошибки). */
     private static final float SOFT_DITHER = 0.45f;
 
+    /** Цвета карт во всех оттенках; базовые цвета даёт версия (ClientHost.mapColors). */
     private static volatile int[] palette;
     /** Кэш "15-битный цвет -> ближайший цвет палитры" (0 = ещё не посчитано). */
     private static final int[] NEAREST_CACHE = new int[1 << 15];
@@ -49,14 +49,14 @@ public final class ImageStylizer {
         }
 
         /** Та же картина, уменьшенная так, что большая сторона холста — iconPixels пикселей (для иконки предмета). */
-        public static Layout icon(PictureFrame tile, int iconPixels) {
+        public static Layout icon(PictureSettings tile, int iconPixels) {
             double w = tile.getWidthBlocks(), h = tile.getHeightBlocks();
             return new Layout(w, h, tile.getPaddingBlocks(), tile.fitMode, iconPixels / Math.max(w, h), tile.pixelsPerBlock,
                 tile.style);
         }
 
         /** Размер холста в блоках: 0 по одной из сторон = подобрать по пропорциям картинки. */
-        public static Layout of(PictureFrame tile, int imageW, int imageH) {
+        public static Layout of(PictureSettings tile, int imageW, int imageH) {
             double w = tile.getWidthBlocks();
             double h = tile.getHeightBlocks();
             double aspect = (double) imageH / imageW;
@@ -91,27 +91,27 @@ public final class ImageStylizer {
         double natural = 1.0 / l.naturalPpb;
         double dw, dh;
         switch (l.fit) {
-            case PictureFrame.FIT_FILL:
+            case PictureSettings.FIT_FILL:
                 dw = canvasW;
                 dh = canvasH;
                 break;
-            case PictureFrame.FIT_CONTAIN: {
+            case PictureSettings.FIT_CONTAIN: {
                 double s = Math.min(canvasW / origW, canvasH / origH);
                 dw = origW * s;
                 dh = origH * s;
                 break;
             }
-            case PictureFrame.FIT_NONE:
+            case PictureSettings.FIT_NONE:
                 dw = origW * natural;
                 dh = origH * natural;
                 break;
-            case PictureFrame.FIT_SCALE_DOWN: {
+            case PictureSettings.FIT_SCALE_DOWN: {
                 double s = Math.min(natural, Math.min(canvasW / origW, canvasH / origH));
                 dw = origW * s;
                 dh = origH * s;
                 break;
             }
-            case PictureFrame.FIT_COVER:
+            case PictureSettings.FIT_COVER:
             default: {
                 double s = Math.max(canvasW / origW, canvasH / origH);
                 dw = origW * s;
@@ -149,11 +149,11 @@ public final class ImageStylizer {
         int outH = Math.max(1, (int) Math.round(th));
 
         int[] out = resample(src, srcW, srcH, sx0, sy0, sx1, sy1, outW, outH);
-        if (l.style == PictureFrame.STYLE_MAP) {
+        if (l.style == PictureSettings.STYLE_MAP) {
             quantize(out, outW, outH, 0f);
-        } else if (l.style == PictureFrame.STYLE_MAP_DITHER) {
+        } else if (l.style == PictureSettings.STYLE_MAP_DITHER) {
             quantize(out, outW, outH, 1f);
-        } else if (l.style == PictureFrame.STYLE_MAP_SOFT_DITHER) {
+        } else if (l.style == PictureSettings.STYLE_MAP_SOFT_DITHER) {
             quantize(out, outW, outH, SOFT_DITHER);
         }
 
@@ -258,7 +258,7 @@ public final class ImageStylizer {
             float[] t = errCur;
             errCur = errNext;
             errNext = t;
-            java.util.Arrays.fill(errNext, 0f);
+            Arrays.fill(errNext, 0f);
         }
     }
 
@@ -300,9 +300,7 @@ public final class ImageStylizer {
         int[] p = palette;
         if (p == null) {
             List<Integer> colors = new ArrayList<Integer>();
-            for (MapColor mc : MapColor.mapColorArray) {
-                if (mc == null || mc.colorIndex == 0) continue; // 0 — "прозрачный" цвет воздуха
-                int base = mc.colorValue;
+            for (int base : ClientHost.get().mapColors()) {
                 for (int shade : MAP_SHADES) {
                     int r = ((base >> 16) & 0xFF) * shade / 255;
                     int g = ((base >> 8) & 0xFF) * shade / 255;

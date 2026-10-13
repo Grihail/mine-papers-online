@@ -83,6 +83,7 @@ public class MinePapers {
         network.registerMessage(PacketOpenFrame.Handler.class, PacketOpenFrame.class, 7, Side.SERVER);
         network.registerMessage(PacketPasteMaterials.Handler.class, PacketPasteMaterials.class, 8, Side.SERVER);
         NetworkRegistry.INSTANCE.registerGuiHandler(this, proxy);
+        ServerImages.install();
         FMLCommonHandler.instance().bus().register(new ServerImages.Events());
         FMLCommonHandler.instance().bus().register(new RecipePictureFrame.Events());
 
