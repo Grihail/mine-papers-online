@@ -47,9 +47,10 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         PictureFrame s = new PictureFrame();
         s.readSettings(settings);
 
-        // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (у граффити и пластины рамки нет).
-        boolean plate = s.mode == PictureFrame.MODE_PLATE;
-        int ring = s.mode == PictureFrame.MODE_DECAL || plate ? 0 : RING;
+        // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (если она есть).
+        boolean plate = s.getCanvasKind() == PictureFrame.CANVAS_PICTURE;
+        boolean canvasBlock = s.getCanvasKind() == PictureFrame.CANVAS_BLOCK;
+        int ring = s.getFrameShape() != PictureFrame.FRAME_NONE ? RING : 0;
         int inner = ICON - 2 * ring;
         double w = s.getWidthBlocks(), h = s.getHeightBlocks();
         int iw = w >= h ? inner : Math.max(1, (int) Math.round(inner * w / h));
@@ -75,12 +76,18 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
             color(skin.r, skin.g, skin.b);
             for (int face = 0; face < faces(); face++) ring(skin.sprite, face, x0, y0, x1, y1);
             if (!flat) sides(skin.sprite, x0, y0, x1, y1);
+        } else if (canvasBlock && !flat) {
+            // Холст без рамки: торцы — из самого холста.
+            FrameSkin canvas = FrameSkin.canvas(s.canvas);
+            out = buffers.getBuffer(atlas);
+            color(canvas.r, canvas.g, canvas.b);
+            sides(canvas.sprite, x0, y0, x1, y1);
         }
 
-        // 2. Картинка. В рамке — на фоне холста, как в мире. У граффити холста нет: прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы. Пластина — цельная, торцы только по краю.
+        // 2. Картинка. На холсте из блока — на его фоне, как в мире. Без холста прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы. Пластина — цельная, торцы только по краю.
         color(1f, 1f, 1f);
         if (thumb != null) {
-            if (ring > 0) {
+            if (canvasBlock) {
                 out = buffers.getBuffer(atlas);
                 FrameSkin canvas = FrameSkin.canvas(s.canvas);
                 color(canvas.r, canvas.g, canvas.b);
@@ -89,7 +96,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
             }
             out = buffers.getBuffer(RenderType.entityTranslucent((ResourceLocation) thumb.getTexture()));
             // Настоящая рамка в мире заходит на холст: на иконке её кольцо и есть эта часть, внутри — только то, что видно из-под неё.
-            double ov = s.mode == PictureFrame.MODE_REALISTIC ? Math.min(2 * PictureFrame.PIXEL, Math.min(w, h) / 2) : 0;
+            double ov = s.getFrameShape() == PictureFrame.FRAME_MOLDING ? Math.min(2 * PictureFrame.PIXEL, Math.min(w, h) / 2) : 0;
             if (w - 2 * ov < 1e-6 || h - 2 * ov < 1e-6) ov = 0;
             double ww = w - 2 * ov, wh = h - 2 * ov;
             double px0 = Math.max(thumb.x0, ov), px1 = Math.min(thumb.x1, w - ov);
@@ -99,7 +106,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 double c = cy0 + (h - ov - py1) / wh * ih, d = cy0 + (h - ov - py0) / wh * ih;
                 double tu0 = (px0 - thumb.x0) / (thumb.x1 - thumb.x0), tu1 = (px1 - thumb.x0) / (thumb.x1 - thumb.x0);
                 double tv0 = (thumb.y1 - py1) / (thumb.y1 - thumb.y0), tv1 = (thumb.y1 - py0) / (thumb.y1 - thumb.y0);
-                if (ring == 0 && !flat && thumb.pixels != null) {
+                if (ring == 0 && !canvasBlock && !flat && thumb.pixels != null) {
                     int[] px = thumb.pixels;
                     int tw = thumb.width;
                     extruded(a, c, b, d, 0, 0, 1, 1, thumb.width, thumb.height,
@@ -109,10 +116,10 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 }
             }
         } else {
-            // Пока картинки нет — пейзаж с обычной иконки (у граффити — без её деревянной рамки)
+            // Пока картинки нет — пейзаж с обычной иконки (без рамки — без её деревянной рамки)
             TextureAtlasSprite placeholder = FrameSkin.sprite(FrameSkin.ICON);
             out = buffers.getBuffer(atlas);
-            if (ring > 0) {
+            if (ring > 0 || canvasBlock) {
                 for (int face = 0; face < faces(); face++) atlasRect(placeholder, face, cx0, cy0, cx1, cy1);
             } else {
                 double pu0 = texU(placeholder, RING), pu1 = texU(placeholder, ICON - RING);

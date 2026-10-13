@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntConsumer;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -32,6 +33,7 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.ClickEvent;
@@ -55,6 +57,9 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private static final int WIDTH = 176,
         HEIGHT = ContainerPictureFrame.INVENTORY_Y - GuiWidgets.INVENTORY_PART_SLOTS_Y + GuiWidgets.INVENTORY_PART_HEIGHT;
 
+    /** Левый край кнопок вида рамки и холста (глаз и две кнопки в ряд, до правого края панели). */
+    private static final int LOOK_X = WIDTH - 8 - GuiWidgets.Eye.WIDTH - 2 - 46;
+
     /** Последняя открытая вкладка — с неё окно откроется в следующий раз. */
     private static int lastTab = TAB_SOURCE;
 
@@ -63,7 +68,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private final PictureFrame tile;
 
     private int tab = lastTab;
-    private int source, fitMode, style, mode;
+    private int source, fitMode, style, frameShape, canvasKind;
     private boolean sizePx, posPx, padPx;
     private boolean saved;
     /** Замок закрыт (картина заприватится при закрытии окна). */
@@ -78,7 +83,9 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
     private final List<GuiWidgets.Toggle> sourceButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> fitButtons = new ArrayList<GuiWidgets.Toggle>();
-    private final List<GuiWidgets.Radio> modeRadios = new ArrayList<GuiWidgets.Radio>();
+    /** Рамка и холст — ряды кнопок справа от их слотов на вкладке "Рамка". */
+    private final List<GuiWidgets.Toggle> frameButtons = new ArrayList<GuiWidgets.Toggle>();
+    private final List<GuiWidgets.Toggle> canvasButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Radio> styleRadios = new ArrayList<GuiWidgets.Radio>();
     /** Вкладка, на которой лежит виджет (у самих вкладок записи нет — они видны всегда). */
     private final Map<AbstractWidget, Integer> widgetTab = new HashMap<AbstractWidget, Integer>();
@@ -100,7 +107,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         this.source = tile.source;
         this.fitMode = tile.fitMode;
         this.style = tile.style;
-        this.mode = tile.mode;
+        this.frameShape = tile.getFrameShape();
+        this.canvasKind = tile.getCanvasKind();
         this.sizePx = tile.sizeInPixels;
         this.posPx = tile.offsetInPixels;
         this.padPx = tile.paddingInPixels;
@@ -126,7 +134,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         tabs.clear();
         sourceButtons.clear();
         fitButtons.clear();
-        modeRadios.clear();
+        frameButtons.clear();
+        canvasButtons.clear();
         styleRadios.clear();
         widgetTab.clear();
 
@@ -216,19 +225,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             fitButtons.get(i).setTooltip(tip("minepapers.gui.fit." + i, "minepapers.gui.fit." + i + ".tip"));
         }
 
-        // Вид и стиль
-        for (int i = 0; i < PictureFrame.MODE_COUNT; i++) {
-            int value = i;
-            modeRadios.add(add(new GuiWidgets.Radio(x + 8, y + 29 + i * 11, 160, i,
-                Component.translatable("minepapers.gui.mode." + i), () -> {
-                    mode = value;
-                    updateWidgets();
-                }), TAB_STYLE));
-            modeRadios.get(i).setTooltip(tip("minepapers.gui.mode." + i + ".tip"));
-        }
+        // Стиль
         for (int i = 0; i < PictureFrame.STYLE_COUNT; i++) {
             int value = i;
-            styleRadios.add(add(new GuiWidgets.Radio(x + 8, y + 86 + i * 11, 160, i,
+            styleRadios.add(add(new GuiWidgets.Radio(x + 8, y + 17 + i * 11, 160, i,
                 Component.translatable("minepapers.gui.style." + i), () -> {
                     style = value;
                     updateWidgets();
@@ -239,6 +239,15 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         fPpb.setTooltip(tip("minepapers.gui.ppb.tip"));
         for (GuiWidgets.Check c : new GuiWidgets.Check[] { cbSizePx, cbPosPx, cbPadPx }) c.setTooltip(tip("minepapers.gui.pixels.tip"));
 
+        // Рамка: справа от слотов рамки и холста — их вид
+        int lookY = y + ContainerPictureFrame.MATERIAL_Y - 3;
+        lookButtons(frameButtons, "minepapers.gui.frameShape.", PictureFrame.FRAME_COUNT, 0, x, lookY, value -> frameShape = value);
+        lookButtons(canvasButtons, "minepapers.gui.canvasKind.", PictureFrame.CANVAS_COUNT, PictureFrame.FRAME_COUNT - 1, x,
+            lookY + ContainerPictureFrame.MATERIAL_STEP, value -> {
+                canvasKind = value;
+                frameShape = PictureFrame.frameShapeOf(look()); // без холста обшивки нет
+            });
+
         // Описание
         fTitle = field(TAB_INFO, x + 8, y + 17, 160, PictureFrame.MAX_TITLE, tile.title);
         fDesc = area(TAB_INFO, x + 8, y + 47, 94, tile.description, true);
@@ -247,6 +256,42 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             for (int i = 0; i < fields.size(); i++) setValue(fields.get(i), old.get(i));
         }
         updateWidgets();
+    }
+
+    /** Ряд кнопок вида: первый — глаз "нет" (значение 0), за ним кнопки с иконками из ряда LOOK_ICON_V, начиная с иконки firstIcon. */
+    private void lookButtons(List<GuiWidgets.Toggle> list, String key, int count, int firstIcon, int x, int y, IntConsumer choose) {
+        for (int i = 0; i < count; i++) {
+            int value = i;
+            Runnable action = () -> {
+                choose.accept(value);
+                updateWidgets();
+            };
+            Component name = Component.translatable(key + i);
+            list.add(add(i == 0 ? new GuiWidgets.Eye(x + LOOK_X - 4, y, 22, name, action) // чуть в стороне от кнопок
+                : new GuiWidgets.Toggle(x + LOOK_X + GuiWidgets.Eye.WIDTH + 2 + (i - 1) * 24, y, i, (firstIcon + i - 1) * 16,
+                    GuiWidgets.LOOK_ICON_V, name, action), TAB_FRAME));
+            list.get(i).setTooltip(tip(key + i, key + i + ".tip"));
+        }
+    }
+
+    /** Вид, выбранный в окне. */
+    private int look() {
+        return PictureFrame.look(frameShape, canvasKind);
+    }
+
+    /** Нужен ли выбранному в окне виду материал index (в порядке PictureFrame.materials(): рамка, холст, свечение). Ненужные блоки вернутся игроку при закрытии окна. */
+    private boolean materialUsed(int index) {
+        if (index == 0) return frameShape != PictureFrame.FRAME_NONE;
+        if (index == 1) return canvasKind == PictureFrame.CANVAS_BLOCK;
+        return true;
+    }
+
+    private boolean hasUnusedMaterials() {
+        PictureFrame.Material[] materials = tile.materials();
+        for (int i = 0; i < materials.length; i++) {
+            if (!materials[i].stack().isEmpty() && !materialUsed(i)) return true;
+        }
+        return false;
     }
 
     private <T extends AbstractWidget> T add(T widget, int onTab) {
@@ -381,7 +426,15 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         }
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.value == source;
         for (GuiWidgets.Toggle t : fitButtons) t.checked = t.value == fitMode;
-        for (GuiWidgets.Radio r : modeRadios) r.checked = r.value == mode;
+        for (GuiWidgets.Toggle t : frameButtons) {
+            t.checked = t.value == frameShape;
+            if (t.value != PictureFrame.FRAME_EDGES) continue;
+            // Обшивать торцы можно только у холста.
+            t.active = canvasKind != PictureFrame.CANVAS_NONE;
+            String key = "minepapers.gui.frameShape." + t.value;
+            t.setTooltip(tip(key, t.active ? key + ".tip" : "minepapers.gui.frameShape.needsCanvas"));
+        }
+        for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.value == canvasKind;
         for (GuiWidgets.Radio r : styleRadios) r.checked = r.value == style;
         cbSizePx.checked = sizePx;
         cbPosPx.checked = posPx;
@@ -472,7 +525,9 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         c.padding = Numbers.parse(fPad.getValue());
         c.paddingPixels = padPx;
         c.fit = fitMode;
-        c.look = mode;
+        c.look = PictureFrame.classicLook(look());
+        c.frame = frameShape;
+        c.canvas = canvasKind;
         c.style = style;
         Float ppb = Numbers.parse(fPpb.getValue());
         if (ppb != null) c.pixelsPerBlock = Math.round(ppb);
@@ -508,7 +563,13 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (c.paddingPixels != null) padPx = c.paddingPixels;
         if (c.padding != null) fPad.setValue(Numbers.fmt(c.padding));
         if (c.fit != null) fitMode = c.fit;
-        if (c.look != null) mode = c.look;
+        if (c.look != null) {
+            frameShape = PictureFrame.frameShapeOf(c.look);
+            canvasKind = PictureFrame.canvasKindOf(c.look);
+        }
+        if (c.frame != null) frameShape = c.frame;
+        if (c.canvas != null) canvasKind = c.canvas;
+        frameShape = PictureFrame.frameShapeOf(look());
         if (c.style != null) style = c.style;
         if (c.pixelsPerBlock != null) fPpb.setValue(String.valueOf(c.pixelsPerBlock));
         updateWidgets();
@@ -573,7 +634,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         tile.padding = Numbers.orDefault(Numbers.parse(fPad.getValue()), tile.padding);
         tile.fitMode = fitMode;
         tile.style = style;
-        tile.mode = mode;
+        tile.mode = look();
         Float ppb = Numbers.parse(fPpb.getValue());
         if (ppb != null) tile.pixelsPerBlock = Math.round(ppb);
 
@@ -583,7 +644,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         tile.readSettings(tag);
         CompoundTag after = new CompoundTag();
         tile.writeSettings(after);
-        if (after.equals(before)) return; // окно открыли и закрыли — серверу отправлять нечего
+        // Окно открыли и закрыли — серверу отправлять нечего, если только не надо вернуть ненужные виду блоки.
+        if (after.equals(before) && !(menu.materialsEditable() && hasUnusedMaterials())) return;
 
         if (holder.picture != null) holder.picture.refresh(); // хитбокс сразу по новому размеру, не дожидаясь сервера
         PacketDistributor.sendToServer(PacketSaveFrame.of(holder));
@@ -728,7 +790,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             }
             return;
         }
-        if (tab != TAB_SIZE && tab != TAB_INFO) text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
+        if (tab != TAB_SIZE && tab != TAB_STYLE && tab != TAB_INFO) text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
         switch (tab) {
             case TAB_SOURCE: {
                 text(g, I18n.get("minepapers.gui.path." + source), 8, 42);
@@ -750,8 +812,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 text(g, I18n.get("minepapers.gui.fit"), 8, 116);
                 break;
             case TAB_STYLE:
-                text(g, I18n.get("minepapers.gui.mode"), 8, 18);
-                text(g, I18n.get("minepapers.gui.style"), 8, 75);
+                text(g, I18n.get("minepapers.gui.style"), 8, 6);
                 text(g, I18n.get("minepapers.gui.ppb"), 8, 135);
                 break;
             case TAB_INFO:
@@ -759,19 +820,24 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 text(g, I18n.get("minepapers.gui.description"), 8, 36);
                 break;
             case TAB_FRAME: {
-                // Список материалов: слот, справа — что это и какой блок в нём лежит.
+                // Список материалов: слот и что это (какой блок в слоте — в подсказке самого блока), у свечения — сила света. Слот, ненужный выбранному виду, бледный: его блок вернётся при закрытии окна.
                 PictureFrame.Material[] materials = tile.materials();
                 for (int i = 0; i < materials.length; i++) {
-                    String key = "minepapers.gui." + materials[i].key.toLowerCase(Locale.ROOT);
-                    ItemStack stack = materials[i].stack();
-                    String name = !stack.isEmpty() ? stack.getHoverName().getString() : I18n.get(key + ".default");
-                    if (materials[i].light && !stack.isEmpty()) {
-                        name += ", " + (PictureFrame.isGlowDust(stack) ? I18n.get("minepapers.gui.glow.self")
-                            : I18n.get("minepapers.gui.glow.level", PictureFrame.lightOf(stack)));
-                    }
                     int ty = ContainerPictureFrame.MATERIAL_Y + 1 + i * ContainerPictureFrame.MATERIAL_STEP;
-                    text(g, I18n.get(key), 30, ty - 1);
-                    g.drawString(font, font.plainSubstrByWidth(name, 138), 30, ty + 8, GuiWidgets.HINT, false);
+                    String label = I18n.get("minepapers.gui.row." + materials[i].key.toLowerCase(Locale.ROOT));
+                    if (!materials[i].light) {
+                        text(g, label, 30, ty + 3);
+                    } else {
+                        ItemStack glow = materials[i].stack();
+                        text(g, label, 30, ty - 1);
+                        g.drawString(font, glow.isEmpty() ? I18n.get("minepapers.gui.glow.default") : PictureFrame.isGlowDust(glow)
+                            ? I18n.get("minepapers.gui.glow.self") : I18n.get("minepapers.gui.glow.level", PictureFrame.lightOf(glow)),
+                            30, ty + 8, GuiWidgets.HINT, false);
+                    }
+                    if (!materialUsed(i)) {
+                        g.fill(RenderType.guiOverlay(), ContainerPictureFrame.MATERIAL_X, ty - 1, ContainerPictureFrame.MATERIAL_X + 16,
+                            ty + 15, 0xB0C6C6C6);
+                    }
                 }
                 if (!menu.materialsEditable()) {
                     int y = ContainerPictureFrame.MATERIAL_Y + materials.length * ContainerPictureFrame.MATERIAL_STEP + 2;

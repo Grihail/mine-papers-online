@@ -22,6 +22,9 @@ public final class PictureConfig {
     public static final String[] SOURCES = { "config", "yandex", "folder", "url" };
     public static final String[] FITS = { "fill", "contain", "cover", "none", "scale-down" };
     public static final String[] LOOKS = { "panel", "frame", "graffiti", "plate" };
+    /** Рамка и холст по отдельности (FRAME_*, CANVAS_*): так вид пишут версии, где их выбирают отдельно. Рядом с ними пишется и ближайший прежний look — для версий, где выбирают только его; при вставке frame и canvas главнее look. */
+    public static final String[] FRAMES = { "none", "edges", "molding" };
+    public static final String[] CANVASES = { "none", "block", "picture" };
     public static final String[] STYLES = { "original", "map", "map-dither", "map-soft-dither" };
     public static final String[] MATERIALS = { "frame", "canvas", "glow" };
 
@@ -37,7 +40,7 @@ public final class PictureConfig {
     public Boolean offsetPixels;
     public Float padding;
     public Boolean paddingPixels;
-    public Integer fit, look, style, pixelsPerBlock;
+    public Integer fit, look, frame, canvas, style, pixelsPerBlock;
 
     /** Предмет материала: id в реестре и (только для 1.7.10) метаданные; meta < 0 — любые. */
     public static final class Item {
@@ -89,6 +92,8 @@ public final class PictureConfig {
 
         if (fit != null) root.addProperty("fit", name(FITS, fit));
         if (look != null) root.addProperty("look", name(LOOKS, look));
+        if (frame != null) root.addProperty("frame", name(FRAMES, frame));
+        if (canvas != null) root.addProperty("canvas", name(CANVASES, canvas));
         if (style != null) root.addProperty("style", name(STYLES, style));
         if (pixelsPerBlock != null) root.addProperty("pixelsPerBlock", pixelsPerBlock);
 
@@ -154,6 +159,8 @@ public final class PictureConfig {
             }
             c.fit = value(root, "fit", FITS);
             c.look = value(root, "look", LOOKS);
+            c.frame = value(root, "frame", FRAMES);
+            c.canvas = value(root, "canvas", CANVASES);
             c.style = value(root, "style", STYLES);
             c.pixelsPerBlock = integer(root, "pixelsPerBlock");
 

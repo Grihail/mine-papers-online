@@ -2,7 +2,9 @@ package com.grihail.minepapers.network;
 
 import java.util.UUID;
 
+import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.picture.FrameHolder;
+import com.grihail.minepapers.picture.MaterialStack;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
@@ -14,7 +16,7 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 
-/** Клиент -> сервер: новые настройки картины target (PictureTarget: сущность или предмет в инвентаре). */
+/** Клиент -> сервер: новые настройки картины target (PictureTarget: сущность или предмет в инвентаре). Приходит при закрытии окна: блоки материалов, которые выбранному виду не нужны (рамки без рамки, холста без холста), возвращаются игроку. */
 public class PacketSaveFrame implements IMessage {
 
     private int target;
@@ -54,7 +56,22 @@ public class PacketSaveFrame implements IMessage {
         frame.readSettings(msg.settings);
         for (PictureFrame.Material m : frame.materials()) m.read(materials);
         frame.keepServerFields(origin, files, owner, ownerName, player.getUniqueID(), player.getCommandSenderName());
+        if (frame.mayEdit(player.getUniqueID()) && MaterialStack.editable(ModConfig.stackMaterials, holder.count())) {
+            returnUnused(player, frame, holder.count());
+        }
         holder.settingsChanged();
+    }
+
+    /** Блоки рамки и холста, которые виду не нужны, — игроку, по одному с каждой картины. */
+    private static void returnUnused(EntityPlayerMP player, PictureFrame frame, int count) {
+        if (!frame.usesBorder()) take(player, frame.border, count);
+        if (!frame.usesCanvas()) take(player, frame.canvas, count);
+    }
+
+    private static void take(EntityPlayerMP player, PictureFrame.Material m, int count) {
+        if (m.stack == null) return;
+        PacketPasteMaterials.giveBack(player, m.stack, count);
+        m.set(null);
     }
 
     public static class Handler implements IMessageHandler<PacketSaveFrame, IMessage> {

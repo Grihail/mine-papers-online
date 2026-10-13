@@ -69,7 +69,8 @@ public class RenderPicture extends Render {
 
         double u0 = tile.getOffsetXBlocks(), v0 = tile.getOffsetYBlocks();
         double u1 = u0 + tile.getWidthBlocks(), v1 = v0 + tile.getHeightBlocks();
-        int mode = tile.mode;
+        int frame = tile.getFrameShape(), canvasKind = tile.getCanvasKind();
+        boolean decal = canvasKind == PictureFrame.CANVAS_NONE, plate = canvasKind == PictureFrame.CANVAS_PICTURE;
         glow = tile.selfGlow();
 
         GL11.glPushMatrix();
@@ -81,28 +82,32 @@ public class RenderPicture extends Render {
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glColor4f(1f, 1f, 1f, 1f);
 
-        // 1. Холст и рамка (обычные или с текстурой предмета — она может быть в атласе предметов). У граффити и пластины холст только вместо картинки, пока её нет.
-        boolean plate = mode == PictureFrame.MODE_PLATE;
-        if (mode != PictureFrame.MODE_DECAL && !plate || !hasPicture) {
-            FrameSkin canvasSkin = FrameSkin.canvas(tile.canvas);
-            bindTexture(canvasSkin.atlas);
+        // 1. Холст и рамка (обычные или с текстурой предмета — она может быть в атласе предметов). Без холста и у пластины холст только вместо картинки, пока её нет, — обычный: блок холста им не нужен.
+        boolean drawCanvas = canvasKind == PictureFrame.CANVAS_BLOCK || !hasPicture;
+        double base = decal ? DECAL_DEPTH : PX; // лицевая плоскость холста
+        if (drawCanvas || frame != PictureFrame.FRAME_NONE) {
+            FrameSkin canvasSkin = tile.usesCanvas() ? FrameSkin.canvas(tile.canvas) : FrameSkin.plainCanvas();
+            FrameSkin skin = FrameSkin.border(tile.border);
+            ResourceLocation atlas = drawCanvas ? canvasSkin.atlas : skin.atlas;
+            bindTexture(atlas);
             t.startDrawingQuads();
-            setTint(canvasSkin.r, canvasSkin.g, canvasSkin.b);
-            canvas(canvasSkin.icon, u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
-            if (plate) {
-                edges(canvasSkin.icon, u0, v0, u1, v1, 0, PX);
-            } else if (mode != PictureFrame.MODE_DECAL) {
-                FrameSkin skin = FrameSkin.border(tile.border);
-                if (skin.atlas != canvasSkin.atlas) {
+            if (drawCanvas) {
+                setTint(canvasSkin.r, canvasSkin.g, canvasSkin.b);
+                canvas(canvasSkin.icon, u0, v0, u1, v1, base);
+                // Торцы без рамки — из самого холста.
+                if (!decal && frame == PictureFrame.FRAME_NONE) edges(canvasSkin.icon, u0, v0, u1, v1, 0, PX);
+            }
+            if (frame != PictureFrame.FRAME_NONE) {
+                if (skin.atlas != atlas) {
                     t.draw();
                     bindTexture(skin.atlas);
                     t.startDrawingQuads();
                 }
                 setTint(skin.r, skin.g, skin.b);
-                if (mode == PictureFrame.MODE_PANEL) {
+                if (frame == PictureFrame.FRAME_EDGES) {
                     edges(skin.icon, u0, v0, u1, v1, 0, PX);
                 } else {
-                    realisticFrame(skin.icon, u0, v0, u1, v1);
+                    realisticFrame(skin.icon, u0, v0, u1, v1, base);
                 }
             }
             t.draw();
@@ -111,9 +116,8 @@ public class RenderPicture extends Render {
         // Цвет материала (трава, листва) красит только холст и рамку — не картинку и не следующую картину.
         setTint(1f, 1f, 1f);
 
-        // 2. Картинка (пластина — объёмная, сама по себе)
+        // 2. Картинка (пластина — объёмная, сама по себе; торцы в рамке закрывает рамка)
         if (hasPicture) {
-            boolean decal = mode == PictureFrame.MODE_DECAL;
             double d = decal ? DECAL_DEPTH : plate ? PX : PX + 0.002;
             if (decal) {
                 // Прижимаем к стене без мерцания
@@ -128,7 +132,7 @@ public class RenderPicture extends Render {
             if (plate) {
                 picture(pu0, pv0, pu1, pv1, 0);
                 setTint(1f, 1f, 1f);
-                plateEdges(shown, pu0, pv0, pu1, pv1);
+                if (frame == PictureFrame.FRAME_NONE) plateEdges(shown, pu0, pv0, pu1, pv1);
             }
             t.draw();
             if (decal) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
@@ -302,8 +306,8 @@ public class RenderPicture extends Render {
         alongV(icon, v0, v1, u1, d0, d1, rows, false, true, 0.05, 0.8f);
     }
 
-    /** Реалистичная рамка: брусья шириной 2 пикселя заходят на холст и выступают на пиксель над картинкой; лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы. */
-    private void realisticFrame(IIcon icon, double u0, double v0, double u1, double v1) {
+    /** Багет: брусья шириной 2 пикселя заходят на холст и выступают над картинкой (base — лицевая плоскость холста); лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы. */
+    private void realisticFrame(IIcon icon, double u0, double v0, double u1, double v1, double base) {
         double b = Math.min(2 * PX, Math.min((u1 - u0) / 2, (v1 - v0) / 2));
         double top = 2 * PX; // лицевая плоскость рамки
         double px = b * 16;   // ширина бруса в пикселях текстуры
@@ -333,10 +337,11 @@ public class RenderPicture extends Render {
         // Внутренние торцы брусьев — ступенька от картинки до лицевой стороны рамки
         double ib0 = u0 + b, ib1 = u1 - b, jb0 = v0 + b, jb1 = v1 - b;
         if (ib1 > ib0 && jb1 > jb0) {
-            alongU(icon, ib0, ib1, jb1, PX, top, 6, 1, 0, -0.05, 0.55f);
-            alongU(icon, ib0, ib1, jb0, PX, top, 6, 1, 0, 0.05, 1.0f);
-            alongV(icon, jb0, jb1, ib0, PX, top, 1, false, false, 0.05, 0.8f);
-            alongV(icon, jb0, jb1, ib1, PX, top, 1, true, false, -0.05, 0.8f);
+            double rows = (top - base) * 16;
+            alongU(icon, ib0, ib1, jb1, base, top, 6, rows, 0, -0.05, 0.55f);
+            alongU(icon, ib0, ib1, jb0, base, top, 6, rows, 0, 0.05, 1.0f);
+            alongV(icon, jb0, jb1, ib0, base, top, rows, false, false, 0.05, 0.8f);
+            alongV(icon, jb0, jb1, ib1, base, top, rows, true, false, -0.05, 0.8f);
         }
     }
 

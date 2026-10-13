@@ -136,7 +136,7 @@ public class PacketPasteMaterials implements IMessage {
     }
 
     /** count таких предметов — в инвентарь, а что не влезло — на землю. */
-    private static void giveBack(EntityPlayerMP player, ItemStack stack, int count) {
+    static void giveBack(EntityPlayerMP player, ItemStack stack, int count) {
         if (stack == null) return;
         while (count > 0) {
             ItemStack part = stack.copy();

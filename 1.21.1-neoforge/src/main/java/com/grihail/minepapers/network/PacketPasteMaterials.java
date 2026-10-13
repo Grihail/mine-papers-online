@@ -124,7 +124,7 @@ public record PacketPasteMaterials(int target, CompoundTag materials) implements
     }
 
     /** count таких предметов — в инвентарь, а что не влезло — на землю. */
-    private static void giveBack(ServerPlayer player, ItemStack stack, int count) {
+    static void giveBack(ServerPlayer player, ItemStack stack, int count) {
         if (stack.isEmpty()) return;
         while (count > 0) {
             ItemStack part = stack.copyWithCount(Math.min(count, stack.getMaxStackSize()));

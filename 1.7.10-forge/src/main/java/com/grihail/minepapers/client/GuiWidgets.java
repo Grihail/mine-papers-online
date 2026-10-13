@@ -27,10 +27,12 @@ final class GuiWidgets {
     private static final ResourceLocation BUTTONS = new ResourceLocation("textures/gui/widgets.png");
     private static final ResourceLocation BEACON = new ResourceLocation("textures/gui/container/beacon.png");
 
-    /** Иконки вписывания и источников 16x16 — в ряд с (0, 32) и (0, 48), по порядку PictureFrame.FIT_* и SOURCE_*. */
+    /** Иконки вписывания и источников 16x16 — в ряд с (0, 32) и (0, 48), по порядку PictureFrame.FIT_* и SOURCE_*; с (0, 64) — рамки (обшивка, багет), за ними холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
     /** Копировать, вставить, открытый и закрытый замок 10x10 — в ряду иконок (v = 0). */
-    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186;
-    static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48;
+    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186,
+        ICON_EYE_OPEN_U = 196, ICON_EYE_CLOSED_U = 206;
+    static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48,
+        LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
     /** Цвета текста на панели (TEXT — как у подписей "Инвентарь" в ванили). */
@@ -143,14 +145,18 @@ final class GuiWidgets {
         }
     }
 
-    /** Кнопка-переключатель 20x20 с иконкой 16x16 — ванильная кнопка маяка (22x22, режем по центру). Выбранная выглядит нажатой. */
+    /** Кнопка-переключатель 20x20 с иконкой 16x16 — ванильная кнопка маяка (22x22, режем по центру). Выбранная выглядит нажатой, выключенная — тёмной, с бледной иконкой. */
     static class Toggle extends Widget {
 
         final int iconU, iconV;
         boolean checked;
 
         Toggle(int id, int x, int y, int iconU, int iconV) {
-            super(id, x, y, 20, 20, "");
+            this(id, x, y, 20, 20, iconU, iconV);
+        }
+
+        Toggle(int id, int x, int y, int w, int h, int iconU, int iconV) {
+            super(id, x, y, w, h, "");
             this.iconU = iconU;
             this.iconV = iconV;
         }
@@ -159,13 +165,35 @@ final class GuiWidgets {
         void draw(Minecraft mc, boolean hovered) {
             bind(BEACON);
             // В текстуре маяка с (0, 219): обычная, нажатая, выключенная, под курсором.
-            int u = checked ? 22 : hovered ? 66 : 0;
+            int u = !enabled ? 44 : checked ? 22 : hovered ? 66 : 0;
             int x = xPosition, y = yPosition;
             blit(x, y, u, 219, 10, 10);
             blit(x + 10, y, u + 12, 219, 10, 10);
             blit(x, y + 10, u, 231, 10, 10);
             blit(x + 10, y + 10, u + 12, 231, 10, 10);
             icon(x + 2, y + 2, iconU, iconV, 16, 16);
+            if (!enabled) drawRect(x + 2, y + 2, x + 18, y + 18, 0xA0303030);
+        }
+    }
+
+    /** Переключатель "выключить": глаз 10x10 без кнопки. Выбран — глаз закрыт и ярок; нет — открыт и бледен (под курсором — ярче). */
+    static class Eye extends Toggle {
+
+        static final int WIDTH = 12;
+
+        Eye(int id, int x, int y) {
+            super(id, x, y, WIDTH, 20, -1, 0);
+        }
+
+        @Override
+        void draw(Minecraft mc, boolean hovered) {
+            bind(ICONS);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glColor4f(1f, 1f, 1f, checked ? 1f : hovered ? 0.7f : 0.35f);
+            blit(xPosition + (width - 10) / 2, yPosition + (height - 10) / 2, checked ? ICON_EYE_CLOSED_U : ICON_EYE_OPEN_U, 0, 10, 10);
+            GL11.glColor4f(1f, 1f, 1f, 1f);
+            GL11.glDisable(GL11.GL_BLEND);
         }
     }
 

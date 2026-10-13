@@ -55,6 +55,11 @@ public final class FrameSkin {
         return of(m.item, CANVAS);
     }
 
+    /** Обычный холст — frame_canvas. */
+    public static FrameSkin plainCanvas() {
+        return of("", CANVAS);
+    }
+
     private static FrameSkin of(String itemId, ResourceLocation fallback) {
         String key = fallback + "|" + itemId;
         FrameSkin skin = CACHE.get(key);

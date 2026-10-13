@@ -31,12 +31,25 @@ public class PictureSettings {
     public static final int STYLE_MAP_SOFT_DITHER = 3;
     public static final int STYLE_COUNT = 4;
 
-    /** Вид картины. */
+    /** Вид картины — сочетание рамки (FRAME_*) и холста (CANVAS_*), см. getFrameShape и getCanvasKind. Первые четыре — виды прежних версий, дальше — новые сочетания. */
     public static final int MODE_PANEL = 0;     // холст-панель, торцы обшиты рамкой
     public static final int MODE_REALISTIC = 1; // настоящая рамка: заходит на картину и выступает над ней
     public static final int MODE_DECAL = 2;     // граффити: без рамки, вплотную к стене
     public static final int MODE_PLATE = 3;     // пластина: сама картинка толщиной в пиксель, торцы — её крайние пиксели
-    public static final int MODE_COUNT = 4;
+    public static final int LOOK_COUNT = 8;
+
+    /** Рамка: нет, обшивка торцов холста, багет (заходит на картину и выступает над ней). */
+    public static final int FRAME_NONE = 0, FRAME_EDGES = 1, FRAME_MOLDING = 2, FRAME_COUNT = 3;
+    /** Холст: нет (картинка прямо на стене), из блока материала, сама картинка толщиной в пиксель. */
+    public static final int CANVAS_NONE = 0, CANVAS_BLOCK = 1, CANVAS_PICTURE = 2, CANVAS_COUNT = 3;
+    /** Рамка и холст каждого вида (по номеру вида). Обшивки без холста нет: обшивать нечего. */
+    private static final int[] LOOK_FRAME = { FRAME_EDGES, FRAME_MOLDING, FRAME_NONE, FRAME_NONE,
+        FRAME_NONE, FRAME_MOLDING, FRAME_EDGES, FRAME_MOLDING };
+    private static final int[] LOOK_CANVAS = { CANVAS_BLOCK, CANVAS_BLOCK, CANVAS_NONE, CANVAS_PICTURE,
+        CANVAS_BLOCK, CANVAS_NONE, CANVAS_PICTURE, CANVAS_PICTURE };
+    /** Ближайший вид прежних версий (для конфига, который вставят в версию без новых видов). */
+    private static final int[] LOOK_CLASSIC = { MODE_PANEL, MODE_REALISTIC, MODE_DECAL, MODE_PLATE,
+        MODE_PANEL, MODE_REALISTIC, MODE_PANEL, MODE_REALISTIC };
 
     public static final float PIXEL = 1f / 16f;
     public static final float MIN_SIZE_BLOCKS = PIXEL;
@@ -228,11 +241,47 @@ public class PictureSettings {
 
     /** Толщина картины от стены (и её хитбокса). */
     public float getDepth() {
-        switch (mode) {
-            case MODE_REALISTIC: return 2 * PIXEL;
-            case MODE_DECAL: return PIXEL / 2;
-            default: return PIXEL;
+        if (getFrameShape() == FRAME_MOLDING) return 2 * PIXEL;
+        return getCanvasKind() == CANVAS_NONE ? PIXEL / 2 : PIXEL;
+    }
+
+    public int getFrameShape() {
+        return LOOK_FRAME[mode];
+    }
+
+    public int getCanvasKind() {
+        return LOOK_CANVAS[mode];
+    }
+
+    /** Вид из рамки и холста; обшивка без холста — без рамки. */
+    public static int look(int frameShape, int canvasKind) {
+        if (canvasKind == CANVAS_NONE && frameShape == FRAME_EDGES) frameShape = FRAME_NONE;
+        for (int i = 0; i < LOOK_COUNT; i++) {
+            if (LOOK_FRAME[i] == frameShape && LOOK_CANVAS[i] == canvasKind) return i;
         }
+        return MODE_PANEL;
+    }
+
+    public static int frameShapeOf(int look) {
+        return LOOK_FRAME[look];
+    }
+
+    public static int canvasKindOf(int look) {
+        return LOOK_CANVAS[look];
+    }
+
+    public static int classicLook(int look) {
+        return LOOK_CLASSIC[look];
+    }
+
+    /** Нужен ли этому виду блок рамки. */
+    public boolean usesBorder() {
+        return getFrameShape() != FRAME_NONE;
+    }
+
+    /** Нужен ли этому виду блок холста. */
+    public boolean usesCanvas() {
+        return getCanvasKind() == CANVAS_BLOCK;
     }
 
     // ---------- NBT ----------
@@ -340,7 +389,7 @@ public class PictureSettings {
         fitMode = tag.contains("Fit") ? tag.getInt("Fit") : FIT_COVER;
         pixelsPerBlock = tag.contains("PPB") ? range(tag.getInt("PPB"), MIN_PPB, MAX_PPB) : 128;
         style = tag.contains("Style") ? tag.getInt("Style") : STYLE_MAP_SOFT_DITHER;
-        mode = tag.getInt("Mode");
+        mode = range(tag.getInt("Mode"), 0, LOOK_COUNT - 1);
         files = tag.getByteArray("Files");
     }
 

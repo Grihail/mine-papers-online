@@ -84,7 +84,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
 
         double u0 = tile.getOffsetXBlocks(), v0 = tile.getOffsetYBlocks();
         double u1 = u0 + tile.getWidthBlocks(), v1 = v0 + tile.getHeightBlocks();
-        int mode = tile.mode;
+        int frame = tile.getFrameShape(), canvasKind = tile.getCanvasKind();
+        boolean decal = canvasKind == PictureFrame.CANVAS_NONE, plate = canvasKind == PictureFrame.CANVAS_PICTURE;
         glow = tile.selfGlow();
 
         poseStack.pushPose();
@@ -93,29 +94,31 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         poseStack.translate(ox - at.x, oy - at.y, oz - at.z);
         pose = poseStack.last();
 
-        // 1. Холст и рамка (обычная или с текстурой предмета) — всё из атласа блоков. У граффити и пластины холст только вместо картинки, пока её нет.
-        boolean plate = mode == PictureFrame.MODE_PLATE;
-        if (mode != PictureFrame.MODE_DECAL && !plate || !hasPicture) {
+        // 1. Холст и рамка (обычная или с текстурой предмета) — всё из атласа блоков. Без холста и у пластины холст только вместо картинки, пока её нет, — обычный: блок холста им не нужен.
+        boolean drawCanvas = canvasKind == PictureFrame.CANVAS_BLOCK || !hasPicture;
+        double base = decal ? DECAL_DEPTH : PX; // лицевая плоскость холста
+        if (drawCanvas || frame != PictureFrame.FRAME_NONE) {
             out = buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS));
-            FrameSkin canvasSkin = FrameSkin.canvas(tile.canvas);
-            setTint(canvasSkin.r, canvasSkin.g, canvasSkin.b);
-            canvas(canvasSkin.sprite, u0, v0, u1, v1, mode == PictureFrame.MODE_DECAL ? DECAL_DEPTH : PX);
-            if (plate) {
-                edges(canvasSkin.sprite, u0, v0, u1, v1, 0, PX);
-            } else if (mode != PictureFrame.MODE_DECAL) {
+            if (drawCanvas) {
+                FrameSkin canvasSkin = tile.usesCanvas() ? FrameSkin.canvas(tile.canvas) : FrameSkin.plainCanvas();
+                setTint(canvasSkin.r, canvasSkin.g, canvasSkin.b);
+                canvas(canvasSkin.sprite, u0, v0, u1, v1, base);
+                // Торцы без рамки — из самого холста.
+                if (!decal && frame == PictureFrame.FRAME_NONE) edges(canvasSkin.sprite, u0, v0, u1, v1, 0, PX);
+            }
+            if (frame != PictureFrame.FRAME_NONE) {
                 FrameSkin skin = FrameSkin.border(tile.border);
                 setTint(skin.r, skin.g, skin.b);
-                if (mode == PictureFrame.MODE_PANEL) {
+                if (frame == PictureFrame.FRAME_EDGES) {
                     edges(skin.sprite, u0, v0, u1, v1, 0, PX);
                 } else {
-                    realisticFrame(skin.sprite, u0, v0, u1, v1);
+                    realisticFrame(skin.sprite, u0, v0, u1, v1, base);
                 }
             }
         }
 
-        // 2. Картинка (граффити — прижата к стене смещением полигонов, без мерцания; пластина — объёмная, сама по себе)
+        // 2. Картинка (без холста — прижата к стене смещением полигонов, без мерцания; пластина — объёмная, сама по себе, торцы в рамке закрывает рамка)
         if (hasPicture) {
-            boolean decal = mode == PictureFrame.MODE_DECAL;
             double d = decal ? DECAL_DEPTH : plate ? PX : PX + 0.002;
             // Кадр анимации — по игровому времени: у всех игроков одинаковый, как и слайд.
             ResourceLocation texture = (ResourceLocation) shown.getTexture((long) ((level.getGameTime() + partialTick) * 50));
@@ -125,7 +128,7 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
             picture(pu0, pv0, pu1, pv1, d);
             if (plate) {
                 picture(pu0, pv0, pu1, pv1, 0);
-                plateEdges(shown, pu0, pv0, pu1, pv1);
+                if (frame == PictureFrame.FRAME_NONE) plateEdges(shown, pu0, pv0, pu1, pv1);
             }
         }
 
@@ -278,8 +281,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         alongV(icon, v0, v1, u1, d0, d1, rows, false, true, 0.05, 0.8f);
     }
 
-    /** Реалистичная рамка: брусья шириной 2 пикселя заходят на холст и выступают на пиксель над картинкой; лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы. */
-    private void realisticFrame(TextureAtlasSprite icon, double u0, double v0, double u1, double v1) {
+    /** Багет: брусья шириной 2 пикселя заходят на холст и выступают над картинкой (base — лицевая плоскость холста); лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы. */
+    private void realisticFrame(TextureAtlasSprite icon, double u0, double v0, double u1, double v1, double base) {
         double b = Math.min(2 * PX, Math.min((u1 - u0) / 2, (v1 - v0) / 2));
         double top = 2 * PX; // лицевая плоскость рамки
         double px = b * 16;   // ширина бруса в пикселях текстуры
@@ -309,10 +312,11 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         // Внутренние торцы брусьев — ступенька от картинки до лицевой стороны рамки
         double ib0 = u0 + b, ib1 = u1 - b, jb0 = v0 + b, jb1 = v1 - b;
         if (ib1 > ib0 && jb1 > jb0) {
-            alongU(icon, ib0, ib1, jb1, PX, top, 6, 1, -0.05, 0.55f);
-            alongU(icon, ib0, ib1, jb0, PX, top, 6, 1, 0.05, 1.0f);
-            alongV(icon, jb0, jb1, ib0, PX, top, 1, false, false, 0.05, 0.8f);
-            alongV(icon, jb0, jb1, ib1, PX, top, 1, true, false, -0.05, 0.8f);
+            double rows = (top - base) * 16;
+            alongU(icon, ib0, ib1, jb1, base, top, 6, rows, -0.05, 0.55f);
+            alongU(icon, ib0, ib1, jb0, base, top, 6, rows, 0.05, 1.0f);
+            alongV(icon, jb0, jb1, ib0, base, top, rows, false, false, 0.05, 0.8f);
+            alongV(icon, jb0, jb1, ib1, base, top, rows, true, false, -0.05, 0.8f);
         }
     }
 

@@ -37,9 +37,14 @@ public final class FrameSkin {
         return of(m.item, m.meta, standard());
     }
 
-    /** Текстура холста из его материала (обычная — frame_canvas). */
+    /** Текстура холста из его материала. */
     public static FrameSkin canvas(PictureFrame.Material m) {
-        return of(m.item, m.meta, new FrameSkin(MinePapers.frame.canvasIcon, TextureMap.locationBlocksTexture, 0xFFFFFF));
+        return of(m.item, m.meta, plainCanvas());
+    }
+
+    /** Обычный холст — frame_canvas. */
+    public static FrameSkin plainCanvas() {
+        return new FrameSkin(MinePapers.frame.canvasIcon, TextureMap.locationBlocksTexture, 0xFFFFFF);
     }
 
     /** Иконки после перезагрузки ресурсов меняются, поэтому не кэшируем — поиск в реестре дешёвый. */

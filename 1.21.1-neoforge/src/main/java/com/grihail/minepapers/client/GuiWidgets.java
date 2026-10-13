@@ -34,11 +34,12 @@ import net.minecraft.resources.ResourceLocation;
 /** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры и спрайты (сундук, вкладки творческого режима, кнопки, кнопки маяка), поэтому окно выглядит как родное и меняется вместе с ресурспаком. Из своей текстуры textures/gui/picture_frame.png — только иконки. */
 final class GuiWidgets {
 
-    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48). */
+    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48), с (0, 64) — рамки (обшивка, багет), за ними холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
     static final ResourceLocation ICONS = MinePapers.id("textures/gui/picture_frame.png");
     /** Копировать, вставить и открытый замок 10x10 — в ряду иконок (v = 0). */
-    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186;
-    static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48;
+    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186,
+        ICON_EYE_OPEN_U = 196, ICON_EYE_CLOSED_U = 206;
+    static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48, LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
 
@@ -48,6 +49,7 @@ final class GuiWidgets {
     private static final ResourceLocation BEACON_BUTTON = vanilla("container/beacon/button");
     private static final ResourceLocation BEACON_SELECTED = vanilla("container/beacon/button_selected");
     private static final ResourceLocation BEACON_HIGHLIGHTED = vanilla("container/beacon/button_highlighted");
+    private static final ResourceLocation BEACON_DISABLED = vanilla("container/beacon/button_disabled");
     private static final WidgetSprites BUTTON = new WidgetSprites(vanilla("widget/button"), vanilla("widget/button_disabled"),
         vanilla("widget/button_highlighted"));
 
@@ -152,14 +154,18 @@ final class GuiWidgets {
         }
     }
 
-    /** Кнопка-переключатель 22x22 с иконкой 16x16 — ванильная кнопка маяка. Выбранная выглядит нажатой. */
+    /** Кнопка-переключатель 22x22 с иконкой 16x16 — ванильная кнопка маяка. Выбранная выглядит нажатой, выключенная — тёмной, с бледной иконкой. */
     static class Toggle extends Widget {
 
         final int value, iconU, iconV;
         boolean checked;
 
         Toggle(int x, int y, int value, int iconU, int iconV, Component name, Runnable action) {
-            super(x, y, 22, 22, name, action);
+            this(x, y, 22, 22, value, iconU, iconV, name, action);
+        }
+
+        Toggle(int x, int y, int w, int h, int value, int iconU, int iconV, Component name, Runnable action) {
+            super(x, y, w, h, name, action);
             this.value = value;
             this.iconU = iconU;
             this.iconV = iconV;
@@ -167,8 +173,29 @@ final class GuiWidgets {
 
         @Override
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            g.blitSprite(checked ? BEACON_SELECTED : isHovered() ? BEACON_HIGHLIGHTED : BEACON_BUTTON, getX(), getY(), 22, 22);
+            g.blitSprite(!active ? BEACON_DISABLED : checked ? BEACON_SELECTED : isHovered() ? BEACON_HIGHLIGHTED : BEACON_BUTTON,
+                getX(), getY(), 22, 22);
             icon(g, getX() + 3, getY() + 3, iconU, iconV, 16, 16);
+            if (!active) g.fill(getX() + 3, getY() + 3, getX() + 19, getY() + 19, 0xA0303030);
+        }
+    }
+
+    /** Переключатель "выключить": глаз 10x10 без кнопки. Выбран — глаз закрыт и ярок; нет — открыт и бледен (под курсором — ярче). */
+    static class Eye extends Toggle {
+
+        static final int WIDTH = 12;
+
+        Eye(int x, int y, int h, Component name, Runnable action) {
+            super(x, y, WIDTH, h, 0, -1, 0, name, action);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            RenderSystem.enableBlend();
+            g.setColor(1f, 1f, 1f, checked ? 1f : isHovered() ? 0.7f : 0.35f);
+            g.blit(ICONS, getX() + (width - 10) / 2, getY() + (height - 10) / 2, checked ? ICON_EYE_CLOSED_U : ICON_EYE_OPEN_U, 0, 10, 10);
+            g.setColor(1f, 1f, 1f, 1f);
+            RenderSystem.disableBlend();
         }
     }
 

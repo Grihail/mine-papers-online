@@ -146,10 +146,9 @@ public class ItemPictureFrame extends ItemBlock {
         lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocal("minepapers.tooltip.source." + s.source)
             + (path.isEmpty() ? "" : ": " + EnumChatFormatting.WHITE + path));
         lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted("minepapers.tooltip.size",
-            Numbers.blocks(s.getWidthBlocks()), Numbers.blocks(s.getHeightBlocks()))
-            + ", " + StatCollector.translateToLocal("minepapers.gui.mode." + s.mode));
-        material(lines, s.border, "minepapers.tooltip.border");
-        material(lines, s.canvas, "minepapers.tooltip.canvas");
+            Numbers.blocks(s.getWidthBlocks()), Numbers.blocks(s.getHeightBlocks())));
+        part(lines, "minepapers.tooltip.border", "minepapers.gui.frameShape." + s.getFrameShape(), s.usesBorder() ? s.border : null);
+        part(lines, "minepapers.tooltip.canvas", "minepapers.gui.canvasKind." + s.getCanvasKind(), s.usesCanvas() ? s.canvas : null);
         if (PictureFrame.isGlowDust(s.glow.stack)) {
             lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocal("minepapers.tooltip.glow.self"));
         } else if (s.glowLevel() > 0) {
@@ -162,12 +161,13 @@ public class ItemPictureFrame extends ItemBlock {
         }
     }
 
+    /** Рамка или холст: какие они и, если нужен блок, из какого. */
     @SideOnly(Side.CLIENT)
-    private static void material(List<String> lines, PictureFrame.Material m, String key) {
-        Item item = m.item.isEmpty() ? null : (Item) Item.itemRegistry.getObject(m.item);
-        if (item == null) return;
-        String name = new ItemStack(item, 1, m.meta).getDisplayName();
-        lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted(key, name));
+    private static void part(List<String> lines, String key, String kindKey, PictureFrame.Material m) {
+        String text = StatCollector.translateToLocal(kindKey);
+        Item item = m == null || m.item.isEmpty() ? null : (Item) Item.itemRegistry.getObject(m.item);
+        if (item != null) text += ", " + new ItemStack(item, 1, m.meta).getDisplayName();
+        lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted(key, text));
     }
 
 }

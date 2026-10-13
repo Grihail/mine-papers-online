@@ -17,6 +17,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
@@ -160,10 +161,9 @@ public class ItemPictureFrame extends Item {
             .append(Component.literal(": ").withStyle(ChatFormatting.GRAY))
             .append(Component.literal(path).withStyle(ChatFormatting.WHITE)));
         lines.add(Component.translatable("minepapers.tooltip.size", Numbers.blocks(s.getWidthBlocks()), Numbers.blocks(s.getHeightBlocks()))
-            .append(", ").append(Component.translatable("minepapers.gui.mode." + s.mode))
             .withStyle(ChatFormatting.GRAY));
-        material(lines, s.border, "minepapers.tooltip.border");
-        material(lines, s.canvas, "minepapers.tooltip.canvas");
+        part(lines, "minepapers.tooltip.border", "minepapers.gui.frameShape." + s.getFrameShape(), s.usesBorder() ? s.border : null);
+        part(lines, "minepapers.tooltip.canvas", "minepapers.gui.canvasKind." + s.getCanvasKind(), s.usesCanvas() ? s.canvas : null);
         int glow = s.glowLevel();
         if (PictureFrame.isGlowDust(s.glow.stack())) {
             lines.add(Component.translatable("minepapers.tooltip.glow.self").withStyle(ChatFormatting.GRAY));
@@ -175,9 +175,12 @@ public class ItemPictureFrame extends Item {
         }
     }
 
-    private static void material(List<Component> lines, PictureFrame.Material m, String key) {
-        ItemStack stack = borderStack(m.item);
-        if (!stack.isEmpty()) lines.add(Component.translatable(key, stack.getHoverName()).withStyle(ChatFormatting.GRAY));
+    /** Рамка или холст: какие они и, если нужен блок, из какого. */
+    private static void part(List<Component> lines, String key, String kindKey, PictureFrame.Material m) {
+        MutableComponent text = Component.translatable(kindKey);
+        ItemStack stack = m == null || m.item.isEmpty() ? ItemStack.EMPTY : borderStack(m.item);
+        if (!stack.isEmpty()) text.append(", ").append(stack.getHoverName());
+        lines.add(Component.translatable(key, text).withStyle(ChatFormatting.GRAY));
     }
 
     /** Блоки из слотов материалов (рамка, холст), лежащие в картине-предмете. */
