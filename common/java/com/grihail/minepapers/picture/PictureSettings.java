@@ -113,8 +113,16 @@ public class PictureSettings {
     public UUID owner;
     public String ownerName = "";
 
+    /** Кто подписал картину (null — никто) и его ник. Подпись ставится один раз и навсегда, только на картину без привата. Меняет только сервер (PacketSaveFrame), в конфиг JSON не попадает. */
+    public UUID signer;
+    public String signerName = "";
+
     public boolean isLocked() {
         return owner != null;
+    }
+
+    public boolean isSigned() {
+        return signer != null;
     }
 
     /** Может ли игрок менять настройки и материалы картины. */
@@ -122,9 +130,17 @@ public class PictureSettings {
         return owner == null || owner.equals(player);
     }
 
-    /** Сервер только что прочитал настройки от клиента игрока player (PacketSaveFrame) — возвращает то, что клиент сам менять не может: список картинок на сервере (его меняет только сервер, PacketOfferFiles) и владельца. Владельца клиент только просит: замок закрыт — картина становится его (если ничья), открыт — снова ничья; чужое имя подставить нельзя. Параметры — значения до чтения. */
-    public void keepServerFields(String origin, byte[] files, UUID owner, String ownerName, UUID player, String playerName) {
+    /** Сервер только что прочитал настройки от клиента игрока player (PacketSaveFrame) — возвращает то, что клиент сам менять не может: список картинок на сервере (его меняет только сервер, PacketOfferFiles) и владельца. Владельца клиент только просит: замок закрыт — картина становится его (если ничья), открыт — снова ничья; чужое имя подставить нельзя. Подпись тоже только просит: её ставит сервер, если картину ещё никто не подписал и привата на ней не было. Параметры — значения до чтения. */
+    public void keepServerFields(String origin, byte[] files, UUID owner, String ownerName, UUID signer, String signerName,
+                                 UUID player, String playerName) {
         this.files = origin != null && origin.equals(getOriginKey()) ? files : NO_FILES;
+        boolean sign = this.signer != null;
+        this.signer = signer;
+        this.signerName = signerName;
+        if (sign && signer == null && owner == null) {
+            this.signer = player;
+            this.signerName = playerName;
+        }
         boolean lock = this.owner != null;
         this.owner = owner;
         this.ownerName = ownerName;
@@ -344,6 +360,10 @@ public class PictureSettings {
             tag.putUuid("Owner", owner);
             tag.putString("OwnerName", ownerName);
         }
+        if (signer != null) {
+            tag.putUuid("Signer", signer);
+            tag.putString("SignerName", signerName);
+        }
         tag.putInt("Fit", fitMode);
         tag.putInt("PPB", pixelsPerBlock);
         tag.putInt("Style", style);
@@ -385,6 +405,8 @@ public class PictureSettings {
         description = tag.getString("Desc").replace("\r", "");
         owner = tag.getUuid("Owner");
         ownerName = tag.getString("OwnerName");
+        signer = tag.getUuid("Signer");
+        signerName = tag.getString("SignerName");
 
         fitMode = tag.contains("Fit") ? tag.getInt("Fit") : FIT_COVER;
         pixelsPerBlock = tag.contains("PPB") ? range(tag.getInt("PPB"), MIN_PPB, MAX_PPB) : 128;

@@ -31,6 +31,8 @@ final class GuiWidgets {
     /** Копировать, вставить, открытый и закрытый замок 10x10 — в ряду иконок (v = 0). */
     static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186,
         ICON_EYE_OPEN_U = 196, ICON_EYE_CLOSED_U = 206;
+    /** Перо 16x16 (контур ванильного пера) — на кнопке подписи. */
+    static final int PEN_U = 64, PEN_V = 64;
     static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48,
         LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
@@ -280,6 +282,28 @@ final class GuiWidgets {
                 icon(xPosition + 5, yPosition + 5, owner == null ? ICON_UNLOCKED_U : ICON_LOCKED_U, 0, 10, 10);
             } else {
                 face(skin(owner, ownerName), xPosition + 2, yPosition + 2, 16);
+            }
+        }
+    }
+
+    /** Подпись 20x20: не подписана — перо; подписана (или подпишется при закрытии окна) — голова подписавшего. */
+    static class Sign extends Small {
+
+        /** Кто подписал; null — никто. */
+        UUID signer;
+        String signerName = "";
+
+        Sign(int id, int x, int y) {
+            super(id, x, y, 20, 20, "", -1);
+        }
+
+        @Override
+        void draw(Minecraft mc, boolean hovered) {
+            super.draw(mc, hovered);
+            if (signer == null) {
+                icon(xPosition + 2, yPosition + 2, PEN_U, PEN_V, 16, 16);
+            } else {
+                face(skin(signer, signerName), xPosition + 2, yPosition + 2, 16);
             }
         }
     }

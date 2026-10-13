@@ -50,12 +50,20 @@ public class PacketSaveFrame implements IMessage {
         byte[] files = frame.files;
         UUID owner = frame.owner;
         String ownerName = frame.ownerName;
+        UUID signer = frame.signer;
+        String signerName = frame.signerName;
         // Материалы рамки и холста — настоящие предметы, их меняют только слоты окна (ContainerPictureFrame).
         NBTTagCompound materials = new NBTTagCompound();
         frame.writeSettings(materials);
         frame.readSettings(msg.settings);
         for (PictureFrame.Material m : frame.materials()) m.read(materials);
-        frame.keepServerFields(origin, files, owner, ownerName, player.getUniqueID(), player.getCommandSenderName());
+        frame.keepServerFields(origin, files, owner, ownerName, signer, signerName, player.getUniqueID(),
+            player.getCommandSenderName());
+        // Подпись уникальна: стопку картин-предметов не подписывают (подпись размножилась бы).
+        if (signer == null && holder.count() > 1) {
+            frame.signer = null;
+            frame.signerName = "";
+        }
         if (frame.mayEdit(player.getUniqueID()) && MaterialStack.editable(ModConfig.stackMaterials, holder.count())) {
             returnUnused(player, frame, holder.count());
         }

@@ -31,6 +31,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.RenderType;
@@ -73,11 +74,16 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private boolean saved;
     /** Замок закрыт (картина заприватится при закрытии окна). */
     private boolean locked;
+    /** Подписать картину при закрытии окна (подпись ставит сервер, и только на картину без привата). */
+    private boolean sign;
+    /** Открыто ванильное окно "Подписать картину?": окно картины к нему вернётся, поэтому не сохраняется и не закрывается. */
+    private boolean confirming;
     /** Чужая заприваченная картина: без вкладок, только заголовок и описание. */
     private final boolean readOnly;
     private final UUID me;
     private final String myName;
     private GuiWidgets.Lock btnLock;
+    private GuiWidgets.Sign btnSign;
 
     private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
     /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
@@ -154,7 +160,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         btnPaste = addRenderableWidget(new GuiWidgets.Small(x + imageWidth + 2, y + 26, 20, 20,
             Component.translatable("minepapers.gui.paste"), GuiWidgets.ICON_PASTE_U, this::pasteConfig));
         btnPaste.setTooltip(tip("minepapers.gui.paste", "minepapers.gui.paste.tip"));
-        // Ниже — замок привата. Чужой замок не нажимается, только показывает владельца.
+        // Ниже — подпись и замок привата. Чужой замок не нажимается, только показывает владельца.
+        btnSign = addRenderableWidget(new GuiWidgets.Sign(x + imageWidth + 2, y + 104, this::confirmSign));
         btnLock = addRenderableWidget(new GuiWidgets.Lock(x + imageWidth + 2, y + 126, () -> {
             locked = !locked;
             updateWidgets();
@@ -424,6 +431,20 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             if (!readOnly) owner.append("\n").append(Component.translatable("minepapers.gui.unlock.tip").withStyle(ChatFormatting.GRAY));
             btnLock.setTooltip(Tooltip.create(owner));
         }
+        // Подписать можно только одну картину без привата и только один раз; подтверждённую подпись уже не отменить (поставится при закрытии окна, даже если закрыть и замок). Чужим подпись видна, если она есть.
+        btnSign.signer = tile.signer != null ? tile.signer : sign ? me : null;
+        btnSign.active = !readOnly && !tile.isSigned() && !sign && !locked && holder.count() == 1;
+        btnSign.visible = !readOnly || tile.isSigned();
+        if (tile.isSigned()) {
+            btnSign.setTooltip(Tooltip.create(Component.translatable("minepapers.gui.signer", tile.signerName)));
+        } else if (sign) {
+            btnSign.setTooltip(Tooltip.create(Component.translatable("minepapers.gui.sign.pending", myName).append("\n")
+                .append(Component.translatable("minepapers.gui.sign.onClose").withStyle(ChatFormatting.GRAY))));
+        } else if (holder.count() > 1) {
+            btnSign.setTooltip(tip("minepapers.gui.sign", "minepapers.gui.sign.stack"));
+        } else {
+            btnSign.setTooltip(tip("minepapers.gui.sign", "minepapers.gui.sign.tip"));
+        }
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.value == source;
         for (GuiWidgets.Toggle t : fitButtons) t.checked = t.value == fitMode;
         for (GuiWidgets.Toggle t : frameButtons) {
@@ -461,6 +482,16 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private String shownKey() {
         String key = currentKey();
         return key != null && key.equals(tile.getOriginKey()) && tile.hasSharedFiles() ? tile.getSourceKey() : key;
+    }
+
+    /** Подпись навсегда — сначала ванильный вопрос "Да / Нет" (Esc — нет). */
+    private void confirmSign() {
+        confirming = true;
+        minecraft.setScreen(new ConfirmScreen(yes -> {
+            if (yes) sign = true;
+            confirming = false;
+            minecraft.setScreen(this);
+        }, Component.translatable("minepapers.gui.sign.confirm"), Component.translatable("minepapers.gui.sign.confirm.text", myName)));
     }
 
     private void reload() {
@@ -597,6 +628,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Настройки применяются при любом закрытии окна: Esc, E, Enter или сервер закрыл его сам. */
     @Override
     public void removed() {
+        if (confirming) return; // ушли в вопрос о подписи — окно ещё вернётся
         if (!saved && !readOnly && minecraft.getConnection() != null && holder.exists()) save();
         saved = true;
         super.removed();
@@ -615,6 +647,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         } else if (!locked) {
             tile.owner = null;
             tile.ownerName = "";
+        }
+        // Подпись тоже только просьба: её ставит сервер.
+        if (sign && tile.signer == null) {
+            tile.signer = me;
+            tile.signerName = myName;
         }
         tile.source = source;
         tile.localPath = line(fPath);

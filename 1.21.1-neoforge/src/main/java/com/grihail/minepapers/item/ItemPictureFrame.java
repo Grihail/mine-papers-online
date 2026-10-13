@@ -49,6 +49,11 @@ public class ItemPictureFrame extends Item {
     }
 
     /** Картина запривачена (в настройках есть владелец). */
+    /** Подписанная картина: подпись уникальна и навсегда — её не копируют и не сбрасывают. */
+    public static boolean isSigned(CompoundTag settings) {
+        return settings != null && settings.hasUUID("Signer");
+    }
+
     public static boolean isLocked(CompoundTag settings) {
         return settings != null && settings.hasUUID("Owner");
     }
@@ -169,6 +174,9 @@ public class ItemPictureFrame extends Item {
             lines.add(Component.translatable("minepapers.tooltip.glow.self").withStyle(ChatFormatting.GRAY));
         } else if (glow > 0) {
             lines.add(Component.translatable("minepapers.tooltip.glow", glow).withStyle(ChatFormatting.GRAY));
+        }
+        if (s.isSigned()) {
+            lines.add(Component.translatable("minepapers.tooltip.signer", s.signerName).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
         }
         if (s.isLocked()) {
             lines.add(Component.translatable("minepapers.tooltip.owner", s.ownerName).withStyle(ChatFormatting.LIGHT_PURPLE));

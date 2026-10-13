@@ -24,6 +24,8 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.ChatFormatting;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.InventoryMenu;
@@ -144,12 +146,20 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         out = null;
         pose = null;
 
-        // 4. Под прицелом с зажатым Shift — заголовок картины, как имя переименованного предмета в рамке.
-        if (!tile.title.isEmpty() && PictureControls.isAimed(picture) && Screen.hasShiftDown()
+        // 4. Под прицелом с зажатым Shift — заголовок картины и курсивом ник подписавшего, как имя переименованного предмета в рамке.
+        if ((!tile.title.isEmpty() || tile.isSigned()) && PictureControls.isAimed(picture) && Screen.hasShiftDown()
             && Minecraft.renderNames()) {
             double[] p = FrameGeometry.labelPos(tile);
-            titleLabel(Component.literal(tile.title), p[0] - at.x, p[1] - at.y, p[2] - at.z, poseStack, buffers, packedLight);
+            titleLabel(label(tile), p[0] - at.x, p[1] - at.y, p[2] - at.z, poseStack, buffers, packedLight);
         }
+    }
+
+    /** Заголовок и ник подписавшего курсивом: "Заголовок - ник". */
+    private static Component label(PictureFrame tile) {
+        MutableComponent text = Component.literal(tile.title);
+        if (!tile.isSigned()) return text;
+        if (!tile.title.isEmpty()) text.append(" - ");
+        return text.append(Component.literal(tile.signerName).withStyle(ChatFormatting.ITALIC));
     }
 
     /** Подпись над миром, как ванильная табличка с именем (EntityRenderer.renderNameTag): тёмная подложка, текст виден и сквозь стены (тускло). */

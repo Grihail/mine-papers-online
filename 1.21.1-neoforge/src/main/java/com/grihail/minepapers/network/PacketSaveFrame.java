@@ -47,12 +47,20 @@ public record PacketSaveFrame(int target, CompoundTag settings) implements Custo
         byte[] files = frame.files;
         UUID owner = frame.owner;
         String ownerName = frame.ownerName;
+        UUID signer = frame.signer;
+        String signerName = frame.signerName;
         // Материалы рамки и холста — настоящие предметы, их меняют только слоты окна (ContainerPictureFrame).
         CompoundTag materials = new CompoundTag();
         frame.writeSettings(materials);
         frame.readSettings(msg.settings);
         for (PictureFrame.Material m : frame.materials()) m.read(materials);
-        frame.keepServerFields(origin, files, owner, ownerName, player.getUUID(), player.getGameProfile().getName());
+        frame.keepServerFields(origin, files, owner, ownerName, signer, signerName, player.getUUID(),
+            player.getGameProfile().getName());
+        // Подпись уникальна: стопку картин-предметов не подписывают (подпись размножилась бы).
+        if (signer == null && holder.count() > 1) {
+            frame.signer = null;
+            frame.signerName = "";
+        }
         if (frame.mayEdit(player.getUUID()) && MaterialStack.editable(ModConfig.stackMaterials, holder.count())) {
             if (!frame.usesBorder()) take(player, frame.border, holder.count());
             if (!frame.usesCanvas()) take(player, frame.canvas, holder.count());

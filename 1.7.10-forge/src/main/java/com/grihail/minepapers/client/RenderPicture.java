@@ -147,14 +147,21 @@ public class RenderPicture extends Render {
         bindTexture(TextureMap.locationBlocksTexture);
         GL11.glPopMatrix();
 
-        // 3. Под прицелом с зажатым Shift — заголовок картины, как имя переименованного предмета в рамке.
+        // 3. Под прицелом с зажатым Shift — заголовок картины и курсивом ник подписавшего, как имя переименованного предмета в рамке.
         MovingObjectPosition hit = Minecraft.getMinecraft().objectMouseOver;
-        if (!tile.title.isEmpty() && hit != null && hit.entityHit == picture && GuiScreen.isShiftKeyDown()
+        String label = label(tile);
+        if (!label.isEmpty() && hit != null && hit.entityHit == picture && GuiScreen.isShiftKeyDown()
             && Minecraft.isGuiEnabled()) {
             double[] p = FrameGeometry.labelPos(tile);
-            titleLabel(tile.title, p[0] - RenderManager.renderPosX, p[1] - RenderManager.renderPosY,
+            titleLabel(label, p[0] - RenderManager.renderPosX, p[1] - RenderManager.renderPosY,
                 p[2] - RenderManager.renderPosZ);
         }
+    }
+
+    /** Заголовок и ник подписавшего курсивом: "Заголовок - ник". */
+    private static String label(PictureFrame tile) {
+        if (!tile.isSigned()) return tile.title;
+        return (tile.title.isEmpty() ? "" : tile.title + " - ") + "\u00a7o" + tile.signerName;
     }
 
     /** Подпись над миром, как ванильная табличка с именем (Render.func_147906_a): тёмная подложка, текст виден и сквозь стены (тускло). */

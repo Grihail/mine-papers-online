@@ -37,12 +37,14 @@ public class RecipePictureFrame implements IRecipe {
                 empty[0]++;
             }
         }
+        // Подписанную не копируют: подпись уникальна.
+        if (configured != null && empty[0] > 0 && ItemPictureFrame.isSigned(configured)) return null;
         return configured;
     }
 
     @Override
     public boolean matches(InventoryCrafting inv, World world) {
-        return find(inv, new int[1]) != null;
+        return getCraftingResult(inv) != null;
     }
 
     @Override
@@ -57,7 +59,7 @@ public class RecipePictureFrame implements IRecipe {
         boolean hadMaterials = stripMaterials(settings);
         if (empty[0] == 0) {
             // Разбор: сначала только вынимаем материалы — картина остаётся с настройками, но без рамки и холста (граффити). Повторный крафт сбрасывает её полностью.
-            if (!hadMaterials) return new ItemStack(MinePapers.frame);
+            if (!hadMaterials) return ItemPictureFrame.isSigned(configured) ? null : new ItemStack(MinePapers.frame); // подпись навсегда
             settings.setInteger("Mode", PictureFrame.MODE_DECAL);
         }
         return copy;

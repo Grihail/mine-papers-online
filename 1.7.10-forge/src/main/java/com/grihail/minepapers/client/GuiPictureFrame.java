@@ -28,6 +28,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiConfirmOpenLink;
 import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.client.gui.GuiYesNo;
 import net.minecraft.client.gui.GuiYesNoCallback;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.RenderHelper;
@@ -49,7 +50,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** id кнопок: вкладки — 0..3, группы переключателей — начало группы + значение. */
     private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_FRAME = 30, ID_CANVAS = 35, ID_STYLE = 40,
         ID_PREV = 50, ID_NEXT = 51, ID_FOLDER = 52, ID_RELOAD = 53, ID_SIZE_PX = 54, ID_POS_PX = 55,
-        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59;
+        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60;
 
     /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
     private static final int WIDTH = 176,
@@ -70,11 +71,18 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private boolean sizePx, posPx, padPx;
     /** Замок закрыт (картина заприватится при закрытии окна). */
     private boolean locked;
+    /** Подписать картину при закрытии окна (подпись ставит сервер, и только на картину без привата). */
+    private boolean sign;
+    /** Открыто ванильное окно "Подписать картину?": окно картины к нему вернётся, поэтому не сохраняется и не закрывается. */
+    private boolean confirming;
+    /** id вопроса о подписи в confirmClicked (0 — ссылка). */
+    private static final int CONFIRM_SIGN = 1;
     /** Чужая заприваченная картина: без вкладок, только заголовок и описание. */
     private final boolean readOnly;
     private final UUID me;
     private final String myName;
     private GuiWidgets.Lock btnLock;
+    private GuiWidgets.Sign btnSign;
 
     private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
     private final List<GuiWidgets.Radio> radios = new ArrayList<GuiWidgets.Radio>();
@@ -153,7 +161,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         // Справа сверху, вне окна — копировать и вставить все настройки как JSON (PictureConfig).
         btnCopy = add(new GuiWidgets.Small(ID_COPY, x + xSize + 2, y + 4, 20, 20, "", GuiWidgets.ICON_COPY_U), -1);
         btnPaste = add(new GuiWidgets.Small(ID_PASTE, x + xSize + 2, y + 26, 20, 20, "", GuiWidgets.ICON_PASTE_U), -1);
-        // Ниже — замок привата. Чужой замок не нажимается, только показывает владельца.
+        // Ниже — подпись и замок привата. Чужой замок не нажимается, только показывает владельца.
+        btnSign = add(new GuiWidgets.Sign(ID_SIGN, x + xSize + 2, y + 104), -1);
         btnLock = add(new GuiWidgets.Lock(ID_LOCK, x + xSize + 2, y + 126), -1);
         btnLock.enabled = !readOnly;
 
@@ -273,6 +282,11 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         btnLock.owner = !locked ? null : tile.owner != null ? tile.owner : me;
         btnLock.ownerName = !locked ? "" : tile.owner != null ? tile.ownerName : myName;
         btnLock.mine = !readOnly;
+        // Подписать можно только одну картину без привата и только один раз; подтверждённую подпись уже не отменить (поставится при закрытии окна, даже если закрыть и замок). Чужим подпись видна, если она есть.
+        btnSign.signer = tile.signer != null ? tile.signer : sign ? me : null;
+        btnSign.signerName = tile.signer != null ? tile.signerName : myName;
+        btnSign.enabled = !readOnly && !tile.isSigned() && !sign && !locked && holder.count() == 1;
+        btnSign.visible = !readOnly || tile.isSigned();
         btnPrev.visible &= local;
         btnNext.visible &= local;
         btnFolder.visible &= local;
@@ -383,6 +397,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 case ID_LOCK:
                     if (!readOnly) locked = !locked;
                     break;
+                case ID_SIGN:
+                    if (btnSign.enabled) confirmSign();
+                    break;
                 case ID_PAD_PX:
                     padPx = !padPx;
                     convert(fPad, padPx);
@@ -390,6 +407,18 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             }
         }
         updateWidgets();
+    }
+
+    /** Подпись навсегда — сначала ванильный вопрос "Да / Нет" (Esc — нет). */
+    private void confirmSign() {
+        confirming = true;
+        mc.displayGuiScreen(new GuiYesNo(this, I18n.format("minepapers.gui.sign.confirm"),
+            I18n.format("minepapers.gui.sign.confirm.text", myName), CONFIRM_SIGN) {
+            @Override
+            protected void keyTyped(char c, int key) {
+                if (key == Keyboard.KEY_ESCAPE) GuiPictureFrame.this.confirmClicked(false, CONFIRM_SIGN);
+            }
+        });
     }
 
     private void reload() {
@@ -542,6 +571,11 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         } else if (!locked) {
             tile.owner = null;
             tile.ownerName = "";
+        }
+        // Подпись тоже только просьба: её ставит сервер.
+        if (sign && tile.signer == null) {
+            tile.signer = me;
+            tile.signerName = myName;
         }
         tile.source = source;
         tile.localPath = fPath.getText().trim();
@@ -742,6 +776,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
     @Override
     public void onGuiClosed() {
+        if (confirming) return; // ушли в вопрос о подписи — окно ещё вернётся
         super.onGuiClosed();
         Keyboard.enableRepeatEvents(false);
         // Настройки применяются при любом закрытии окна: Esc, E, Enter или сервер закрыл его сам.
@@ -933,6 +968,12 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
     @Override
     public void confirmClicked(boolean yes, int id) {
+        if (id == CONFIRM_SIGN) {
+            if (yes) sign = true;
+            confirming = false;
+            mc.displayGuiScreen(this);
+            return;
+        }
         if (yes && pendingLink != null) browse(pendingLink);
         pendingLink = null;
         mc.displayGuiScreen(this);
@@ -986,7 +1027,20 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 return;
             }
         }
-        if (btnLock.hovered()) {
+        if (btnSign.hovered()) {
+            if (tile.isSigned()) {
+                tooltip("minepapers.gui.signer", mouseX, mouseY, tile.signerName);
+            } else if (sign) {
+                List<String> lines = new ArrayList<String>();
+                lines.add(I18n.format("minepapers.gui.sign.pending", myName));
+                lines.add("§7" + I18n.format("minepapers.gui.sign.onClose"));
+                drawHoveringText(lines, mouseX, mouseY, fontRendererObj);
+            } else if (holder.count() > 1) {
+                titledTooltip("minepapers.gui.sign", "minepapers.gui.sign.stack", mouseX, mouseY);
+            } else {
+                titledTooltip("minepapers.gui.sign", "minepapers.gui.sign.tip", mouseX, mouseY);
+            }
+        } else if (btnLock.hovered()) {
             if (btnLock.owner == null) {
                 titledTooltip("minepapers.gui.lock", "minepapers.gui.lock.tip", mouseX, mouseY);
             } else {
