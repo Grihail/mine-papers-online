@@ -6,7 +6,7 @@
     "version": "${version}",
     "mcversion": "${mcversion}",
     "authorList": ["Grihail"],
-    "credits": "",
+    "credits": "Licensed under LGPLv3.",
     "url": "",
     "logoFile": "",
     "screenshots": [],
