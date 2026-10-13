@@ -6,7 +6,6 @@ import com.grihail.minepapers.server.ServerImages;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -43,10 +42,7 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
 
     /** На клиенте: картину находим по id, который сервер прислал при открытии окна. */
     public static ContainerPictureFrame fromNetwork(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
-        Entity entity = inventory.player.level().getEntity(buf.readVarInt());
-        EntityPicture picture = entity instanceof EntityPicture p ? p
-            : new EntityPicture(MinePapers.PICTURE.get(), inventory.player.level()); // картина пропала — пустышка, окно закроется
-        return new ContainerPictureFrame(id, inventory, picture);
+        return new ContainerPictureFrame(id, inventory, (EntityPicture) inventory.player.level().getEntity(buf.readVarInt()));
     }
 
     public static boolean isMaterialSlot(int index) {
@@ -109,7 +105,7 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return !stack.isEmpty() && !stack.is(MinePapers.FRAME.get()) && material.accepts(stack)
+            return !stack.is(MinePapers.FRAME.get()) && material.accepts(stack)
                 && frame.mayEdit(player.getUUID());
         }
 
@@ -158,7 +154,6 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
         @Override
         public ItemStack removeItem(int index, int count) {
             ItemStack stack = material.stack().copy();
-            if (stack.isEmpty() || count <= 0) return ItemStack.EMPTY;
             setItem(0, ItemStack.EMPTY);
             return stack;
         }

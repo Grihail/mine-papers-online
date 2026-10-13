@@ -4,7 +4,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayDeque;
@@ -126,14 +125,8 @@ public final class ImageSync {
         }
         Partial p = DOWNLOADS.get(hex);
         if (p == null) {
-            if (offset != 0 || total > SharedImage.MAX_BYTES) return;
             p = new Partial(total);
             DOWNLOADS.put(hex, p);
-        }
-        if (offset != p.received || offset + data.length > p.data.length) {
-            DOWNLOADS.remove(hex);
-            failed(hex);
-            return;
         }
         System.arraycopy(data, 0, p.data, offset, data.length);
         p.received += data.length;
@@ -157,22 +150,13 @@ public final class ImageSync {
     }
 
     private static boolean writeCache(String hex, byte[] blob) {
-        File dir = cacheDir();
-        File target = new File(dir, hex);
-        if (target.isFile()) return true;
-        File tmp = new File(dir, hex + "." + Thread.currentThread().getId() + ".tmp");
         try {
-            if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Cannot create " + dir);
-            try (FileOutputStream out = new FileOutputStream(tmp)) {
-                out.write(blob);
-            }
-            if (!tmp.renameTo(target) && !target.isFile()) throw new IOException("Cannot rename " + tmp);
+            Files.createDirectories(cacheDir().toPath());
+            Files.write(cacheFile(hex).toPath(), blob);
             return true;
         } catch (IOException e) {
-            LOG.warn("Не удалось сохранить картинку в кэш: " + target, e);
+            LOG.warn("Не удалось сохранить картинку в кэш: " + hex, e);
             return false;
-        } finally {
-            tmp.delete();
         }
     }
 

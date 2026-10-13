@@ -110,7 +110,7 @@ public final class PictureConfig {
     }
 
     private static String name(String[] names, int value) {
-        return value >= 0 && value < names.length ? names[value] : names[0];
+        return names[value];
     }
 
     /** Целые — без ".0", чтобы конфиг было удобно читать. */
@@ -120,23 +120,12 @@ public final class PictureConfig {
 
     // ---------- Из JSON ----------
 
-    /** Разбирает конфиг; не JSON или не наш конфиг — IllegalArgumentException. Значения не проверяет: их приводит к допустимым сама картина. */
+    /** Разбирает конфиг; не JSON-объект — IllegalArgumentException. */
     @SuppressWarnings("deprecation")
     public static PictureConfig fromJson(String text) {
-        JsonElement parsed;
-        try {
-            parsed = new JsonParser().parse(text == null ? "" : text.trim());
-        } catch (RuntimeException e) {
-            throw new IllegalArgumentException("not json", e);
-        }
-        if (parsed == null || !parsed.isJsonObject()) throw new IllegalArgumentException("not an object");
-        JsonObject root = parsed.getAsJsonObject();
-        if (!root.has("source") && !root.has("size") && !root.has("look") && !root.has("materials")
-            && !root.has("title") && !root.has("description")) {
-            throw new IllegalArgumentException("not a picture config");
-        }
         PictureConfig c = new PictureConfig();
         try {
+            JsonObject root = new JsonParser().parse(text).getAsJsonObject();
             c.minecraft = string(root, "minecraft");
             c.title = string(root, "title");
             c.description = string(root, "description");
@@ -185,7 +174,7 @@ public final class PictureConfig {
                 }
             }
         } catch (RuntimeException e) {
-            throw new IllegalArgumentException("bad value", e);
+            throw new IllegalArgumentException(e);
         }
         return c;
     }
@@ -200,29 +189,21 @@ public final class PictureConfig {
         oldToNew = new HashMap<String, String>();
         newToOld = new HashMap<String, String>();
         InputStream in = PictureConfig.class.getResourceAsStream("/assets/minepapers/flattening.txt");
-        if (in == null) return;
-        try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             for (String line; (line = reader.readLine()) != null;) {
-                String[] p = line.trim().split(" ");
-                if (p.length != 3 || p[0].startsWith("#")) continue;
+                String[] p = line.split(" ");
+                if (p.length != 3) continue; // комментарии
                 oldToNew.put(p[0] + "." + p[1], p[2]);
                 if (!newToOld.containsKey(p[2])) newToOld.put(p[2], p[0] + "." + p[1]);
             }
-            reader.close();
-        } catch (IOException ignored) {
-            // без таблицы предметы просто ищутся по имени как есть
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
         }
     }
 
     /** Названия предметов "после уплощения" — в версии 1.13 и новее. */
     public static boolean isFlattened(String version) {
-        String[] p = version.split("\\.");
-        try {
-            return p.length > 1 && (Integer.parseInt(p[0]) > 1 || Integer.parseInt(p[1].replaceAll("\\D.*", "")) >= 13);
-        } catch (NumberFormatException e) {
-            return true;
-        }
+        return Integer.parseInt(version.split("\\.")[1]) >= 13;
     }
 
     /** Предмет материала под эту версию игры (flattened — она 1.13 или новее). Конфиг из другой эпохи переводим по таблице; если версия конфига не указана (написан руками) — сначала имя как есть, не нашлось (exists) — по таблице. */

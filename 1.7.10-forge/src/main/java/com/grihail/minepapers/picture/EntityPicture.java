@@ -286,7 +286,6 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
     @Override
     public void readSpawnData(ByteBuf buf) {
         NBTTagCompound tag = ByteBufUtils.readTag(buf);
-        if (tag == null) return;
         frame.readPlacement(tag);
         frame.readSettings(tag);
         refresh();

@@ -243,15 +243,11 @@ final class GuiWidgets {
         if (known != null) return known;
         PlayerSkin fallback = DefaultPlayerSkin.get(id);
         SKINS.put(id, fallback);
-        try {
-            SkullBlockEntity.fetchGameProfile(id)
-                .thenCompose(p -> p.map(mc.getSkinManager()::getOrLoad).orElseGet(() -> CompletableFuture.completedFuture(null)))
-                .thenAccept(s -> {
-                    if (s != null) mc.execute(() -> SKINS.put(id, s));
-                });
-        } catch (RuntimeException ignored) {
-            // нет сервиса профилей (офлайн) — остаётся стандартный скин
-        }
+        SkullBlockEntity.fetchGameProfile(id)
+            .thenCompose(p -> p.map(mc.getSkinManager()::getOrLoad).orElseGet(() -> CompletableFuture.completedFuture(null)))
+            .thenAccept(s -> {
+                if (s != null) mc.execute(() -> SKINS.put(id, s));
+            });
         return fallback;
     }
 

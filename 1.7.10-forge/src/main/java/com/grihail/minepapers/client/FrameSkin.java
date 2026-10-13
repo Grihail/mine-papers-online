@@ -44,27 +44,19 @@ public final class FrameSkin {
 
     /** Иконки после перезагрузки ресурсов меняются, поэтому не кэшируем — поиск в реестре дешёвый. */
     private static FrameSkin of(String itemName, int meta, FrameSkin fallback) {
-        if (itemName == null || itemName.isEmpty()) return fallback;
-        try {
-            Item item = (Item) Item.itemRegistry.getObject(itemName);
-            if (item == null) return fallback;
-            Block block = Block.getBlockFromItem(item);
-            if (item instanceof ItemBlock && block != null && block != Blocks.air) {
-                int blockMeta = item.getMetadata(meta);
-                IIcon icon = block.getIcon(2, blockMeta);
-                // Боковину травы игра не красит: зелёная кайма уже нарисована в текстуре, а цвет травы идёт только на накладку. Покрасим целиком — позеленеет и земля.
-                int color = block instanceof BlockGrass ? 0xFFFFFF : block.getRenderColor(blockMeta);
-                if (icon != null) return new FrameSkin(icon, TextureMap.locationBlocksTexture, color);
-            }
-            IIcon icon = item.getIconFromDamage(meta);
-            if (icon != null) {
-                ResourceLocation atlas = item.getSpriteNumber() == 0 ? TextureMap.locationBlocksTexture
-                    : TextureMap.locationItemsTexture;
-                return new FrameSkin(icon, atlas, item.getColorFromItemStack(new ItemStack(item, 1, meta), 0));
-            }
-        } catch (Throwable ignored) {
-            // Чужие моды бывают капризны к необычным метаданным — просто оставляем обычную текстуру.
+        Item item = (Item) Item.itemRegistry.getObject(itemName);
+        if (item == null) return fallback;
+        Block block = Block.getBlockFromItem(item);
+        if (item instanceof ItemBlock && block != Blocks.air) {
+            int blockMeta = item.getMetadata(meta);
+            IIcon icon = block.getIcon(2, blockMeta);
+            // Боковину травы игра не красит: зелёная кайма уже нарисована в текстуре, а цвет травы идёт только на накладку. Покрасим целиком — позеленеет и земля.
+            int color = block instanceof BlockGrass ? 0xFFFFFF : block.getRenderColor(blockMeta);
+            if (icon != null) return new FrameSkin(icon, TextureMap.locationBlocksTexture, color);
         }
-        return fallback;
+        IIcon icon = item.getIconFromDamage(meta);
+        if (icon == null) return fallback;
+        ResourceLocation atlas = item.getSpriteNumber() == 0 ? TextureMap.locationBlocksTexture : TextureMap.locationItemsTexture;
+        return new FrameSkin(icon, atlas, item.getColorFromItemStack(new ItemStack(item, 1, meta), 0));
     }
 }

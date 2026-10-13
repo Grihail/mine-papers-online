@@ -28,6 +28,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -134,12 +135,15 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             tabs.add(addRenderableWidget(new GuiWidgets.Tab(x - GuiWidgets.Tab.WIDTH + GuiWidgets.Tab.OVERLAP,
                 y + 4 + i * (GuiWidgets.Tab.HEIGHT + 1), i, Component.translatable("minepapers.gui.tab." + i),
                 () -> selectTab(index))));
+            tabs.get(i).setTooltip(tip("minepapers.gui.tab." + i));
         }
         // Справа сверху, вне окна — копировать и вставить все настройки как JSON (PictureConfig).
         btnCopy = addRenderableWidget(new GuiWidgets.Small(x + imageWidth + 2, y + 4, 20, 20,
             Component.translatable("minepapers.gui.copy"), GuiWidgets.ICON_COPY_U, this::copyConfig));
+        btnCopy.setTooltip(tip("minepapers.gui.copy", "minepapers.gui.copy.tip"));
         btnPaste = addRenderableWidget(new GuiWidgets.Small(x + imageWidth + 2, y + 26, 20, 20,
             Component.translatable("minepapers.gui.paste"), GuiWidgets.ICON_PASTE_U, this::pasteConfig));
+        btnPaste.setTooltip(tip("minepapers.gui.paste", "minepapers.gui.paste.tip"));
         // Ниже — замок привата. Чужой замок не нажимается, только показывает владельца.
         btnLock = addRenderableWidget(new GuiWidgets.Lock(x + imageWidth + 2, y + 126, () -> {
             locked = !locked;
@@ -155,6 +159,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                     source = value;
                     updateWidgets();
                 }), TAB_SOURCE));
+            sourceButtons.get(i).setTooltip(tip("minepapers.gui.source." + i, "minepapers.gui.path." + i + ".tip"));
         }
         fPath = area(TAB_SOURCE, x + 8, y + 52, 46, tile.localPath);
         fUrl = area(TAB_SOURCE, x + 8, y + 52, 46, tile.yandexUrl);
@@ -169,6 +174,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         fInterval = field(TAB_SOURCE, x + 128, y + 116, 40, 6, String.valueOf(tile.interval));
         btnReload = small(x + 154, y + 131, 14, 14, Component.translatable("minepapers.gui.reload"),
             GuiWidgets.ICON_RELOAD_U, this::reload);
+        btnReload.setTooltip(tip("minepapers.gui.reload"));
 
         // Размер и позиция
         fWidth = field(TAB_SIZE, x + 8, y + 30, 42, 10, Numbers.fmt(tile.width));
@@ -188,6 +194,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             updateWidgets();
         }), TAB_SIZE);
         fPad = field(TAB_SIZE, x + 8, y + 90, 42, 10, Numbers.fmt(tile.padding));
+        fWidth.setTooltip(tip("minepapers.gui.width"));
+        fHeight.setTooltip(tip("minepapers.gui.height"));
+        fOffX.setTooltip(tip("minepapers.gui.shift.x"));
+        fOffY.setTooltip(tip("minepapers.gui.shift.y"));
+        fPad.setTooltip(tip("minepapers.gui.padding.tip"));
         cbPadPx = add(new GuiWidgets.Check(x + 112, y + 92, Component.translatable("minepapers.gui.pixels"), padPx, () -> {
             padPx = !padPx;
             convert(fPad, padPx);
@@ -201,6 +212,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                     fitMode = value;
                     updateWidgets();
                 }), TAB_SIZE));
+            fitButtons.get(i).setTooltip(tip("minepapers.gui.fit." + i, "minepapers.gui.fit." + i + ".tip"));
         }
 
         // Вид и стиль
@@ -211,6 +223,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                     mode = value;
                     updateWidgets();
                 }), TAB_STYLE));
+            modeRadios.get(i).setTooltip(tip("minepapers.gui.mode." + i + ".tip"));
         }
         for (int i = 0; i < PictureFrame.STYLE_COUNT; i++) {
             int value = i;
@@ -219,8 +232,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                     style = value;
                     updateWidgets();
                 }), TAB_STYLE));
+            styleRadios.get(i).setTooltip(tip("minepapers.gui.style.tip"));
         }
         fPpb = field(TAB_STYLE, x + 128, y + 132, 40, 3, String.valueOf(tile.pixelsPerBlock));
+        fPpb.setTooltip(tip("minepapers.gui.ppb.tip"));
+        for (GuiWidgets.Check c : new GuiWidgets.Check[] { cbSizePx, cbPosPx, cbPadPx }) c.setTooltip(tip("minepapers.gui.pixels.tip"));
 
         // Описание
         fTitle = field(TAB_INFO, x + 8, y + 29, 160, PictureFrame.MAX_TITLE, tile.title);
@@ -295,7 +311,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 return visible && super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
             }
         };
-        // Без ограничения длины: иначе под полем появляется счётчик символов и занимает место. Длину обрезает сама картина (PictureFrame.MAX_STRING).
+        // Без ограничения длины: иначе под полем появляется счётчик символов и занимает место.
         a.setValue(text);
         fields.add(a);
         return add(a, onTab);
@@ -354,6 +370,14 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         btnLock.owner = !locked ? null : tile.owner != null ? tile.owner : me;
         btnLock.ownerName = !locked ? "" : tile.owner != null ? tile.ownerName : myName;
         btnLock.mine = !readOnly;
+        if (btnLock.owner == null) {
+            btnLock.setTooltip(tip("minepapers.gui.lock", "minepapers.gui.lock.tip"));
+        } else {
+            // Ник владельца, а ему самому — как снять приват.
+            MutableComponent owner = Component.translatable("minepapers.gui.owner", btnLock.ownerName);
+            if (!readOnly) owner.append("\n").append(Component.translatable("minepapers.gui.unlock.tip").withStyle(ChatFormatting.GRAY));
+            btnLock.setTooltip(Tooltip.create(owner));
+        }
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.value == source;
         for (GuiWidgets.Toggle t : fitButtons) t.checked = t.value == fitMode;
         for (GuiWidgets.Radio r : modeRadios) r.checked = r.value == mode;
@@ -761,7 +785,6 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         super.render(g, mouseX, mouseY, partialTick);
         renderTooltip(g, mouseX, mouseY);
-        if (menu.getCarried().isEmpty() && hoveredSlot == null) drawTooltips(g, mouseX, mouseY);
         Style link = linkAt(mouseX, mouseY);
         if (link != null) g.renderComponentHoverEffect(font, link, mouseX, mouseY);
     }
@@ -804,91 +827,15 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    private void drawTooltips(GuiGraphics g, int mouseX, int mouseY) {
-        for (GuiWidgets.Tab t : tabs) {
-            if (t.isHovered()) {
-                tooltip(g, "minepapers.gui.tab." + t.index, mouseX, mouseY);
-                return;
-            }
-        }
-        for (GuiWidgets.Toggle t : sourceButtons) {
-            if (t.visible && t.isHovered()) {
-                titledTooltip(g, "minepapers.gui.source." + t.value, "minepapers.gui.path." + t.value + ".tip", mouseX, mouseY);
-                return;
-            }
-        }
-        for (GuiWidgets.Toggle t : fitButtons) {
-            if (t.visible && t.isHovered()) {
-                titledTooltip(g, "minepapers.gui.fit." + t.value, "minepapers.gui.fit." + t.value + ".tip", mouseX, mouseY);
-                return;
-            }
-        }
-        for (GuiWidgets.Radio r : modeRadios) {
-            if (r.visible && r.isHovered()) {
-                tooltip(g, "minepapers.gui.mode." + r.value + ".tip", mouseX, mouseY);
-                return;
-            }
-        }
-        for (GuiWidgets.Radio r : styleRadios) {
-            if (r.visible && r.isHovered()) {
-                tooltip(g, "minepapers.gui.style.tip", mouseX, mouseY);
-                return;
-            }
-        }
-        if (btnLock.isHovered()) {
-            if (btnLock.owner == null) {
-                titledTooltip(g, "minepapers.gui.lock", "minepapers.gui.lock.tip", mouseX, mouseY);
-            } else {
-                // Ник владельца, а ему самому — как снять приват.
-                List<Component> lines = new ArrayList<Component>();
-                lines.add(Component.translatable("minepapers.gui.owner", btnLock.ownerName));
-                if (!readOnly) lines.add(Component.translatable("minepapers.gui.unlock.tip").withStyle(ChatFormatting.GRAY));
-                g.renderComponentTooltip(font, lines, mouseX, mouseY);
-            }
-        } else if (btnCopy.isHovered()) {
-            titledTooltip(g, "minepapers.gui.copy", "minepapers.gui.copy.tip", mouseX, mouseY);
-        } else if (btnPaste.isHovered()) {
-            titledTooltip(g, "minepapers.gui.paste", "minepapers.gui.paste.tip", mouseX, mouseY);
-        } else if (hovered(cbSizePx) || hovered(cbPosPx) || hovered(cbPadPx)) {
-            tooltip(g, "minepapers.gui.pixels.tip", mouseX, mouseY);
-        } else if (btnReload.visible && btnReload.isHovered()) {
-            tooltip(g, "minepapers.gui.reload", mouseX, mouseY);
-        } else if (hovered(fWidth)) {
-            tooltip(g, "minepapers.gui.width", mouseX, mouseY);
-        } else if (hovered(fHeight)) {
-            tooltip(g, "minepapers.gui.height", mouseX, mouseY);
-        } else if (hovered(fOffX)) {
-            tooltip(g, "minepapers.gui.shift.x", mouseX, mouseY);
-        } else if (hovered(fOffY)) {
-            tooltip(g, "minepapers.gui.shift.y", mouseX, mouseY);
-        } else if (hovered(fPad)) {
-            tooltip(g, "minepapers.gui.padding.tip", mouseX, mouseY);
-        } else if (hovered(fPpb)) {
-            tooltip(g, "minepapers.gui.ppb.tip", mouseX, mouseY);
-        }
-    }
-
-    private static boolean hovered(AbstractWidget w) {
-        return w.visible && w.isHovered();
-    }
-
-    /** Строки перевода: перенос строки в словарях записан как \n. */
-    private static String[] lines(String key) {
-        return I18n.get(key).split("\\\\n|\n");
-    }
-
-    private void tooltip(GuiGraphics g, String key, int x, int y) {
-        List<Component> lines = new ArrayList<Component>();
-        for (String line : lines(key)) lines.add(Component.literal(line));
-        g.renderComponentTooltip(font, lines, x, y);
+    /** Ванильная подсказка виджета. */
+    private static Tooltip tip(String key) {
+        return Tooltip.create(Component.translatable(key));
     }
 
     /** Название — заголовком, пояснение — серым под ним, как описание предмета. */
-    private void titledTooltip(GuiGraphics g, String titleKey, String tipKey, int x, int y) {
-        List<Component> lines = new ArrayList<Component>();
-        lines.add(Component.translatable(titleKey));
-        for (String line : lines(tipKey)) lines.add(Component.literal(line).withStyle(ChatFormatting.GRAY));
-        g.renderComponentTooltip(font, lines, x, y);
+    private static Tooltip tip(String titleKey, String tipKey) {
+        return Tooltip.create(Component.translatable(titleKey).append("\n")
+            .append(Component.translatable(tipKey).withStyle(ChatFormatting.GRAY)));
     }
 
     private String statusText() {

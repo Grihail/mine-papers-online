@@ -4,18 +4,14 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 
@@ -33,18 +29,10 @@ public final class ImageStore {
     /** Скачивание: куски по 32 КБ, не больше 3 за тик на игрока (~1.9 МБ/с) и 24 за тик на всех — чтобы не забить канал. */
     private static final int CHUNKS_PER_PLAYER_TICK = 3;
     private static final int CHUNKS_PER_TICK = 24;
-    private static final long OFFER_TIMEOUT_MS = 10 * 60_000L;
-    private static final int MAX_PARTIAL_UPLOADS = 4;
-    private static final int MAX_QUEUED_DOWNLOADS = 4096;
-    /** Недавно отданные файлы держим в памяти: картинку обычно скачивают все игроки рядом с ней. */
-    private static final long MEMORY_CACHE_BYTES = 32L * 1024 * 1024;
 
     private static ServerHost host;
     private static final List<Offer> OFFERS = new ArrayList<Offer>();
     private static final Map<UUID, Peer> PEERS = new HashMap<UUID, Peer>();
-    private static final Set<String> PRESENT = new HashSet<String>();
-    private static final LinkedHashMap<String, byte[]> MEMORY = new LinkedHashMap<String, byte[]>(16, 0.75f, true);
-    private static long memoryBytes;
     private static Path dir;
 
     private ImageStore() {}
@@ -58,9 +46,6 @@ public final class ImageStore {
     public static void reset() {
         OFFERS.clear();
         PEERS.clear();
-        PRESENT.clear();
-        MEMORY.clear();
-        memoryBytes = 0;
         dir = null;
     }
 
@@ -74,11 +59,7 @@ public final class ImageStore {
     /** Игрок предлагает картинки для рамки entityId; у кого их ещё нет на сервере — просим прислать. Права игрока менять картину версия уже проверила. @param player объект игрока для отправки пакетов */
     public static void offer(UUID playerId, Object player, Object world, int entityId, String origin, byte[] hashes) {
         PictureSettings frame = host.frame(world, entityId);
-        if (frame == null || hashes.length == 0 || hashes.length % SharedImage.HASH_BYTES != 0
-            || hashes.length > PictureSettings.MAX_FILES * SharedImage.HASH_BYTES
-            || !origin.equals(frame.getOriginKey()) || frame.isNetworkSource()) {
-            return;
-        }
+        if (frame == null || !origin.equals(frame.getOriginKey())) return;
         for (Iterator<Offer> it = OFFERS.iterator(); it.hasNext();) {
             if (it.next().isFor(world, entityId)) it.remove();
         }
@@ -112,16 +93,9 @@ public final class ImageStore {
         if (peer == null || !peer.allowedUploads.contains(hex)) return;
         Partial p = peer.uploads.get(hex);
         if (p == null) {
-            if (offset != 0 || total <= 0 || total > SharedImage.MAX_BYTES
-                || peer.uploads.size() >= MAX_PARTIAL_UPLOADS) {
-                return;
-            }
+            if (total > SharedImage.MAX_BYTES) return;
             p = new Partial(total);
             peer.uploads.put(hex, p);
-        }
-        if (total != p.data.length || offset != p.received || offset + data.length > total) {
-            peer.uploads.remove(hex);
-            return;
         }
         System.arraycopy(data, 0, p.data, offset, data.length);
         p.received += data.length;
@@ -136,14 +110,11 @@ public final class ImageStore {
         if (store(hex, p.data)) checkOffers();
     }
 
-    /** Применяет предложения, для которых уже есть все картинки, и выбрасывает устаревшие. */
+    /** Применяет предложения, для которых уже есть все картинки. */
     private static void checkOffers() {
-        long now = System.currentTimeMillis();
         for (Iterator<Offer> it = OFFERS.iterator(); it.hasNext();) {
             Offer offer = it.next();
-            if (now - offer.created > OFFER_TIMEOUT_MS) {
-                it.remove();
-            } else if (offer.isComplete()) {
+            if (offer.isComplete()) {
                 it.remove();
                 apply(offer);
             }
@@ -154,7 +125,6 @@ public final class ImageStore {
         PictureSettings frame = host.frame(offer.world, offer.entityId);
         // Пока картинки грузились, картину могли сломать или перенастроить на другой источник.
         if (frame == null || !offer.origin.equals(frame.getOriginKey())) return;
-        if (Arrays.equals(frame.files, offer.hashes)) return;
         frame.files = offer.hashes;
         host.settingsChanged(offer.world, offer.entityId);
     }
@@ -164,10 +134,8 @@ public final class ImageStore {
     /** Игрок просит картинки. */
     public static void request(UUID playerId, Object player, byte[] hashes) {
         Peer peer = peer(playerId, player);
-        for (int i = 0; i + SharedImage.HASH_BYTES <= hashes.length; i += SharedImage.HASH_BYTES) {
-            if (peer.queued.size() >= MAX_QUEUED_DOWNLOADS) break;
-            String hex = SharedImage.hex(hashes, i, SharedImage.HASH_BYTES);
-            if (peer.queued.add(hex)) peer.downloads.add(hex);
+        for (int i = 0; i < hashes.length; i += SharedImage.HASH_BYTES) {
+            peer.downloads.add(SharedImage.hex(hashes, i, SharedImage.HASH_BYTES));
         }
     }
 
@@ -178,97 +146,58 @@ public final class ImageStore {
         for (Peer peer : PEERS.values()) {
             for (int i = 0; i < CHUNKS_PER_PLAYER_TICK && budget > 0; i++) {
                 if (peer.current == null) {
-                    String hex = peer.downloads.poll();
-                    if (hex == null) break;
+                    Iterator<String> next = peer.downloads.iterator();
+                    if (!next.hasNext()) break;
+                    String hex = next.next();
+                    next.remove();
                     peer.current = new Transfer(hex, read(hex));
                 }
                 Transfer t = peer.current;
                 budget--;
                 if (t.data == null) {
                     host.sendChunk(peer.player, t.hash, -1, 0, new byte[0]);
-                    finish(peer);
+                    peer.current = null;
                     continue;
                 }
                 int len = Math.min(SharedImage.DOWNLOAD_CHUNK, t.data.length - t.offset);
                 host.sendChunk(peer.player, t.hash, t.data.length, t.offset,
                     Arrays.copyOfRange(t.data, t.offset, t.offset + len));
                 t.offset += len;
-                if (t.offset >= t.data.length) finish(peer);
+                if (t.offset >= t.data.length) peer.current = null;
             }
         }
-    }
-
-    private static void finish(Peer peer) {
-        peer.queued.remove(peer.current.hex);
-        peer.current = null;
     }
 
     // --------------------------------------------------------------------- Хранилище
 
     private static Path dir() {
         if (dir == null) {
-            File world = host.worldDir();
-            if (world == null) return null;
-            dir = new File(world, "minepapers").toPath();
+            dir = new File(host.worldDir(), "minepapers").toPath();
         }
         return dir;
     }
 
     private static boolean has(String hex) {
-        if (PRESENT.contains(hex)) return true;
-        Path d = dir();
-        if (d != null && Files.isRegularFile(d.resolve(hex))) {
-            PRESENT.add(hex);
-            return true;
-        }
-        return false;
+        return Files.isRegularFile(dir().resolve(hex));
     }
 
+    /** null — такой картинки нет. */
     private static byte[] read(String hex) {
-        byte[] cached = MEMORY.get(hex);
-        if (cached != null) return cached;
-        Path d = dir();
-        if (d == null) return null;
-        Path f = d.resolve(hex);
         try {
-            if (!Files.isRegularFile(f) || Files.size(f) > SharedImage.MAX_BYTES) return null;
-            byte[] data = Files.readAllBytes(f);
-            remember(hex, data);
-            return data;
+            return Files.readAllBytes(dir().resolve(hex));
         } catch (IOException e) {
-            LOG.warn("Не удалось прочитать картинку " + f, e);
             return null;
         }
     }
 
     private static boolean store(String hex, byte[] data) {
-        Path d = dir();
-        if (d == null) return false;
-        Path target = d.resolve(hex);
-        Path tmp = d.resolve(hex + ".tmp");
         try {
-            Files.createDirectories(d);
-            Files.write(tmp, data);
-            if (!Files.exists(target)) Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
+            Files.createDirectories(dir());
+            Files.write(dir().resolve(hex), data);
+            return true;
         } catch (IOException e) {
-            LOG.warn("Не удалось сохранить картинку " + target, e);
+            LOG.warn("Не удалось сохранить картинку " + hex, e);
             return false;
-        } finally {
-            try {
-                Files.deleteIfExists(tmp);
-            } catch (IOException ignored) {}
-        }
-        PRESENT.add(hex);
-        remember(hex, data);
-        return true;
-    }
-
-    private static void remember(String hex, byte[] data) {
-        if (data.length > MEMORY_CACHE_BYTES / 4) return;
-        if (MEMORY.put(hex, data) == null) memoryBytes += data.length;
-        for (Iterator<byte[]> it = MEMORY.values().iterator(); memoryBytes > MEMORY_CACHE_BYTES && it.hasNext();) {
-            memoryBytes -= it.next().length;
-            it.remove();
         }
     }
 
@@ -289,8 +218,8 @@ public final class ImageStore {
         Object player;
         final Set<String> allowedUploads = new HashSet<String>();
         final Map<String, Partial> uploads = new HashMap<String, Partial>();
-        final Queue<String> downloads = new ArrayDeque<String>();
-        final Set<String> queued = new HashSet<String>();
+        /** Очередь скачивания без повторов. */
+        final Set<String> downloads = new LinkedHashSet<String>();
         Transfer current;
     }
 
@@ -304,13 +233,11 @@ public final class ImageStore {
     }
 
     private static final class Transfer {
-        final String hex;
         final byte[] hash;
         final byte[] data;
         int offset;
 
         Transfer(String hex, byte[] data) {
-            this.hex = hex;
             this.hash = SharedImage.unhex(hex);
             this.data = data;
         }
@@ -321,7 +248,6 @@ public final class ImageStore {
         final int entityId;
         final String origin;
         final byte[] hashes;
-        final long created = System.currentTimeMillis();
 
         Offer(Object world, int entityId, String origin, byte[] hashes) {
             this.world = world;

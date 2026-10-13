@@ -147,7 +147,7 @@ public class ItemPictureFrame extends Item {
 
     private static void material(List<Component> lines, PictureFrame.Material m, String key) {
         ItemStack stack = borderStack(m.item);
-        if (stack != null) lines.add(Component.translatable(key, stack.getHoverName()).withStyle(ChatFormatting.GRAY));
+        if (!stack.isEmpty()) lines.add(Component.translatable(key, stack.getHoverName()).withStyle(ChatFormatting.GRAY));
     }
 
     /** Блоки из слотов материалов (рамка, холст), лежащие в картине-предмете. */
@@ -162,13 +162,9 @@ public class ItemPictureFrame extends Item {
         return stored;
     }
 
-    /** Предмет, с которого взята текстура материала (рамки или холста), или null. */
+    /** Предмет, с которого взята текстура материала (рамки или холста); пустой — обычный материал. */
     public static ItemStack borderStack(String itemId) {
-        if (itemId == null || itemId.isEmpty()) return null;
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null) return null;
-        Item item = BuiltInRegistries.ITEM.getOptional(id).orElse(null);
-        return item != null ? new ItemStack(item) : null;
+        return new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemId)));
     }
 
 }

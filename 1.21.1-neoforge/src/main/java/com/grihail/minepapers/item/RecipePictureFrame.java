@@ -66,7 +66,7 @@ public class RecipePictureFrame extends CustomRecipe {
         if (empty[0] == 0) {
             // Разбор: сначала только вынимаем материалы — картина остаётся с настройками, но без рамки и холста (граффити). Повторный крафт сбрасывает её полностью.
             if (!hadMaterials) return new ItemStack(MinePapers.FRAME.get());
-            settings.putByte("Mode", (byte) PictureFrame.MODE_DECAL);
+            settings.putInt("Mode", PictureFrame.MODE_DECAL);
         }
         copy.set(MinePapers.FRAME_SETTINGS.get(), settings);
         return copy;

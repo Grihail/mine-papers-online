@@ -108,7 +108,6 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
 
     private boolean placeLight(int[] c, int glow) {
         BlockPos pos = lightPos(c);
-        if (!level().isInWorldBounds(pos)) return false;
         BlockState state = level().getBlockState(pos);
         BlockState light = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, glow);
         if (state.is(Blocks.LIGHT)) {
@@ -293,7 +292,6 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
     @Override
     public void readSpawnData(RegistryFriendlyByteBuf buf) {
         CompoundTag tag = buf.readNbt();
-        if (tag == null) return;
         frame.readPlacement(tag);
         frame.readSettings(tag);
         refresh();

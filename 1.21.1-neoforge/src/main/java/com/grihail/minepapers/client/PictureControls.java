@@ -43,7 +43,7 @@ public class PictureControls {
     static EntityHitResult pick(float partialTick) {
         Minecraft mc = Minecraft.getInstance();
         Entity view = mc.getCameraEntity();
-        if (view == null || mc.level == null || mc.player == null || mc.gameMode == null) return null;
+        if (mc.player == null) return null;
         double reach = mc.player.blockInteractionRange();
         Vec3 eye = view.getEyePosition(partialTick);
         Vec3 look = view.getViewVector(partialTick);
@@ -172,12 +172,7 @@ public class PictureControls {
         float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 200.0));
         float alpha = 0.6f + 0.35f * pulse;
         AABB canvas = FrameGeometry.canvasBox(ghost).inflate(0.002).move(-cam.x, -cam.y, -cam.z);
-        if (canPlace) {
-            LevelRenderer.renderLineBox(poseStack, buffers.getBuffer(PictureRenderTypes.GHOST_LINES), canvas,
-                1f, 1f, 1f, alpha);
-        } else {
-            LevelRenderer.renderLineBox(poseStack, buffers.getBuffer(PictureRenderTypes.GHOST_LINES), canvas,
-                1f, 0.3f, 0.3f, alpha);
-        }
+        float gb = canPlace ? 1f : 0.3f;
+        LevelRenderer.renderLineBox(poseStack, buffers.getBuffer(PictureRenderTypes.GHOST_LINES), canvas, 1f, gb, gb, alpha);
     }
 }

@@ -87,8 +87,8 @@ public class PictureFrame extends PictureSettings {
 
         /** Только этот материал из настроек tag. */
         public void read(NBTTagCompound tag) {
-            item = limit(tag.getString(key));
-            meta = range(tag.getShort(key + "Meta"), 0, Short.MAX_VALUE);
+            item = tag.getString(key);
+            meta = tag.getShort(key + "Meta");
             if (tag.hasKey(stackTag())) {
                 set(ItemStack.loadItemStackFromNBT(tag.getCompoundTag(stackTag())));
             } else {

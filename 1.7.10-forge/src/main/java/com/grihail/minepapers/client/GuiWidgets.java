@@ -290,14 +290,10 @@ final class GuiWidgets {
         SKINS.put(id, AbstractClientPlayer.locationStevePng);
         final GameProfile bare = new GameProfile(id, name);
         Thread thread = new Thread(() -> {
-            try {
-                final GameProfile profile = mc.func_152347_ac().fillProfileProperties(bare, false);
-                mc.func_152344_a(() -> mc.func_152342_ad().func_152790_a(profile, (type, location) -> {
-                    if (type == MinecraftProfileTexture.Type.SKIN) SKINS.put(id, location);
-                }, false));
-            } catch (RuntimeException ignored) {
-                // нет сети или сервиса профилей — остаётся Стив
-            }
+            GameProfile profile = mc.func_152347_ac().fillProfileProperties(bare, false);
+            mc.func_152344_a(() -> mc.func_152342_ad().func_152790_a(profile, (type, location) -> {
+                if (type == MinecraftProfileTexture.Type.SKIN) SKINS.put(id, location);
+            }, false));
         }, "MinePapers skin");
         thread.setDaemon(true);
         thread.start();

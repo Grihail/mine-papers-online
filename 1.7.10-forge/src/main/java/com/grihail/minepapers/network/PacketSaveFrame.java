@@ -73,7 +73,6 @@ public class PacketSaveFrame implements IMessage {
 
         @Override
         public IMessage onMessage(final PacketSaveFrame msg, MessageContext ctx) {
-            if (msg.settings == null) return null;
             final EntityPlayerMP player = ctx.getServerHandler().playerEntity;
             // Обработчик работает в сетевом потоке, а мир можно менять только из серверного.
             ServerImages.schedule(() -> apply(player, msg));

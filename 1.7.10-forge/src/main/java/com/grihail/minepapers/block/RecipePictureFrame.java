@@ -58,7 +58,7 @@ public class RecipePictureFrame implements IRecipe {
         if (empty[0] == 0) {
             // Разбор: сначала только вынимаем материалы — картина остаётся с настройками, но без рамки и холста (граффити). Повторный крафт сбрасывает её полностью.
             if (!hadMaterials) return new ItemStack(MinePapers.frame);
-            settings.setByte("Mode", (byte) PictureFrame.MODE_DECAL);
+            settings.setInteger("Mode", PictureFrame.MODE_DECAL);
         }
         return copy;
     }
@@ -90,7 +90,7 @@ public class RecipePictureFrame implements IRecipe {
 
         @SubscribeEvent
         public void onCrafted(PlayerEvent.ItemCraftedEvent event) {
-            if (event.player.worldObj.isRemote || event.craftMatrix == null) return;
+            if (event.player.worldObj.isRemote) return;
             IInventory grid = event.craftMatrix;
             for (int i = 0; i < grid.getSizeInventory(); i++) {
                 for (ItemStack stored : ItemPictureFrame.storedMaterials(grid.getStackInSlot(i))) {

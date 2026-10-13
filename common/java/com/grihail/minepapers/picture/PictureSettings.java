@@ -43,7 +43,6 @@ public class PictureSettings {
     public static final float MAX_SIZE_BLOCKS = 64f;
     public static final int MIN_PPB = 1;
     public static final int MAX_PPB = 256;
-    public static final int MAX_STRING = 512;
     public static final int MAX_TITLE = 64;
     /** Сколько картинок из локальной папки можно выложить на сервер для одной рамки. */
     public static final int MAX_FILES = 256;
@@ -122,7 +121,7 @@ public class PictureSettings {
 
     /** Сторона (0..5), в которую смотрит картина. */
     public int getFacing() {
-        return facing >= 0 && facing <= 5 ? facing : 3;
+        return facing;
     }
 
     public int getRotation() {
@@ -226,21 +225,16 @@ public class PictureSettings {
     /** NBT-тег глазами общего кода: у каждой версии свой класс тега, версия оборачивает его в этот адаптер. Отсутствующий ключ читается как 0, "" или пустой массив — как в ванильных тегах. */
     public interface Tag {
         boolean contains(String key);
-        byte getByte(String key);
-        short getShort(String key);
+        /** Любое число тега (byte, short, int) — как int. */
         int getInt(String key);
         float getFloat(String key);
-        boolean getBoolean(String key);
         String getString(String key);
         byte[] getByteArray(String key);
         /** null — ключа нет или он испорчен. Формат записи у версий разный: до 1.13 — строка, после — массив чисел. */
         UUID getUuid(String key);
 
-        void putByte(String key, byte value);
-        void putShort(String key, short value);
         void putInt(String key, int value);
         void putFloat(String key, float value);
-        void putBoolean(String key, boolean value);
         void putString(String key, String value);
         void putByteArray(String key, byte[] value);
         void putUuid(String key, UUID value);
@@ -250,8 +244,8 @@ public class PictureSettings {
         tag.putInt("FX", x);
         tag.putInt("FY", y);
         tag.putInt("FZ", z);
-        tag.putByte("Facing", (byte) getFacing());
-        tag.putByte("Rot", (byte) getRotation());
+        tag.putInt("Facing", getFacing());
+        tag.putInt("Rot", getRotation());
         tag.putFloat("Surface", surface);
     }
 
@@ -259,16 +253,14 @@ public class PictureSettings {
         x = tag.getInt("FX");
         y = tag.getInt("FY");
         z = tag.getInt("FZ");
-        facing = tag.getByte("Facing");
-        facing = getFacing();
-        rotation = tag.getByte("Rot") & 3;
-        float s = tag.getFloat("Surface");
-        surface = s >= -1f && s <= 0f ? s : 0f;
+        facing = tag.getInt("Facing");
+        rotation = tag.getInt("Rot");
+        surface = tag.getFloat("Surface");
     }
 
     /** Настройки без материалов (их пишет версия). */
     public void writeSettings(Tag tag) {
-        tag.putByte("Src", (byte) source);
+        tag.putInt("Src", source);
         tag.putString("Local", localPath);
         tag.putString("Url", yandexUrl);
         tag.putString("Folder", folderPath);
@@ -276,36 +268,36 @@ public class PictureSettings {
         tag.putInt("Interval", interval);
         tag.putFloat("W", width);
         tag.putFloat("H", height);
-        tag.putBoolean("SizePx", sizeInPixels);
+        tag.putInt("SizePx", sizeInPixels ? 1 : 0);
         tag.putFloat("OX", offsetX);
         tag.putFloat("OY", offsetY);
-        tag.putBoolean("PosPx", offsetInPixels);
+        tag.putInt("PosPx", offsetInPixels ? 1 : 0);
         tag.putFloat("Pad", padding);
-        tag.putBoolean("PadPx", paddingInPixels);
+        tag.putInt("PadPx", paddingInPixels ? 1 : 0);
         if (!title.isEmpty()) tag.putString("Title", title);
         if (!description.isEmpty()) tag.putString("Desc", description);
         if (owner != null) {
             tag.putUuid("Owner", owner);
             tag.putString("OwnerName", ownerName);
         }
-        tag.putByte("Fit", (byte) fitMode);
-        tag.putShort("PPB", (short) pixelsPerBlock);
-        tag.putByte("Style", (byte) style);
-        tag.putByte("Mode", (byte) mode);
+        tag.putInt("Fit", fitMode);
+        tag.putInt("PPB", pixelsPerBlock);
+        tag.putInt("Style", style);
+        tag.putInt("Mode", mode);
         if (files.length > 0) tag.putByteArray("Files", files);
     }
 
-    /** Читает настройки без материалов и приводит их к допустимым значениям (данные могут прийти от клиента). */
+    /** Читает настройки без материалов. Размер и место холста приводятся к допустимым: от них зависит хитбокс. */
     public void readSettings(Tag tag) {
-        source = range(tag.getByte("Src"), 0, SOURCE_COUNT - 1);
-        localPath = limit(tag.getString("Local"));
-        yandexUrl = limit(tag.getString("Url"));
-        folderPath = limit(tag.getString("Folder"));
-        imageUrl = limit(tag.getString("ImageUrl"));
-        interval = range(tag.getInt("Interval"), 1, 86400);
+        source = tag.getInt("Src");
+        localPath = tag.getString("Local");
+        yandexUrl = tag.getString("Url");
+        folderPath = tag.getString("Folder");
+        imageUrl = tag.getString("ImageUrl");
+        interval = Math.max(1, tag.getInt("Interval"));
 
         // Размер всегда явный: от него зависит хитбокс. Старое "0 = авто" превращаем в квадрат.
-        sizeInPixels = tag.getBoolean("SizePx");
+        sizeInPixels = tag.getInt("SizePx") != 0;
         float sizeScale = sizeInPixels ? 16f : 1f;
         float w = tag.contains("W") ? tag.getFloat("W") : 1f;
         float h = tag.contains("H") ? tag.getFloat("H") : 1f;
@@ -315,27 +307,26 @@ public class PictureSettings {
         height = clamp(h, MIN_SIZE_BLOCKS * sizeScale, MAX_SIZE_BLOCKS * sizeScale);
 
         // Холст должен перекрывать клетку рамки (где кликнули при установке) хотя бы на пиксель.
-        offsetInPixels = tag.getBoolean("PosPx");
+        offsetInPixels = tag.getInt("PosPx") != 0;
         float offsetScale = offsetInPixels ? 16f : 1f;
         float minX = (PIXEL - getWidthBlocks()) * offsetScale, maxX = (1 - PIXEL) * offsetScale;
         float minY = (PIXEL - getHeightBlocks()) * offsetScale, maxY = (1 - PIXEL) * offsetScale;
         offsetX = clamp(tag.getFloat("OX"), minX, maxX);
         offsetY = clamp(tag.getFloat("OY"), minY, maxY);
 
-        paddingInPixels = !tag.contains("PadPx") || tag.getBoolean("PadPx");
+        paddingInPixels = !tag.contains("PadPx") || tag.getInt("PadPx") != 0;
         padding = clamp(tag.getFloat("Pad"), 0, MAX_SIZE_BLOCKS / 2 * (paddingInPixels ? 16f : 1f));
 
-        title = limit(tag.getString("Title").replace("\r", "").replace("\n", " "), MAX_TITLE);
-        description = limit(tag.getString("Desc").replace("\r", ""), MAX_STRING);
+        title = tag.getString("Title").replace("\r", "").replace("\n", " ");
+        description = tag.getString("Desc").replace("\r", "");
         owner = tag.getUuid("Owner");
-        ownerName = owner != null ? limit(tag.getString("OwnerName"), MAX_TITLE) : "";
+        ownerName = tag.getString("OwnerName");
 
-        fitMode = tag.contains("Fit") ? range(tag.getByte("Fit"), 0, FIT_COUNT - 1) : FIT_COVER;
-        pixelsPerBlock = tag.contains("PPB") ? range(tag.getShort("PPB"), MIN_PPB, MAX_PPB) : 128;
-        style = tag.contains("Style") ? range(tag.getByte("Style"), 0, STYLE_COUNT - 1) : STYLE_MAP_SOFT_DITHER;
-        mode = range(tag.getByte("Mode"), 0, MODE_COUNT - 1);
-        byte[] f = tag.getByteArray("Files");
-        files = f.length % SharedImage.HASH_BYTES == 0 && f.length <= MAX_FILES * SharedImage.HASH_BYTES ? f : NO_FILES;
+        fitMode = tag.contains("Fit") ? tag.getInt("Fit") : FIT_COVER;
+        pixelsPerBlock = tag.contains("PPB") ? range(tag.getInt("PPB"), MIN_PPB, MAX_PPB) : 128;
+        style = tag.contains("Style") ? tag.getInt("Style") : STYLE_MAP_SOFT_DITHER;
+        mode = tag.getInt("Mode");
+        files = tag.getByteArray("Files");
     }
 
     /** Текст, разбитый на строки не длиннее width символов (по словам; переводы строк сохраняются) — для подсказки предмета. */
@@ -374,20 +365,11 @@ public class PictureSettings {
         }
     }
 
-    protected static String limit(String s) {
-        return limit(s, MAX_STRING);
-    }
-
-    protected static String limit(String s, int max) {
-        return s.length() > max ? s.substring(0, max) : s;
-    }
-
-    protected static int range(int v, int min, int max) {
+    private static int range(int v, int min, int max) {
         return Math.max(min, Math.min(max, v));
     }
 
-    protected static float clamp(float v, float min, float max) {
-        if (Float.isNaN(v)) return min > 0 ? min : Math.min(0, max);
+    private static float clamp(float v, float min, float max) {
         return Math.max(min, Math.min(max, v));
     }
 }

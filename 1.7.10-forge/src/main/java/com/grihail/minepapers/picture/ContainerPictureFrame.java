@@ -133,7 +133,6 @@ public class ContainerPictureFrame extends Container {
         @Override
         public ItemStack decrStackSize(int index, int count) {
             ItemStack stack = material.stack;
-            if (stack == null || count <= 0) return null;
             setInventorySlotContents(0, null);
             return stack;
         }

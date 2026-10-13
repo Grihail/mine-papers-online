@@ -125,11 +125,7 @@ public class PacketPasteMaterials implements IMessage {
     private static IChatComponent name(String id, int meta) {
         Item item = (Item) Item.itemRegistry.getObject(id);
         if (item == null) return new ChatComponentText(id);
-        try {
-            return new ChatComponentTranslation(new ItemStack(item, 1, Math.max(meta, 0)).getUnlocalizedName() + ".name");
-        } catch (Throwable t) {
-            return new ChatComponentText(id);
-        }
+        return new ChatComponentTranslation(new ItemStack(item, 1, Math.max(meta, 0)).getUnlocalizedName() + ".name");
     }
 
     public static class Handler implements IMessageHandler<PacketPasteMaterials, IMessage> {

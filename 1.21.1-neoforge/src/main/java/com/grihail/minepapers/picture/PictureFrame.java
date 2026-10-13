@@ -107,11 +107,11 @@ public class PictureFrame extends PictureSettings {
 
         /** Только этот материал из настроек settings. */
         public void read(CompoundTag settings) {
-            item = limit(settings.getString(key));
+            item = settings.getString(key);
             cache = null;
             if (settings.contains(stackTag())) {
                 tag = settings.getCompound(stackTag()).copy();
-                item = limit(tag.getString("id")); // текстура известна и без реестров
+                item = tag.getString("id"); // текстура известна и без реестров
             } else {
                 tag = null;
             }

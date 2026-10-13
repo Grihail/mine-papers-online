@@ -58,14 +58,7 @@ final class GifFrames {
         Graphics2D g = canvas.createGraphics();
         try {
             for (int i = 0; i < n; i++) {
-                BufferedImage part;
-                try {
-                    part = reader.read(i);
-                } catch (IOException | RuntimeException e) {
-                    // Битый хвост файла: показываем то, что успели прочитать.
-                    if (anim.frames.isEmpty()) throw e;
-                    break;
-                }
+                BufferedImage part = reader.read(i);
                 IIOMetadataNode meta = tree(reader.getImageMetadata(i), IMAGE_FORMAT);
                 IIOMetadataNode descriptor = child(meta, "ImageDescriptor");
                 IIOMetadataNode control = child(meta, "GraphicControlExtension");
@@ -101,15 +94,10 @@ final class GifFrames {
         return anim;
     }
 
-    /** Размер "экрана" GIF — общий для всех кадров; если его нет в файле — размер первого кадра. */
+    /** Размер "экрана" GIF — общий для всех кадров. */
     static int[] screenSize(ImageReader reader) throws IOException {
-        IIOMetadata stream = reader.getStreamMetadata();
-        if (stream != null) {
-            IIOMetadataNode screen = child(tree(stream, STREAM_FORMAT), "LogicalScreenDescriptor");
-            int w = intAttr(screen, "logicalScreenWidth", 0), h = intAttr(screen, "logicalScreenHeight", 0);
-            if (w > 0 && h > 0) return new int[] { w, h };
-        }
-        return new int[] { reader.getWidth(0), reader.getHeight(0) };
+        IIOMetadataNode screen = child(tree(reader.getStreamMetadata(), STREAM_FORMAT), "LogicalScreenDescriptor");
+        return new int[] { intAttr(screen, "logicalScreenWidth", 0), intAttr(screen, "logicalScreenHeight", 0) };
     }
 
     private static int[] pixels(BufferedImage canvas, int w, int h) {
@@ -130,7 +118,6 @@ final class GifFrames {
     }
 
     private static IIOMetadataNode child(IIOMetadataNode parent, String name) {
-        if (parent == null) return null;
         for (Node n = parent.getFirstChild(); n != null; n = n.getNextSibling()) {
             if (name.equals(n.getNodeName())) return (IIOMetadataNode) n;
         }
@@ -138,11 +125,6 @@ final class GifFrames {
     }
 
     private static int intAttr(IIOMetadataNode node, String name, int def) {
-        if (node == null) return def;
-        try {
-            return Integer.parseInt(node.getAttribute(name));
-        } catch (NumberFormatException e) {
-            return def;
-        }
+        return node != null ? Integer.parseInt(node.getAttribute(name)) : def;
     }
 }

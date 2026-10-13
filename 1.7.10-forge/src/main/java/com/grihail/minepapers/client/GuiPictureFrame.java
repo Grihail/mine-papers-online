@@ -763,7 +763,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 PictureFrame.Material[] materials = tile.materials();
                 for (int i = 0; i < materials.length; i++) {
                     String key = "minepapers.gui." + materials[i].key.toLowerCase(java.util.Locale.ROOT);
-                    String name = materials[i].stack != null ? name(materials[i].stack) : I18n.format(key + ".default");
+                    String name = materials[i].stack != null ? materials[i].stack.getDisplayName() : I18n.format(key + ".default");
                     if (materials[i].light && materials[i].stack != null) {
                         name += ", " + (PictureFrame.isGlowDust(materials[i].stack) ? I18n.format("minepapers.gui.glow.self")
                             : I18n.format("minepapers.gui.glow.level", PictureFrame.lightOf(materials[i].stack)));
@@ -957,13 +957,6 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         drawHoveringText(lines, x, y, fontRendererObj);
     }
 
-    private static String name(ItemStack stack) {
-        try {
-            return stack.getDisplayName();
-        } catch (Throwable t) {
-            return String.valueOf(Item.itemRegistry.getNameForObject(stack.getItem()));
-        }
-    }
 
     private String statusText() {
         statusError = false;

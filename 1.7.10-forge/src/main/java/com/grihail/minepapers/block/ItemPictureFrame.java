@@ -154,12 +154,7 @@ public class ItemPictureFrame extends ItemBlock {
     private static void material(List<String> lines, PictureFrame.Material m, String key) {
         Item item = m.item.isEmpty() ? null : (Item) Item.itemRegistry.getObject(m.item);
         if (item == null) return;
-        String name;
-        try {
-            name = new ItemStack(item, 1, m.meta).getDisplayName();
-        } catch (Throwable t) {
-            name = m.item;
-        }
+        String name = new ItemStack(item, 1, m.meta).getDisplayName();
         lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted(key, name));
     }
 

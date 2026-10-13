@@ -56,7 +56,7 @@ public final class FrameSkin {
     }
 
     private static FrameSkin of(String itemId, ResourceLocation fallback) {
-        String key = fallback + "|" + (itemId == null ? "" : itemId);
+        String key = fallback + "|" + itemId;
         FrameSkin skin = CACHE.get(key);
         if (skin == null) {
             skin = find(itemId, fallback);
@@ -72,32 +72,26 @@ public final class FrameSkin {
 
     private static FrameSkin find(String itemId, ResourceLocation fallback) {
         ItemStack stack = ItemPictureFrame.borderStack(itemId);
-        if (stack != null) {
-            try {
-                Minecraft mc = Minecraft.getInstance();
-                RandomSource random = RandomSource.create(42);
-                if (stack.getItem() instanceof BlockItem blockItem) {
-                    BlockState state = blockItem.getBlock().defaultBlockState();
-                    BakedModel model = mc.getBlockRenderer().getBlockModel(state);
-                    BakedQuad quad = first(model.getQuads(state, Direction.NORTH, random));
-                    if (quad == null) quad = first(model.getQuads(state, null, random));
-                    if (quad != null) {
-                        int color = quad.isTinted() ? mc.getBlockColors().getColor(state, null, null, quad.getTintIndex()) : -1;
-                        return new FrameSkin(quad.getSprite(), color);
-                    }
-                }
-                BakedModel model = mc.getItemRenderer().getModel(stack, null, null, 0);
-                BakedQuad quad = first(model.getQuads(null, null, random));
-                if (quad != null) {
-                    int color = quad.isTinted() ? mc.getItemColors().getColor(stack, quad.getTintIndex()) : -1;
-                    return new FrameSkin(quad.getSprite(), color);
-                }
-                return new FrameSkin(model.getParticleIcon(), -1);
-            } catch (Throwable ignored) {
-                // Чужие моды бывают капризны к необычным вызовам — просто оставляем обычную текстуру.
+        if (stack.isEmpty()) return new FrameSkin(sprite(fallback), -1);
+        Minecraft mc = Minecraft.getInstance();
+        RandomSource random = RandomSource.create(42);
+        if (stack.getItem() instanceof BlockItem blockItem) {
+            BlockState state = blockItem.getBlock().defaultBlockState();
+            BakedModel model = mc.getBlockRenderer().getBlockModel(state);
+            BakedQuad quad = first(model.getQuads(state, Direction.NORTH, random));
+            if (quad == null) quad = first(model.getQuads(state, null, random));
+            if (quad != null) {
+                int color = quad.isTinted() ? mc.getBlockColors().getColor(state, null, null, quad.getTintIndex()) : -1;
+                return new FrameSkin(quad.getSprite(), color);
             }
         }
-        return new FrameSkin(sprite(fallback), -1);
+        BakedModel model = mc.getItemRenderer().getModel(stack, null, null, 0);
+        BakedQuad quad = first(model.getQuads(null, null, random));
+        if (quad != null) {
+            int color = quad.isTinted() ? mc.getItemColors().getColor(stack, quad.getTintIndex()) : -1;
+            return new FrameSkin(quad.getSprite(), color);
+        }
+        return new FrameSkin(model.getParticleIcon(), -1);
     }
 
     private static BakedQuad first(List<BakedQuad> quads) {
