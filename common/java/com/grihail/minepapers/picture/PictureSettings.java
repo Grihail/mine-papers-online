@@ -157,7 +157,7 @@ public class PictureSettings {
     public int fitMode = FIT_COVER;
     /** Разрешение стилизации: пикселей картинки на один блок (128 = как карта, 16 = как ванильная картина) */
     public int pixelsPerBlock = 128;
-    public int style = STYLE_MAP_SOFT_DITHER;
+    public int style = STYLE_ORIGINAL;
     public int mode = MODE_PANEL;
 
     /** Клиентский кэш последнего нарисованного варианта картинки (см. client.RenderPicture). На сервере не используется. */
