@@ -58,7 +58,7 @@ public final class PictureManager {
 
     /** .jfif/.jpe/.jif/.pjpeg/.pjp — это тоже JPEG (так их часто сохраняют браузеры). */
     private static final String[] IMAGE_EXTENSIONS = { ".png", ".jpg", ".jpeg", ".jfif", ".jpe", ".jif", ".pjpeg",
-        ".pjp", ".gif", ".bmp" };
+        ".pjp", ".gif", ".bmp", ".webp" };
 
     /** Загрузка и стилизация в фоне: до половины ядер (от 2 до 4 потоков), приоритет чуть ниже обычного — игре не мешают, но и в большой сборке не стоят в очереди за всеми остальными потоками (самый низкий приоритет там почти не получал времени). */
     private static final AtomicInteger THREADS = new AtomicInteger();
@@ -767,7 +767,7 @@ public final class PictureManager {
             mime = mime.toLowerCase(Locale.ROOT);
             return mime.equals("image/jpeg") || mime.equals("image/pjpeg") || mime.equals("image/jpg")
                 || mime.equals("image/png") || mime.equals("image/gif")
-                || mime.equals("image/bmp") || mime.equals("image/x-ms-bmp");
+                || mime.equals("image/bmp") || mime.equals("image/x-ms-bmp") || mime.equals("image/webp");
         }
         String name = getString(item, "name");
         return name != null && isImageFile(new File(name));

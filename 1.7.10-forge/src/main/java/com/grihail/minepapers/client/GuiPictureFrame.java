@@ -48,9 +48,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private static final int TAB_SOURCE = 0, TAB_SIZE = 1, TAB_STYLE = 2, TAB_FRAME = 3, TAB_INFO = 4, TAB_COUNT = 5;
 
     /** id кнопок: вкладки — 0..3, группы переключателей — начало группы + значение. */
-    private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_FRAME = 30, ID_CANVAS = 35, ID_STYLE = 40,
+    private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_FRAME = 30, ID_CANVAS = 35, ID_STYLE = 40, ID_DITHER_MODE = 45,
         ID_PREV = 50, ID_NEXT = 51, ID_FOLDER = 52, ID_RELOAD = 53, ID_SIZE_PX = 54, ID_POS_PX = 55,
-        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63;
+        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63, ID_ZOOM_PX = 64;
 
     /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
     private static final int WIDTH = 176,
@@ -70,8 +70,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private int source, fitMode, frameShape, canvasKind;
     /** Резкие пиксели и палитра карт (галочки), число цветов, сила дизеринга и пикселей на блок (ползунки) на вкладке "Стиль". */
     private boolean sharp, mapPalette;
-    private int colors, dither, ppb;
-    private boolean sizePx, posPx, padPx;
+    private int colors, dither, ditherMode, ppb;
+    private boolean sizePx, posPx, padPx, zoomPx;
     /** Замок закрыт (картина заприватится при закрытии окна). */
     private boolean locked;
     /** Подписать картину при закрытии окна (подпись ставит сервер, и только на картину без привата). */
@@ -98,6 +98,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
     private final List<GuiWidgets.Toggle> sourceButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> fitButtons = new ArrayList<GuiWidgets.Toggle>();
+    /** Вид дизеринга на вкладке "Стиль" — кнопки с иконками, по порядку PictureFrame.DITHER_*. */
+    private final List<GuiWidgets.Toggle> ditherButtons = new ArrayList<GuiWidgets.Toggle>();
     /** Рамка и холст — ряды кнопок справа от их слотов на вкладке "Рамка". */
     private final List<GuiWidgets.Toggle> frameButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> canvasButtons = new ArrayList<GuiWidgets.Toggle>();
@@ -106,9 +108,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Вкладка, на которой лежит кнопка (у самих вкладок записи нет — они видны всегда). */
     private final Map<GuiButton, Integer> buttonTab = new HashMap<GuiButton, Integer>();
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
-    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbSharp, cbMapPalette;
+    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbSharp, cbMapPalette;
 
-    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fTitle, fDesc;
+    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fZoom, fTitle, fDesc;
     /** Ширина багета в пикселях: 0 — багета нет. */
     private GuiTextField fMolding;
     private final List<GuiTextField> fields = new ArrayList<GuiTextField>();
@@ -131,12 +133,14 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         this.mapPalette = tile.mapPalette;
         this.colors = tile.colors;
         this.dither = tile.dither;
-        this.ppb = 1 << PictureFrame.ppbStep(tile.pixelsPerBlock);
+        this.ditherMode = tile.ditherMode;
+        this.ppb = tile.pixelsPerBlock;
         this.frameShape = tile.getFrameShape();
         this.canvasKind = tile.getCanvasKind();
         this.sizePx = tile.sizeInPixels;
         this.posPx = tile.offsetInPixels;
         this.padPx = tile.paddingInPixels;
+        this.zoomPx = tile.zoomInPixels;
         EntityPlayer player = Minecraft.getMinecraft().thePlayer;
         this.me = player.getUniqueID();
         this.myName = player.getCommandSenderName();
@@ -164,6 +168,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         tabs.clear();
         sourceButtons.clear();
         fitButtons.clear();
+        ditherButtons.clear();
         frameButtons.clear();
         canvasButtons.clear();
         areas.clear();
@@ -209,23 +214,30 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         fOffX = field(TAB_SIZE, x + 9, y + 49, 40, 10, Numbers.fmt(tile.offsetX), Numbers.OFFSET);
         fOffY = field(TAB_SIZE, x + 63, y + 49, 40, 10, Numbers.fmt(tile.offsetY), Numbers.OFFSET);
         cbPosPx = check(TAB_SIZE, ID_POS_PX, x + 112, y + 50, posPx);
+        // Отступ и масштаб — в одном ряду, у каждого своя галочка "px".
         fPad = field(TAB_SIZE, x + 9, y + 79, 40, 10, Numbers.fmt(tile.padding), Numbers.PADDING);
-        cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + 112, y + 80, padPx);
+        cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + 54, y + 80, padPx);
+        fZoom = field(TAB_SIZE, x + 85, y + 79, 40, 10, Numbers.fmt(tile.zoom), Numbers.ZOOM);
+        cbZoomPx = check(TAB_SIZE, ID_ZOOM_PX, x + 130, y + 80, zoomPx);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
             // Внизу вкладки, над инвентарём
             fitButtons.add(add(new GuiWidgets.Toggle(ID_FIT + i, x + 8 + i * 22, y + 128, i * 16, GuiWidgets.FIT_ICON_V),
                 TAB_SIZE));
         }
 
-        // Стиль: резкие пиксели и палитра карт, под ними ползунки — число цветов (с палитрой не действует), сила дизеринга и пикселей на блок (степени двойки)
+        // Стиль: резкие пиксели и палитра карт, под ними ползунки — число цветов (с палитрой не действует), сила дизеринга и пикселей на блок
         cbSharp = add(new GuiWidgets.Check(ID_SHARP, x + 8, y + 18, I18n.format("minepapers.gui.sharp"), sharp), TAB_STYLE);
         cbMapPalette = add(new GuiWidgets.Check(ID_MAP_PALETTE, x + 8, y + 31, I18n.format("minepapers.gui.mapPalette"), mapPalette), TAB_STYLE);
-        slColors = add(new GuiWidgets.Slider(ID_STYLE, x + 8, y + 44, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, 1,
+        slColors = add(new GuiWidgets.Slider(ID_STYLE, x + 8, y + 44, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, (v, d) -> v + d,
             colors, v -> I18n.format("minepapers.gui.colors", v), v -> colors = v), TAB_STYLE);
-        slDither = add(new GuiWidgets.Slider(ID_STYLE + 1, x + 8, y + 68, 160, 0, PictureFrame.MAX_DITHER, 5,
+        for (int i = 0; i < PictureFrame.DITHER_MODE_COUNT; i++) {
+            ditherButtons.add(add(new GuiWidgets.Toggle(ID_DITHER_MODE + i, x + 8 + i * 22, y + 68, GuiWidgets.DITHER_ICON_U + i * 16,
+                GuiWidgets.DITHER_ICON_V), TAB_STYLE));
+        }
+        slDither = add(new GuiWidgets.Slider(ID_STYLE + 1, x + 8, y + 92, 160, 0, PictureFrame.MAX_DITHER, (v, d) -> v + 5 * d,
             dither, v -> I18n.format("minepapers.gui.dither", v), v -> dither = v), TAB_STYLE);
-        slPpb = add(new GuiWidgets.Slider(ID_STYLE + 2, x + 8, y + 92, 160, 0, PictureFrame.PPB_STEPS, 1,
-            PictureFrame.ppbStep(ppb), v -> I18n.format("minepapers.gui.ppb", 1 << v), v -> ppb = 1 << v), TAB_STYLE);
+        slPpb = add(new GuiWidgets.Slider(ID_STYLE + 2, x + 8, y + 116, 160, PictureFrame.MIN_PPB, PictureFrame.MAX_PPB, PictureFrame::ppbWheel,
+            ppb, v -> I18n.format("minepapers.gui.ppb", v), v -> ppb = v), TAB_STYLE);
         sliders = new GuiWidgets.Slider[] { slColors, slDither, slPpb };
 
         // Рамка: справа от слотов рамки и холста — их вид. У рамки кнопки "нет" и "обшивка", за ними — ширина багета (поле рисует рамку на пиксель шире себя — как кнопка).
@@ -327,9 +339,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         slColors.setInt(colors);
         slColors.enabled = !mapPalette; // с палитрой карт цвета задаёт она
         slDither.setInt(dither);
-        slPpb.setInt(PictureFrame.ppbStep(ppb));
+        slPpb.setInt(ppb);
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.id - ID_SOURCE == source;
         for (GuiWidgets.Toggle t : fitButtons) t.checked = t.id - ID_FIT == fitMode;
+        for (GuiWidgets.Toggle t : ditherButtons) t.checked = t.id - ID_DITHER_MODE == ditherMode;
         for (GuiWidgets.Toggle t : frameButtons) t.checked = t.id - ID_FRAME == frameShape;
         for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.id - ID_CANVAS == canvasKind;
         // Слот рамки есть всегда (его содержимое синхронизирует сервер), но виден и кликается только на своей вкладке.
@@ -342,6 +355,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         cbSizePx.checked = sizePx;
         cbPosPx.checked = posPx;
         cbPadPx.checked = padPx;
+        cbZoomPx.checked = zoomPx;
         for (GuiTextField f : fields) {
             if (!isActive(f)) f.setFocused(false);
         }
@@ -415,7 +429,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             canvasKind = id - ID_CANVAS;
             frameShape = PictureFrame.frameShapeOf(look()); // без холста обшивки нет
         } else if (id < ID_PREV) {
-            // Ползунки стиля: значение окно уже получило (Slider.change)
+            // Ползунки стиля значение уже передали сами (Slider.change), кнопки вида дизеринга — здесь
+            if (id >= ID_DITHER_MODE) ditherMode = id - ID_DITHER_MODE;
         } else {
             switch (id) {
                 case ID_PREV:
@@ -462,6 +477,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 case ID_PAD_PX:
                     padPx = !padPx;
                     convert(fPad, padPx);
+                    break;
+                case ID_ZOOM_PX:
+                    zoomPx = !zoomPx;
+                    convert(fZoom, zoomPx);
                     break;
             }
         }
@@ -550,6 +569,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         c.offsetPixels = posPx;
         c.padding = Numbers.parse(fPad.getText());
         c.paddingPixels = padPx;
+        c.zoom = Numbers.parse(fZoom.getText());
+        c.zoomPixels = zoomPx;
         c.fit = fitMode;
         c.look = PictureFrame.classicLook(look());
         c.frame = frameShape;
@@ -559,6 +580,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         c.mapPalette = mapPalette;
         c.colors = colors;
         c.dither = dither;
+        c.ditherMode = ditherMode;
         c.style = PictureFrame.legacyStyle(mapPalette, dither);
         c.pixelsPerBlock = ppb;
         PictureFrame.Material[] materials = tile.materials();
@@ -593,6 +615,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         if (c.offsetUp != null) fOffY.setText(Numbers.fmt(c.offsetUp));
         if (c.paddingPixels != null) padPx = c.paddingPixels;
         if (c.padding != null) fPad.setText(Numbers.fmt(c.padding));
+        if (c.zoomPixels != null) zoomPx = c.zoomPixels;
+        if (c.zoom != null) fZoom.setText(Numbers.fmt(c.zoom));
         if (c.fit != null) fitMode = c.fit;
         if (c.look != null) {
             frameShape = PictureFrame.frameShapeOf(c.look);
@@ -612,7 +636,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         if (c.mapPalette != null) mapPalette = c.mapPalette;
         if (c.colors != null) colors = Math.max(PictureFrame.MIN_COLORS, Math.min(PictureFrame.MAX_COLORS, c.colors));
         if (c.dither != null) dither = Math.max(0, Math.min(PictureFrame.MAX_DITHER, c.dither));
-        if (c.pixelsPerBlock != null) ppb = 1 << PictureFrame.ppbStep(c.pixelsPerBlock);
+        if (c.ditherMode != null) ditherMode = c.ditherMode;
+        if (c.pixelsPerBlock != null) ppb = Math.max(PictureFrame.MIN_PPB, Math.min(PictureFrame.MAX_PPB, c.pixelsPerBlock));
         updateWidgets();
         // Конфиг из новых версий: предметы там названы иначе (grass_block вместо grass) — переводим.
         for (int i = 0; i < c.materials.length; i++) {
@@ -669,11 +694,14 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         tile.offsetY = Numbers.orDefault(Numbers.parse(fOffY.getText()), tile.offsetY);
         tile.paddingInPixels = padPx;
         tile.padding = Numbers.orDefault(Numbers.parse(fPad.getText()), tile.padding);
+        tile.zoomInPixels = zoomPx;
+        tile.zoom = Numbers.orDefault(Numbers.parse(fZoom.getText()), tile.zoom);
         tile.fitMode = fitMode;
         tile.sharpPixels = sharp;
         tile.mapPalette = mapPalette;
         tile.colors = colors;
         tile.dither = dither;
+        tile.ditherMode = ditherMode;
         tile.mode = look();
         if (frameShape == PictureFrame.FRAME_MOLDING) tile.moldingWidth = moldingWidth();
         tile.pixelsPerBlock = ppb;
@@ -777,7 +805,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
     /** Шаг числа стрелкой или колёсиком: размер и отступ — в единицах, выбранных галочкой "px". */
     private void step(GuiTextField f, Numbers.Field number, int dir) {
-        boolean px = f == fWidth || f == fHeight ? sizePx : f == fPad && padPx;
+        boolean px = f == fWidth || f == fHeight ? sizePx : f == fPad ? padPx : f == fZoom && zoomPx;
         f.setText(number.step(f.getText(), dir, px ? 16f : 1f));
         if (f == fMolding) moldingChanged();
     }
@@ -960,6 +988,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 text("x", 53, 21, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.offset"), 8, 36, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.padding"), 8, 66, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.zoom"), 84, 66, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.fit"), 8, 117, GuiWidgets.TEXT);
                 break;
             case TAB_STYLE:
@@ -1132,6 +1161,13 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 return;
             }
         }
+        for (GuiWidgets.Toggle t : ditherButtons) {
+            if (t.hovered()) {
+                String key = "minepapers.gui.ditherMode." + (t.id - ID_DITHER_MODE);
+                titledTooltip(key, key + ".tip", mouseX, mouseY);
+                return;
+            }
+        }
         for (GuiWidgets.Toggle t : frameButtons) {
             if (t.hovered()) {
                 String key = "minepapers.gui.frameShape." + (t.id - ID_FRAME);
@@ -1183,7 +1219,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             tooltip("minepapers.gui.sharp.tip", mouseX, mouseY);
         } else if (cbMapPalette.hovered()) {
             tooltip("minepapers.gui.mapPalette.tip", mouseX, mouseY);
-        } else if (cbSizePx.hovered() || cbPosPx.hovered() || cbPadPx.hovered()) {
+        } else if (cbSizePx.hovered() || cbPosPx.hovered() || cbPadPx.hovered() || cbZoomPx.hovered()) {
             tooltip("minepapers.gui.pixels.tip", mouseX, mouseY);
         } else if (tab == TAB_SIZE && over(fWidth, mouseX, mouseY)) {
             tooltip("minepapers.gui.width", mouseX, mouseY);
@@ -1195,6 +1231,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             tooltip("minepapers.gui.shift.y", mouseX, mouseY);
         } else if (tab == TAB_SIZE && over(fPad, mouseX, mouseY)) {
             tooltip("minepapers.gui.padding.tip", mouseX, mouseY);
+        } else if (tab == TAB_SIZE && over(fZoom, mouseX, mouseY)) {
+            tooltip("minepapers.gui.zoom.tip", mouseX, mouseY);
         } else if (btnReload.hovered()) {
             tooltip("minepapers.gui.reload", mouseX, mouseY);
         }

@@ -2,6 +2,13 @@ package com.grihail.minepapers.client;
 
 import java.io.File;
 
+import javax.imageio.spi.IIORegistry;
+import javax.imageio.spi.ImageReaderSpi;
+
+import org.apache.logging.log4j.LogManager;
+
+import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
+
 /** Всё, что общему клиентскому коду (PictureManager, ImageSync, ImageStylizer) нужно от версии игры. Версия ставит свою реализацию через install() при запуске клиента. */
 public abstract class ClientHost {
 
@@ -9,6 +16,16 @@ public abstract class ClientHost {
 
     public static void install(ClientHost host) {
         current = host;
+        registerWebP();
+    }
+
+    /** WebP в ImageIO нет — читатель TwelveMonkeys лежит в jar мода. Регистрируем вручную: загрузчик модов не даёт ImageIO найти его через META-INF/services. */
+    private static void registerWebP() {
+        try {
+            IIORegistry.getDefaultInstance().registerServiceProvider(new WebPImageReaderSpi(), ImageReaderSpi.class);
+        } catch (Throwable e) {
+            LogManager.getLogger("minepapers").warn("WebP не поддерживается: " + e);
+        }
     }
 
     static ClientHost get() {

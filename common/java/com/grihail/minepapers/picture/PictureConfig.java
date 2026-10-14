@@ -26,6 +26,7 @@ public final class PictureConfig {
     public static final String[] FRAMES = { "none", "edges", "molding" };
     public static final String[] CANVASES = { "none", "block", "picture" };
     public static final String[] STYLES = { "original", "map", "map-dither", "map-soft-dither" };
+    public static final String[] DITHER_MODES = { "diffusion", "ordered" };
     public static final String[] MATERIALS = { "frame", "canvas", "glow" };
 
     /** Версия игры, в которой конфиг скопирован: по ней понятно, в каких названиях записаны предметы (до 1.13 и после — разные, см. translate). */
@@ -42,12 +43,14 @@ public final class PictureConfig {
     public Boolean offsetPixels;
     public Float padding;
     public Boolean paddingPixels;
+    public Float zoom;
+    public Boolean zoomPixels;
     public Integer fit, look, frame, canvas, style, pixelsPerBlock;
     /** Ширина багета в пикселях (у frame "molding"). */
     public Integer moldingWidth;
     /** Резкие пиксели (без полупрозрачности), палитра карт, число цветов и сила дизеринга в процентах. Рядом пишется ближайший старый style — для прежних версий; при вставке эти поля главнее style. */
     public Boolean sharpPixels, mapPalette;
-    public Integer colors, dither;
+    public Integer colors, dither, ditherMode;
 
     /** Предмет материала: id в реестре и (только для 1.7.10) метаданные; meta < 0 — любые. */
     public static final class Item {
@@ -98,6 +101,11 @@ public final class PictureConfig {
         if (paddingPixels != null) pad.addProperty("pixels", paddingPixels);
         root.add("padding", pad);
 
+        JsonObject zoomObject = new JsonObject();
+        if (zoom != null) zoomObject.addProperty("size", number(zoom));
+        if (zoomPixels != null) zoomObject.addProperty("pixels", zoomPixels);
+        root.add("zoom", zoomObject);
+
         if (fit != null) root.addProperty("fit", name(FITS, fit));
         if (look != null) root.addProperty("look", name(LOOKS, look));
         if (frame != null) root.addProperty("frame", name(FRAMES, frame));
@@ -108,6 +116,7 @@ public final class PictureConfig {
         if (mapPalette != null) root.addProperty("mapPalette", mapPalette);
         if (colors != null) root.addProperty("colors", colors);
         if (dither != null) root.addProperty("dither", dither);
+        if (ditherMode != null) root.addProperty("ditherMode", name(DITHER_MODES, ditherMode));
         if (pixelsPerBlock != null) root.addProperty("pixelsPerBlock", pixelsPerBlock);
 
         JsonObject mats = new JsonObject();
@@ -171,6 +180,11 @@ public final class PictureConfig {
                 c.padding = decimal(pad, "size");
                 c.paddingPixels = bool(pad, "pixels");
             }
+            JsonObject zoomObject = object(root, "zoom");
+            if (zoomObject != null) {
+                c.zoom = decimal(zoomObject, "size");
+                c.zoomPixels = bool(zoomObject, "pixels");
+            }
             c.fit = value(root, "fit", FITS);
             c.look = value(root, "look", LOOKS);
             c.frame = value(root, "frame", FRAMES);
@@ -181,6 +195,7 @@ public final class PictureConfig {
             c.mapPalette = bool(root, "mapPalette");
             c.colors = integer(root, "colors");
             c.dither = integer(root, "dither");
+            c.ditherMode = value(root, "ditherMode", DITHER_MODES);
             c.pixelsPerBlock = integer(root, "pixelsPerBlock");
 
             JsonObject mats = object(root, "materials");

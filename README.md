@@ -48,7 +48,7 @@ The settings window opens by right-clicking a hanging picture, or by right-click
 | Folder on this PC | The full path to a folder or file. |
 | Picture link | A direct `http` or `https` link to the image file itself. |
 
-Supported formats are png, jpg (including jfif, jpe, jif, pjpeg, pjp), gif and bmp. Animated GIFs are shown animated.
+Supported formats are png, jpg (including jfif, jpe, jif, pjpeg, pjp), gif, bmp and webp. Animated GIFs are shown animated; animated WebP shows only its first frame.
 
 If the source has several pictures, the frame shows them as a slideshow with the given interval in seconds. The order is random, but it is derived from the game time and the frame's position. So all players see the same picture, while two frames with the same folder show different ones. Each picture is shown once per cycle.
 
@@ -57,7 +57,8 @@ If the source has several pictures, the frame shows them as a slideshow with the
 - Canvas width and height are set in blocks or in pixels (1 pixel is 1/16 of a block). From 1 pixel up to 64 blocks. The canvas size is also the picture's hitbox.
 - If width or height is left at 0, it is calculated from the current picture's proportions on save.
 - Canvas offset to the right and up from the clicked cell. The canvas always covers that cell by at least one pixel.
-- Inset of the image from the canvas edges, on all sides. A negative inset makes the image bigger than the canvas, and the canvas crops it at its edges.
+- Padding of the image from the canvas edges, on all sides (0 or more).
+- Zoom: makes the image bigger (positive) or smaller (negative) by the given amount on each side. What goes past the padding is cropped. Padding and zoom have their own "px" checkboxes.
 - Fitting the image into the canvas works like CSS `object-fit`, always from the center: fill, contain, cover, none, scale-down.
 
 ### Look and style
@@ -81,8 +82,9 @@ The "Style" tab sets colors and resolution:
 - **Sharp pixels** (on by default): no semi-transparency, a pixel is either fully visible or fully transparent, like on maps. The edges of a picture with a transparent background stay crisp instead of blending into the wall.
 - **Map palette**: only the colors that maps of this game version can show, like real map art. The "Colors" slider is inactive with it, dithering still applies.
 - **Colors**, 2-25 (default 25): posterization, how many shades each color channel keeps. 25 is closest to the original.
+- **Dithering kind**, two buttons: diffusion (Floyd-Steinberg, default: smooth, the dots look random) or grid (ordered, Bayer 4x4: the dots form a regular square grid).
 - **Dither**, 0-100% (default 100%): mixes the colors with dots for smooth gradients. 0% gives flat areas of color.
-- **Pixels per block**, powers of two from 1 to 256 (default 128). 128 looks like a map in an item frame, 16 like a vanilla painting.
+- **Pixels per block**, 1-256 (default 128). Dragging changes it by 1, the mouse wheel jumps to the neighbouring power of two (1, 2, 4 ... 256). 128 looks like a map in an item frame, 16 like a vanilla painting.
 
 The mouse wheel over a slider moves it. The picture uses smooth lighting, like vanilla blocks.
 
@@ -148,12 +150,13 @@ In singleplayer and in a world opened to LAN, the host uploads the pictures of t
 
 ### Mod settings
 
-The `config/minepapers.json` file is shared by all game versions. The mod creates it on first launch and reads it on every launch. The file may contain `//` comments. `stackMaterials` works on the server (a client connected to a server uses the server's value), `hideNsfw` only on the client where it is set.
+The `config/minepapers.json` file is shared by all game versions. The mod creates it on first launch and reads it on every launch. The file may contain `//` comments. `stackMaterials` works on the server (a client connected to a server uses the server's value), `hideNsfw` and `titleNeedsSneak` only on the client where they are set.
 
 | Key | Default | What it does |
 | --- | --- | --- |
 | `stackMaterials` | `true` | `true`: a stack of pictures in hand changes materials as a whole, one block per picture. `false`: materials change only for a single picture in hand, a stack's material slots are locked, and the "Frame" tab says why. This lets a server admin prevent players from mass-producing pictures with materials. |
 | `hideNsfw` | `false` | Client only. `true`: pictures marked as NSFW (18+) show an empty canvas with a red "18+" mark in the center (1x1 block) instead of the image, the item icon shows the placeholder with the same mark, and their images are not downloaded. The source link stays visible in the window and the item tooltip. Takes effect after restarting the game. |
+| `titleNeedsSneak` | `true` | Client only. `true`: the title and signer over a picture show only while looking at it with Shift held. `false`: as soon as you look at the picture. |
 
 ## Building
 
@@ -291,6 +294,8 @@ The common code does not know Minecraft classes. Everything version-specific com
 - uploading a frame to video memory and freeing it. Each version has its own texture handle: in 1.7.10 it is an OpenGL texture id, in 1.21.1 a `ResourceLocation`. The common code keeps it as an `Object` and passes it back to the version's renderer;
 - sending the three client packets for picture exchange.
 
+`ClientHost.install` also registers the TwelveMonkeys WebP reader in ImageIO, because ImageIO cannot read WebP by itself. The libraries are listed in `webpLibs` in the root `build.gradle`. In 1.21.1 they are nested jars inside the mod jar (Jar-in-Jar); in 1.7.10 their classes are unpacked straight into the mod jar.
+
 **ServerHost.** Installed when the mod starts (`ServerImages.install`). Gives `ImageStore`:
 
 - the current world folder;
@@ -359,13 +364,14 @@ The same for all versions (`PictureSettings`):
 | `Interval` | Slideshow interval in seconds. |
 | `W`, `H`, `SizePx` | Canvas size and the "in pixels" flag. |
 | `OX`, `OY`, `PosPx` | Canvas offset and the "in pixels" flag. |
-| `Pad`, `PadPx` | Image inset (negative - the image is bigger than the canvas and cropped) and the "in pixels" flag. |
+| `Pad`, `PadPx` | Image padding and the "in pixels" flag. |
+| `Zoom`, `ZoomPx` | Image zoom (positive - bigger, negative - smaller) and the "in pixels" flag. |
 | `Title`, `Desc` | Title and description. |
 | `Owner`, `OwnerName` | Owner of a private picture and their nickname. |
 | `Signer`, `SignerName` | Who signed the picture and their nickname. Set only by the server, cannot be removed. |
 | `Nsfw` | NSFW (18+) mark, 1 - marked. |
 | `Molding` | Molding width in pixels. |
-| `Sharp`, `MapPalette`, `Colors`, `Dither` | Sharp pixels (1 - no semi-transparency), map palette (1 - instead of the number of colors), number of colors (2-25) and dither strength in percent. Pictures from older versions have `Style` instead (0 original colors, 1-3 map palette without, with and with soft dithering); it is converted on load into the same look. |
+| `Sharp`, `MapPalette`, `Colors`, `Dither`, `DitherMode` | Sharp pixels (1 - no semi-transparency), map palette (1 - instead of the number of colors), number of colors (2-25), dither strength in percent and its kind (0 diffusion, 1 grid). Pictures from older versions have `Style` instead (0 original colors, 1-3 map palette without, with and with soft dithering); it is converted on load into the same look. |
 | `Fit`, `PPB`, `Mode` | Fit, pixels per block, look. The look is a combination of frame and canvas: 0-3 are the old looks (panel, frame, graffiti, plate), 4-7 are new combinations (see `PictureSettings.LOOK_FRAME`). |
 | `Files` | Pictures on the server: consecutive 20-byte SHA-1 hashes. |
 
@@ -393,6 +399,7 @@ Example JSON that the copy button puts on the clipboard:
   "size": { "width": 2, "height": 2, "pixels": false },
   "offset": { "right": 0, "up": 0, "pixels": false },
   "padding": { "size": 0, "pixels": true },
+  "zoom": { "size": 0, "pixels": true },
   "fit": "cover",
   "look": "panel",
   "frame": "edges",
@@ -402,6 +409,7 @@ Example JSON that the copy button puts on the clipboard:
   "mapPalette": true,
   "colors": 6,
   "dither": 45,
+  "ditherMode": "diffusion",
   "pixelsPerBlock": 128,
   "materials": {
     "frame": { "item": "minecraft:oak_planks" },
@@ -413,7 +421,7 @@ Example JSON that the copy button puts on the clipboard:
 
 - Values are written as words: `config`, `yandex`, `folder`, `url`; `fill`, `contain`, `cover`, `none`, `scale-down`; `panel`, `frame`, `graffiti`, `plate`; `none`, `edges`, `molding` (frame); `none`, `block`, `picture` (canvas); `original`, `map`, `map-dither`, `map-soft-dither`. A number can be used instead of a word.
 - With `"frame": "molding"`, `moldingWidth` is the molding width in pixels (2 if it is missing).
-- `sharpPixels` turns semi-transparency off; `mapPalette` uses the map palette instead of `colors`; `colors` (2-25) and `dither` (0-100) are the number of colors and the dither strength. `style` is the color style from older mod versions: the closest one is written for them, and on paste `colors` and `dither` take precedence over it.
+- `sharpPixels` turns semi-transparency off; `mapPalette` uses the map palette instead of `colors`; `colors` (2-25), `dither` (0-100) and `ditherMode` (`diffusion`, `ordered`) are the number of colors, the dither strength and kind. `style` is the color style from older mod versions: the closest one is written for them, and on paste `colors` and `dither` take precedence over it.
 - `look` is the look from older mod versions. Next to `frame` and `canvas`, the closest `look` is written so that older versions understand the config. On paste, `frame` and `canvas` take precedence over `look`.
 - If a field is missing, it is left unchanged on paste.
 - For a material, `null` means "default", i.e. take the item out of the slot. A material can also be written shorter: `"frame": "minecraft:gold_block"`.

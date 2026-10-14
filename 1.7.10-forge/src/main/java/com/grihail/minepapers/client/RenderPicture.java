@@ -89,8 +89,8 @@ public class RenderPicture extends Render {
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glColor4f(1f, 1f, 1f, 1f);
 
-        // 1. Холст и рамка (обычные или с текстурой предмета — она может быть в атласе предметов). Без холста и у пластины холст только вместо картинки, пока её нет, — обычный: блок холста им не нужен.
-        boolean drawCanvas = canvasKind == PictureFrame.CANVAS_BLOCK || !hasPicture;
+        // 1. Холст и рамка (обычные или с текстурой предмета — она может быть в атласе предметов). Без холста и у пластины холст только вместо картинки, пока её нет (не загружена, нет источника), — обычный: блок холста им не нужен. Загруженной картинке, от которой на холсте ничего не видно (отступ и масштаб не оставили места), заглушка не нужна.
+        boolean drawCanvas = canvasKind == PictureFrame.CANVAS_BLOCK || shown == null;
         double base = decal ? DECAL_DEPTH : PX; // лицевая плоскость холста
         if (drawCanvas || frame != PictureFrame.FRAME_NONE) {
             FrameSkin canvasSkin = tile.usesCanvas() ? FrameSkin.canvas(tile.canvas) : FrameSkin.plainCanvas();
@@ -160,7 +160,8 @@ public class RenderPicture extends Render {
         // 3. Под прицелом с зажатым Shift — заголовок картины и курсивом ник подписавшего, как имя переименованного предмета в рамке.
         MovingObjectPosition hit = Minecraft.getMinecraft().objectMouseOver;
         String label = label(tile);
-        if (!label.isEmpty() && hit != null && hit.entityHit == picture && GuiScreen.isShiftKeyDown()
+        // Shift не нужен, если в конфиге titleNeedsSneak = false.
+        if (!label.isEmpty() && hit != null && hit.entityHit == picture && (!ModConfig.titleNeedsSneak || GuiScreen.isShiftKeyDown())
             && Minecraft.isGuiEnabled()) {
             double[] p = FrameGeometry.labelPos(tile);
             titleLabel(label, p[0] - RenderManager.renderPosX, p[1] - RenderManager.renderPosY,

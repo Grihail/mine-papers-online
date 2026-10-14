@@ -234,7 +234,7 @@ public final class ImageSync {
         }
     }
 
-    /** Небольшие png/jpg/gif отправляются как есть, остальное уменьшается до MAX_SIDE и пережимается: с прозрачностью — в PNG, без — в JPEG. Анимированный GIF при пережатии потерял бы анимацию, поэтому он отправляется как есть, пока помещается в лимит сервера (кадры уменьшит уже клиент). Исходный размер записывается в заголовок (от него зависит вписывание). */
+    /** Небольшие png/jpg/gif/webp отправляются как есть, остальное уменьшается до MAX_SIDE и пережимается: с прозрачностью — в PNG, без — в JPEG. Анимированный GIF при пережатии потерял бы анимацию, поэтому он отправляется как есть, пока помещается в лимит сервера (кадры уменьшит уже клиент). Исходный размер записывается в заголовок (от него зависит вписывание). */
     private static byte[] encode(File file) throws IOException {
         if (file.length() > PictureManager.MAX_DOWNLOAD_BYTES) throw new IOException("File is too large");
         byte[] bytes = Files.readAllBytes(file.toPath());
@@ -262,7 +262,7 @@ public final class ImageSync {
         }
 
         boolean webFormat = format.equals("png") || format.equals("jpeg") || format.equals("jpg")
-            || format.equals("gif");
+            || format.equals("gif") || format.equals("webp");
         if (webFormat && bytes.length <= KEEP_ORIGINAL_BYTES && Math.max(w, h) <= MAX_SIDE) {
             return SharedImage.pack(w, h, bytes);
         }

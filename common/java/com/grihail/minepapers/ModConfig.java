@@ -14,7 +14,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 
-/** Настройки мода: config/minepapers.json — один файл и формат для всех версий игры. Читается при запуске мода; нет файла — он создаётся с настройками по умолчанию и пояснениями (JSON читается с комментариями //). Действуют на сервере (клиент узнаёт нужное от сервера), кроме hideNsfw — она только для своего клиента. */
+/** Настройки мода: config/minepapers.json — один файл и формат для всех версий игры. Читается при запуске мода; нет файла — он создаётся с настройками по умолчанию и пояснениями (JSON читается с комментариями //). Действуют на сервере (клиент узнаёт нужное от сервера), кроме hideNsfw и titleNeedsSneak — они только для своего клиента. */
 public final class ModConfig {
 
     private static final Logger LOG = LogManager.getLogger("minepapers");
@@ -25,6 +25,9 @@ public final class ModConfig {
 
     /** Только на этом клиенте: картины с пометкой NSFW не показываются — ни картинка в мире, ни миниатюра на иконке, и их картинки не скачиваются. Остаётся пустой холст. Действует с запуска игры. */
     public static boolean hideNsfw = false;
+
+    /** Только на этом клиенте: заголовок и ник подписавшего над картиной видны, только если смотреть на неё с зажатым Shift (присев). false — сразу, как только навёлся. */
+    public static boolean titleNeedsSneak = true;
 
     private ModConfig() {}
 
@@ -48,11 +51,10 @@ public final class ModConfig {
             if (!root.isJsonObject()) throw new IllegalStateException("not a JSON object");
             JsonObject json = root.getAsJsonObject();
             if (json.has("stackMaterials")) stackMaterials = json.get("stackMaterials").getAsBoolean();
-            if (json.has("hideNsfw")) {
-                hideNsfw = json.get("hideNsfw").getAsBoolean();
-            } else {
-                save(file); // файл прежней версии — дописываем новую настройку (со значением по умолчанию)
-            }
+            if (json.has("hideNsfw")) hideNsfw = json.get("hideNsfw").getAsBoolean();
+            if (json.has("titleNeedsSneak")) titleNeedsSneak = json.get("titleNeedsSneak").getAsBoolean();
+            // Файл прежней версии — дописываем новые настройки (со значениями по умолчанию).
+            if (!json.has("hideNsfw") || !json.has("titleNeedsSneak")) save(file);
         } catch (Exception e) {
             LOG.warn("Не удалось прочитать " + file + ", действуют настройки по умолчанию: " + e);
         }
@@ -67,7 +69,11 @@ public final class ModConfig {
             + "\n"
             + "  // Client only: true hides pictures marked as NSFW (18+). Instead of the picture you see an empty canvas,\n"
             + "  // and its images are not downloaded. Takes effect after restarting the game.\n"
-            + "  \"hideNsfw\": " + hideNsfw + "\n"
+            + "  \"hideNsfw\": " + hideNsfw + ",\n"
+            + "\n"
+            + "  // Client only: true shows the picture title and signer only while looking at it with Shift held (sneaking).\n"
+            + "  // false shows them as soon as you look at the picture.\n"
+            + "  \"titleNeedsSneak\": " + titleNeedsSneak + "\n"
             + "}\n";
         try {
             File dir = file.getParentFile();

@@ -34,6 +34,8 @@ public class PictureSettings {
     public static final int MIN_COLORS = 2, MAX_COLORS = 25, MAX_DITHER = 100;
     /** Сила мягкого дизеринга старого стиля. */
     private static final int LEGACY_SOFT_DITHER = 45;
+    /** Дизеринг: диффузия ошибки (Флойд - Стейнберг: плавно, точки вразброс) или упорядоченный (матрица Байера 4x4: точки ровной сеткой). */
+    public static final int DITHER_DIFFUSION = 0, DITHER_ORDERED = 1, DITHER_MODE_COUNT = 2;
 
     /** Вид картины — сочетание рамки (FRAME_*) и холста (CANVAS_*), см. getFrameShape и getCanvasKind. Первые четыре — виды прежних версий, дальше — новые сочетания. */
     public static final int MODE_PANEL = 0;     // холст-панель, торцы обшиты рамкой
@@ -60,8 +62,6 @@ public class PictureSettings {
     public static final float MAX_SIZE_BLOCKS = 64f;
     public static final int MIN_PPB = 1;
     public static final int MAX_PPB = 256;
-    /** Пикселей на блок в окне — степени двойки от MIN_PPB до MAX_PPB: ползунок ходит по их номерам (0 — 1 пиксель, PPB_STEPS — 256). */
-    public static final int PPB_STEPS = 31 - Integer.numberOfLeadingZeros(MAX_PPB);
     public static final int MAX_TITLE = 64;
     /** Ширина багета в пикселях: по умолчанию (и в картинах прежних версий) 2, больше половины холста не бывает. */
     public static final int DEFAULT_MOLDING = 2, MAX_MOLDING = (int) (MAX_SIZE_BLOCKS * 16 / 2);
@@ -109,9 +109,13 @@ public class PictureSettings {
     public float offsetY = 0f;
     public boolean offsetInPixels = false;
 
-    /** Отступ картинки от краёв холста (со всех сторон): в блоках или в пикселях. Отрицательный — картинка вписывается в область больше холста (крупнее), а холст обрезает её по своим краям. */
+    /** Внутренний отступ картинки от краёв холста (со всех сторон): в блоках или в пикселях. */
     public float padding = 0f;
     public boolean paddingInPixels = true;
+
+    /** Масштаб картинки: больше нуля — крупнее, меньше — мельче (область вписывания раздвигается или сжимается на столько с каждой стороны). Всё, что выходит за отступ, обрезается. В блоках или в пикселях. */
+    public float zoom = 0f;
+    public boolean zoomInPixels = true;
 
     /** Заголовок и описание картины (вкладка "Описание"), видны в подсказке предмета. */
     public String title = "";
@@ -175,6 +179,8 @@ public class PictureSettings {
     /** Число цветов (MIN_COLORS..MAX_COLORS) и сила дизеринга в процентах. */
     public int colors = MAX_COLORS;
     public int dither = MAX_DITHER;
+    /** Вид дизеринга (DITHER_*). */
+    public int ditherMode = DITHER_DIFFUSION;
     public int mode = MODE_PANEL;
     /** Ширина багета в пикселях (у видов с багетом). */
     public int moldingWidth = DEFAULT_MOLDING;
@@ -265,7 +271,14 @@ public class PictureSettings {
     public float getPaddingBlocks() {
         float p = paddingInPixels ? padding / 16f : padding;
         float max = (Math.min(getWidthBlocks(), getHeightBlocks()) - PIXEL) / 2;
-        return Math.max(-MAX_SIZE_BLOCKS / 2, Math.min(p, max));
+        return Math.max(0, Math.min(p, max));
+    }
+
+    /** Масштаб в блоках (см. zoom); уменьшить картинку можно только так, чтобы от неё остался хотя бы пиксель — как и с отступом. */
+    public float getZoomBlocks() {
+        float z = zoomInPixels ? zoom / 16f : zoom;
+        float inner = Math.min(getWidthBlocks(), getHeightBlocks()) - 2 * getPaddingBlocks();
+        return Math.max(z, (PIXEL - inner) / 2);
     }
 
     /** С какого расстояния (в блоках) от центра картины игрок может открыть её настройки или сломать её: EDIT_DISTANCE от любой точки холста, поэтому к нему добавляется полудиагональ холста. Расстояние до центра версия считает ванильным расстоянием до сущности — его поправляют моды, которые переносят картину в свои координаты (движущиеся конструкции). */
@@ -314,10 +327,10 @@ public class PictureSettings {
         return LOOK_CLASSIC[look];
     }
 
-    /** Номер ближайшей степени двойки для ползунка пикселей на блок (у картин прежних версий бывают любые числа). */
-    public static int ppbStep(int ppb) {
-        int step = (int) Math.round(Math.log(Math.max(MIN_PPB, ppb)) / Math.log(2));
-        return Math.max(0, Math.min(PPB_STEPS, step));
+    /** Колёсико над ползунком пикселей на блок: к соседней степени двойки (со 100 вверх — 128, вниз — 64); перетаскивание мышью идёт с шагом 1. */
+    public static int ppbWheel(int ppb, int dir) {
+        int p = dir > 0 ? Integer.highestOneBit(ppb) << 1 : Integer.highestOneBit(Math.max(1, ppb - 1));
+        return Math.max(MIN_PPB, Math.min(MAX_PPB, p));
     }
 
     /** Сила дизеринга вместо старого стиля (палитра карт — все стили, кроме исходных цветов). */
@@ -397,6 +410,8 @@ public class PictureSettings {
         tag.putInt("PosPx", offsetInPixels ? 1 : 0);
         tag.putFloat("Pad", padding);
         tag.putInt("PadPx", paddingInPixels ? 1 : 0);
+        tag.putFloat("Zoom", zoom);
+        tag.putInt("ZoomPx", zoomInPixels ? 1 : 0);
         if (!title.isEmpty()) tag.putString("Title", title);
         if (!description.isEmpty()) tag.putString("Desc", description);
         if (owner != null) {
@@ -414,6 +429,7 @@ public class PictureSettings {
         tag.putInt("MapPalette", mapPalette ? 1 : 0);
         tag.putInt("Colors", colors);
         tag.putInt("Dither", dither);
+        tag.putInt("DitherMode", ditherMode);
         tag.putInt("Mode", mode);
         tag.putInt("Molding", moldingWidth);
         if (files.length > 0) tag.putByteArray("Files", files);
@@ -447,8 +463,19 @@ public class PictureSettings {
         offsetY = clamp(tag.getFloat("OY"), minY, maxY);
 
         paddingInPixels = !tag.contains("PadPx") || tag.getInt("PadPx") != 0;
+        float pad = tag.getFloat("Pad");
+        if (tag.contains("Zoom")) {
+            zoomInPixels = tag.getInt("ZoomPx") != 0;
+            zoom = tag.getFloat("Zoom");
+        } else {
+            // Сборки 1.5.0 до масштаба: отрицательный отступ увеличивал картинку — теперь это масштаб.
+            zoomInPixels = paddingInPixels;
+            zoom = Math.max(0, -pad);
+        }
         float padLimit = MAX_SIZE_BLOCKS / 2 * (paddingInPixels ? 16f : 1f);
-        padding = clamp(tag.getFloat("Pad"), -padLimit, padLimit);
+        padding = clamp(pad, 0, padLimit);
+        float zoomLimit = MAX_SIZE_BLOCKS / 2 * (zoomInPixels ? 16f : 1f);
+        zoom = clamp(zoom, -zoomLimit, zoomLimit);
 
         title = tag.getString("Title").replace("\r", "").replace("\n", " ");
         description = tag.getString("Desc").replace("\r", "");
@@ -472,6 +499,7 @@ public class PictureSettings {
             colors = MAX_COLORS;
             dither = legacyDither(style);
         }
+        ditherMode = range(tag.getInt("DitherMode"), 0, DITHER_MODE_COUNT - 1);
         mode = range(tag.getInt("Mode"), 0, LOOK_COUNT - 1);
         moldingWidth = tag.contains("Molding") ? range(tag.getInt("Molding"), 1, MAX_MOLDING) : DEFAULT_MOLDING;
         files = tag.getByteArray("Files");

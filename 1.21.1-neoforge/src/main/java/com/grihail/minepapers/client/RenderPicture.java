@@ -103,8 +103,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         poseStack.translate(ox - at.x, oy - at.y, oz - at.z);
         pose = poseStack.last();
 
-        // 1. Холст и рамка (обычная или с текстурой предмета) — всё из атласа блоков. Без холста и у пластины холст только вместо картинки, пока её нет, — обычный: блок холста им не нужен.
-        boolean drawCanvas = canvasKind == PictureFrame.CANVAS_BLOCK || !hasPicture;
+        // 1. Холст и рамка (обычная или с текстурой предмета) — всё из атласа блоков. Без холста и у пластины холст только вместо картинки, пока её нет (не загружена, нет источника), — обычный: блок холста им не нужен. Загруженной картинке, от которой на холсте ничего не видно (отступ и масштаб не оставили места), заглушка не нужна.
+        boolean drawCanvas = canvasKind == PictureFrame.CANVAS_BLOCK || shown == null;
         double base = decal ? DECAL_DEPTH : PX; // лицевая плоскость холста
         if (drawCanvas || frame != PictureFrame.FRAME_NONE) {
             out = buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS));
@@ -156,8 +156,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         out = null;
         pose = null;
 
-        // 4. Под прицелом с зажатым Shift — заголовок картины и курсивом ник подписавшего, как имя переименованного предмета в рамке.
-        if ((!tile.title.isEmpty() || tile.isSigned()) && PictureControls.isAimed(picture) && Screen.hasShiftDown()
+        // 4. Под прицелом с зажатым Shift (или сразу, если в конфиге titleNeedsSneak = false) — заголовок картины и курсивом ник подписавшего, как имя переименованного предмета в рамке.
+        if ((!tile.title.isEmpty() || tile.isSigned()) && PictureControls.isAimed(picture) && (!ModConfig.titleNeedsSneak || Screen.hasShiftDown())
             && Minecraft.renderNames()) {
             double[] p = FrameGeometry.labelPos(tile);
             titleLabel(label(tile), p[0] - at.x, p[1] - at.y, p[2] - at.z, poseStack, buffers, packedLight);

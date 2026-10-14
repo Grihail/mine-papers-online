@@ -72,8 +72,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private int source, fitMode, frameShape, canvasKind;
     /** Резкие пиксели и палитра карт (галочки), число цветов, сила дизеринга и пикселей на блок (ползунки) на вкладке "Стиль". */
     private boolean sharp, mapPalette;
-    private int colors, dither, ppb;
-    private boolean sizePx, posPx, padPx;
+    private int colors, dither, ditherMode, ppb;
+    private boolean sizePx, posPx, padPx, zoomPx;
     private boolean saved;
     /** Замок закрыт (картина заприватится при закрытии окна). */
     private boolean locked;
@@ -95,6 +95,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
     private final List<GuiWidgets.Toggle> sourceButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> fitButtons = new ArrayList<GuiWidgets.Toggle>();
+    /** Вид дизеринга на вкладке "Стиль" — кнопки с иконками, по порядку PictureFrame.DITHER_*. */
+    private final List<GuiWidgets.Toggle> ditherButtons = new ArrayList<GuiWidgets.Toggle>();
     /** Рамка и холст — ряды кнопок справа от их слотов на вкладке "Рамка". */
     private final List<GuiWidgets.Toggle> frameButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> canvasButtons = new ArrayList<GuiWidgets.Toggle>();
@@ -102,11 +104,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Вкладка, на которой лежит виджет (у самих вкладок записи нет — они видны всегда). */
     private final Map<AbstractWidget, Integer> widgetTab = new HashMap<AbstractWidget, Integer>();
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
-    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbSharp, cbMapPalette;
+    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbSharp, cbMapPalette;
 
     /** Путь и ссылки — многострочные поля (текст переносится), остальное — обычные. */
     private MultiLineEditBox fPath, fUrl, fFolder, fImage, fDesc;
-    private EditBox fTitle, fInterval, fWidth, fHeight, fOffX, fOffY, fPad;
+    private EditBox fTitle, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fZoom;
     /** Ширина багета в пикселях: 0 — багета нет. */
     private EditBox fMolding;
     /** Все поля по порядку: значения переживают пересоздание виджетов при изменении размера окна. */
@@ -124,12 +126,14 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         this.mapPalette = tile.mapPalette;
         this.colors = tile.colors;
         this.dither = tile.dither;
-        this.ppb = 1 << PictureFrame.ppbStep(tile.pixelsPerBlock);
+        this.ditherMode = tile.ditherMode;
+        this.ppb = tile.pixelsPerBlock;
         this.frameShape = tile.getFrameShape();
         this.canvasKind = tile.getCanvasKind();
         this.sizePx = tile.sizeInPixels;
         this.posPx = tile.offsetInPixels;
         this.padPx = tile.paddingInPixels;
+        this.zoomPx = tile.zoomInPixels;
         this.me = inventory.player.getUUID();
         this.myName = inventory.player.getGameProfile().getName();
         this.locked = tile.isLocked();
@@ -153,6 +157,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         tabs.clear();
         sourceButtons.clear();
         fitButtons.clear();
+        ditherButtons.clear();
         frameButtons.clear();
         canvasButtons.clear();
         widgetTab.clear();
@@ -226,15 +231,23 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             convert(fOffY, posPx);
             updateWidgets();
         }), TAB_SIZE);
+        // Отступ и масштаб — в одном ряду, у каждого своя галочка "px".
         fPad = field(TAB_SIZE, x + 8, y + 78, 42, 10, Numbers.fmt(tile.padding), Numbers.PADDING);
+        fZoom = field(TAB_SIZE, x + 84, y + 78, 42, 10, Numbers.fmt(tile.zoom), Numbers.ZOOM);
         fWidth.setTooltip(tip("minepapers.gui.width"));
         fHeight.setTooltip(tip("minepapers.gui.height"));
         fOffX.setTooltip(tip("minepapers.gui.shift.x"));
         fOffY.setTooltip(tip("minepapers.gui.shift.y"));
         fPad.setTooltip(tip("minepapers.gui.padding.tip"));
-        cbPadPx = add(new GuiWidgets.Check(x + 112, y + 80, Component.translatable("minepapers.gui.pixels"), padPx, () -> {
+        fZoom.setTooltip(tip("minepapers.gui.zoom.tip"));
+        cbPadPx = add(new GuiWidgets.Check(x + 54, y + 80, Component.translatable("minepapers.gui.pixels"), padPx, () -> {
             padPx = !padPx;
             convert(fPad, padPx);
+            updateWidgets();
+        }), TAB_SIZE);
+        cbZoomPx = add(new GuiWidgets.Check(x + 130, y + 80, Component.translatable("minepapers.gui.pixels"), zoomPx, () -> {
+            zoomPx = !zoomPx;
+            convert(fZoom, zoomPx);
             updateWidgets();
         }), TAB_SIZE);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
@@ -248,7 +261,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             fitButtons.get(i).setTooltip(tip("minepapers.gui.fit." + i, "minepapers.gui.fit." + i + ".tip"));
         }
 
-        // Стиль: резкие пиксели и палитра карт, под ними ползунки — число цветов (с палитрой не действует), сила дизеринга и пикселей на блок (степени двойки)
+        // Стиль: резкие пиксели и палитра карт, под ними ползунки — число цветов (с палитрой не действует), сила дизеринга и пикселей на блок
         cbSharp = add(new GuiWidgets.Check(x + 8, y + 18, Component.translatable("minepapers.gui.sharp"), sharp, () -> {
             sharp = !sharp;
             updateWidgets();
@@ -259,16 +272,25 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             updateWidgets();
         }), TAB_STYLE);
         cbMapPalette.setTooltip(tip("minepapers.gui.mapPalette.tip"));
-        slColors = add(new GuiWidgets.Slider(x + 8, y + 44, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, 1, colors,
+        slColors = add(new GuiWidgets.Slider(x + 8, y + 44, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, (v, d) -> v + d, colors,
             v -> Component.translatable("minepapers.gui.colors", v), v -> colors = v), TAB_STYLE);
         slColors.setTooltip(tip("minepapers.gui.colors.tip"));
-        slDither = add(new GuiWidgets.Slider(x + 8, y + 68, 160, 0, PictureFrame.MAX_DITHER, 5, dither,
+        for (int i = 0; i < PictureFrame.DITHER_MODE_COUNT; i++) {
+            int value = i;
+            ditherButtons.add(add(new GuiWidgets.Toggle(x + 8 + i * 24, y + 68, i, GuiWidgets.DITHER_ICON_U + i * 16,
+                GuiWidgets.DITHER_ICON_V, Component.translatable("minepapers.gui.ditherMode." + i), () -> {
+                    ditherMode = value;
+                    updateWidgets();
+                }), TAB_STYLE));
+            ditherButtons.get(i).setTooltip(tip("minepapers.gui.ditherMode." + i, "minepapers.gui.ditherMode." + i + ".tip"));
+        }
+        slDither = add(new GuiWidgets.Slider(x + 8, y + 92, 160, 0, PictureFrame.MAX_DITHER, (v, d) -> v + 5 * d, dither,
             v -> Component.translatable("minepapers.gui.dither", v), v -> dither = v), TAB_STYLE);
         slDither.setTooltip(tip("minepapers.gui.dither.tip"));
-        slPpb = add(new GuiWidgets.Slider(x + 8, y + 92, 160, 0, PictureFrame.PPB_STEPS, 1, PictureFrame.ppbStep(ppb),
-            v -> Component.translatable("minepapers.gui.ppb", 1 << v), v -> ppb = 1 << v), TAB_STYLE);
+        slPpb = add(new GuiWidgets.Slider(x + 8, y + 116, 160, PictureFrame.MIN_PPB, PictureFrame.MAX_PPB, PictureFrame::ppbWheel, ppb,
+            v -> Component.translatable("minepapers.gui.ppb", v), v -> ppb = v), TAB_STYLE);
         slPpb.setTooltip(tip("minepapers.gui.ppb.tip"));
-        for (GuiWidgets.Check c : new GuiWidgets.Check[] { cbSizePx, cbPosPx, cbPadPx }) c.setTooltip(tip("minepapers.gui.pixels.tip"));
+        for (GuiWidgets.Check c : new GuiWidgets.Check[] { cbSizePx, cbPosPx, cbPadPx, cbZoomPx }) c.setTooltip(tip("minepapers.gui.pixels.tip"));
 
         // Рамка: справа от слотов рамки и холста — их вид. У рамки кнопки "нет" и "обшивка", за ними — ширина багета.
         int lookY = y + ContainerPictureFrame.MATERIAL_Y - 3;
@@ -407,7 +429,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     /** Шаг числа стрелкой или колёсиком: размер и отступ — в единицах, выбранных галочкой "px". */
     private void step(EditBox f, Numbers.Field number, int dir) {
-        boolean px = f == fWidth || f == fHeight ? sizePx : f == fPad && padPx;
+        boolean px = f == fWidth || f == fHeight ? sizePx : f == fPad ? padPx : f == fZoom && zoomPx;
         f.setValue(number.step(f.getValue(), dir, px ? 16f : 1f));
     }
 
@@ -530,6 +552,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         }
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.value == source;
         for (GuiWidgets.Toggle t : fitButtons) t.checked = t.value == fitMode;
+        for (GuiWidgets.Toggle t : ditherButtons) t.checked = t.value == ditherMode;
         for (GuiWidgets.Toggle t : frameButtons) t.checked = t.value == frameShape;
         for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.value == canvasKind;
         cbSharp.checked = sharp;
@@ -537,10 +560,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         slColors.setInt(colors);
         slColors.active = !mapPalette; // с палитрой карт цвета задаёт она
         slDither.setInt(dither);
-        slPpb.setInt(PictureFrame.ppbStep(ppb));
+        slPpb.setInt(ppb);
         cbSizePx.checked = sizePx;
         cbPosPx.checked = posPx;
         cbPadPx.checked = padPx;
+        cbZoomPx.checked = zoomPx;
         // Слоты материалов есть всегда (их содержимое синхронизирует сервер), но видны и кликаются только на своей вкладке.
         menu.showMaterials(!readOnly && tab == TAB_FRAME);
     }
@@ -637,6 +661,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         c.offsetPixels = posPx;
         c.padding = Numbers.parse(fPad.getValue());
         c.paddingPixels = padPx;
+        c.zoom = Numbers.parse(fZoom.getValue());
+        c.zoomPixels = zoomPx;
         c.fit = fitMode;
         c.look = PictureFrame.classicLook(look());
         c.frame = frameShape;
@@ -646,6 +672,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         c.mapPalette = mapPalette;
         c.colors = colors;
         c.dither = dither;
+        c.ditherMode = ditherMode;
         c.style = PictureFrame.legacyStyle(mapPalette, dither);
         c.pixelsPerBlock = ppb;
         PictureFrame.Material[] materials = tile.materials();
@@ -680,6 +707,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (c.offsetUp != null) fOffY.setValue(Numbers.fmt(c.offsetUp));
         if (c.paddingPixels != null) padPx = c.paddingPixels;
         if (c.padding != null) fPad.setValue(Numbers.fmt(c.padding));
+        if (c.zoomPixels != null) zoomPx = c.zoomPixels;
+        if (c.zoom != null) fZoom.setValue(Numbers.fmt(c.zoom));
         if (c.fit != null) fitMode = c.fit;
         if (c.look != null) {
             frameShape = PictureFrame.frameShapeOf(c.look);
@@ -699,7 +728,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (c.mapPalette != null) mapPalette = c.mapPalette;
         if (c.colors != null) colors = Math.max(PictureFrame.MIN_COLORS, Math.min(PictureFrame.MAX_COLORS, c.colors));
         if (c.dither != null) dither = Math.max(0, Math.min(PictureFrame.MAX_DITHER, c.dither));
-        if (c.pixelsPerBlock != null) ppb = 1 << PictureFrame.ppbStep(c.pixelsPerBlock);
+        if (c.ditherMode != null) ditherMode = c.ditherMode;
+        if (c.pixelsPerBlock != null) ppb = Math.max(PictureFrame.MIN_PPB, Math.min(PictureFrame.MAX_PPB, c.pixelsPerBlock));
         updateWidgets();
         // Конфиг из старых версий: предметы там названы иначе (grass вместо grass_block, wool с номером цвета) — переводим.
         for (int i = 0; i < c.materials.length; i++) {
@@ -767,11 +797,14 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         tile.offsetY = Numbers.orDefault(Numbers.parse(fOffY.getValue()), tile.offsetY);
         tile.paddingInPixels = padPx;
         tile.padding = Numbers.orDefault(Numbers.parse(fPad.getValue()), tile.padding);
+        tile.zoomInPixels = zoomPx;
+        tile.zoom = Numbers.orDefault(Numbers.parse(fZoom.getValue()), tile.zoom);
         tile.fitMode = fitMode;
         tile.sharpPixels = sharp;
         tile.mapPalette = mapPalette;
         tile.colors = colors;
         tile.dither = dither;
+        tile.ditherMode = ditherMode;
         tile.mode = look();
         if (frameShape == PictureFrame.FRAME_MOLDING) tile.moldingWidth = moldingWidth();
         tile.pixelsPerBlock = ppb;
@@ -948,6 +981,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 text(g, "x", 53, 21);
                 text(g, I18n.get("minepapers.gui.offset"), 8, 36);
                 text(g, I18n.get("minepapers.gui.padding"), 8, 66);
+                text(g, I18n.get("minepapers.gui.zoom"), 84, 66);
                 text(g, I18n.get("minepapers.gui.fit"), 8, 116);
                 break;
             case TAB_STYLE:

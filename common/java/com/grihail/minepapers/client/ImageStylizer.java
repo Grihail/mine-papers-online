@@ -25,12 +25,12 @@ public final class ImageStylizer {
     /** Параметры, от которых зависит итоговая текстура. */
     public static final class Layout {
         final double canvasW, canvasH;
-        /** Поля картинки от краёв холста, в блоках (отрицательные — картинка крупнее холста). */
-        final double padding;
+        /** Внутренний отступ картинки от краёв холста и масштаб (больше нуля — крупнее), в блоках. */
+        final double padding, zoom;
         /** ppb — пикселей текстуры на блок; naturalPpb — для режимов none / scale-down (у картины в мире они равны). */
         final double ppb, naturalPpb;
-        /** Число цветов (ступеней у каждого канала; 0 — палитра карт) и сила дизеринга в процентах. */
-        final int fit, colors, dither;
+        /** Число цветов (ступеней у каждого канала; 0 — палитра карт), сила дизеринга в процентах и его вид (PictureSettings.DITHER_*). */
+        final int fit, colors, dither, ditherMode;
         /** Резкие пиксели: пиксель либо непрозрачен, либо прозрачен целиком. */
         final boolean sharp;
         final String key;
@@ -39,17 +39,20 @@ public final class ImageStylizer {
             this.canvasW = canvasW;
             this.canvasH = canvasH;
             this.padding = padding;
+            this.zoom = tile.getZoomBlocks();
             this.fit = fit;
             this.ppb = ppb;
             this.naturalPpb = naturalPpb;
             this.colors = tile.mapPalette ? 0 : tile.colors;
             this.dither = tile.dither;
+            this.ditherMode = tile.ditherMode;
             this.sharp = tile.sharpPixels;
             // Ключ собирается каждый кадр для каждой картины и иконки — без String.format, дроби с точностью до 1/10000.
             this.key = new StringBuilder(64).append(tenThousandths(canvasW)).append('|').append(tenThousandths(canvasH))
-                .append('|').append(tenThousandths(padding)).append('|').append(fit).append('|').append(tenThousandths(ppb))
+                .append('|').append(tenThousandths(padding)).append('|').append(tenThousandths(zoom))
+                .append('|').append(fit).append('|').append(tenThousandths(ppb))
                 .append('|').append(tenThousandths(naturalPpb)).append('|').append(colors).append('|').append(dither)
-                .append('|').append(sharp ? 1 : 0).toString();
+                .append('|').append(ditherMode).append('|').append(sharp ? 1 : 0).toString();
         }
 
         private static long tenThousandths(double v) {
@@ -85,10 +88,11 @@ public final class ImageStylizer {
     /** @param src    пиксели исходника (ARGB), возможно уже уменьшенного @param origW  исходная ширина картинки до уменьшения — нужна для режимов none / scale-down */
     public static Result process(int[] src, int srcW, int srcH, int origW, int origH, Layout l) {
         Result res = new Result();
-        // Картинка вписывается в холст за вычетом отступа; в конце сдвигаем её обратно на отступ. Отрицательный отступ — область вписывания больше холста: картинка крупнее, а холст обрезает её по своим краям.
-        double pad = l.padding;
-        double canvasW = l.canvasW - 2 * pad, canvasH = l.canvasH - 2 * pad;
-        if (canvasW < 1e-6 || canvasH < 1e-6) {
+        // Картинка вписывается в холст за вычетом отступа, раздвинутый масштабом с каждой стороны (zoom > 0 — область больше, картинка крупнее; < 0 — мельче). Видна только часть внутри отступа. В конце сдвигаем всё обратно на край области вписывания.
+        double pad = l.padding, zoom = l.zoom;
+        double origin = pad - zoom;
+        double canvasW = l.canvasW - 2 * origin, canvasH = l.canvasH - 2 * origin;
+        if (l.canvasW - 2 * pad < 1e-6 || l.canvasH - 2 * pad < 1e-6 || canvasW < 1e-6 || canvasH < 1e-6) {
             res.empty = true;
             return res;
         }
@@ -126,8 +130,8 @@ public final class ImageStylizer {
             }
         }
 
-        // 2. Картинка центрирована на холсте, всё, что вылезает за область вписывания (и за сам холст, если она больше него), обрезается.
-        double cut = Math.max(0, -pad);
+        // 2. Картинка центрирована на холсте, всё, что вылезает за область вписывания (и за отступ, если масштаб раздвинул её дальше), обрезается.
+        double cut = Math.max(0, zoom);
         double rx0 = (canvasW - dw) / 2, ry0 = (canvasH - dh) / 2;
         double vx0 = Math.max(cut, rx0), vx1 = Math.min(canvasW - cut, rx0 + dw);
         double vy0 = Math.max(cut, ry0), vy1 = Math.min(canvasH - cut, ry0 + dh);
@@ -157,15 +161,16 @@ public final class ImageStylizer {
 
         int[] out = resample(src, srcW, srcH, sx0, sy0, sx1, sy1, outW, outH);
         if (l.sharp) sharpen(out);
-        posterize(out, outW, outH, l.colors, l.dither / (float) PictureSettings.MAX_DITHER, l.colors == 0);
+        posterize(out, outW, outH, l.colors, l.dither / (float) PictureSettings.MAX_DITHER, l.colors == 0,
+            l.ditherMode == PictureSettings.DITHER_ORDERED);
 
         res.pixels = out;
         res.width = outW;
         res.height = outH;
-        res.x0 = (float) (pad + vx0);
-        res.y0 = (float) (pad + vy0);
-        res.x1 = (float) (pad + vx1);
-        res.y1 = (float) (pad + vy1);
+        res.x0 = (float) (origin + vx0);
+        res.y0 = (float) (origin + vy0);
+        res.x1 = (float) (origin + vx1);
+        res.y1 = (float) (origin + vy1);
         return res;
     }
 
@@ -232,12 +237,18 @@ public final class ImageStylizer {
 
     // --------------------------------------------------------------------- Постеризация
 
-    /** Перевод в меньшее число цветов с дизерингом Флойда — Стейнберга: в палитру карт (mapPalette) или постеризация — у каждого канала levels ровных ступеней от 0 до 255. Прозрачность не меняется (на картах её нет — там пиксель либо виден, либо прозрачен), полностью прозрачные пиксели пропускаются. @param strength доля ошибки, которая переносится на соседей: 0 — без дизеринга (ровные пятна), 1 — полный (зернистый, зато плавные переходы). */
-    private static void posterize(int[] px, int w, int h, int levels, float strength, boolean mapPalette) {
+    /** Матрица Байера 4x4 для упорядоченного дизеринга: порог каждого пикселя по его месту в квадрате 4x4. */
+    private static final int[][] BAYER4 = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+    /** Упорядоченный дизеринг в палитру карт: размах сдвига — примерно расстояние между соседними цветами палитры (оттенки одного цвета карты отстоят на 35-40). */
+    private static final float PALETTE_SPREAD = 40;
+
+    /** Перевод в меньшее число цветов с дизерингом: в палитру карт (mapPalette) или постеризация — у каждого канала levels ровных ступеней от 0 до 255. Дизеринг — диффузия ошибки (Флойд - Стейнберг змейкой: плавно, точки вразброс) или упорядоченный (ordered: к пикселю добавляется сдвиг из матрицы Байера по его месту — точки ровной сеткой). Прозрачность не меняется (на картах её нет — там пиксель либо виден, либо прозрачен), полностью прозрачные пиксели пропускаются. @param strength сила дизеринга: 0 — без него (ровные пятна), 1 — полный (зернистый, зато плавные переходы). */
+    private static void posterize(int[] px, int w, int h, int levels, float strength, boolean mapPalette, boolean ordered) {
         float step = mapPalette ? 0 : 255f / (levels - 1);
+        float amplitude = (mapPalette ? PALETTE_SPREAD : step) * strength;
         float[] errCur = new float[(w + 2) * 3];
         float[] errNext = new float[(w + 2) * 3];
-        boolean dither = strength > 0;
+        boolean diffuse = strength > 0 && !ordered;
         for (int y = 0; y < h; y++) {
             // Змейкой (чётные строки слева направо, нечётные справа налево) — без "полос" в одну сторону.
             boolean ltr = (y & 1) == 0;
@@ -249,9 +260,10 @@ public final class ImageStylizer {
                 if (mapPalette && (c >>> 24) < 128) c = px[i] = 0;
                 if ((c >>> 24) == 0) continue;
                 int e = (x + 1) * 3;
-                int r = clamp255(((c >> 16) & 0xFF) + (dither ? errCur[e] : 0));
-                int g = clamp255(((c >> 8) & 0xFF) + (dither ? errCur[e + 1] : 0));
-                int b = clamp255((c & 0xFF) + (dither ? errCur[e + 2] : 0));
+                float shift = ordered ? ((BAYER4[y & 3][x & 3] + 0.5f) / 16 - 0.5f) * amplitude : 0;
+                int r = clamp255(((c >> 16) & 0xFF) + (diffuse ? errCur[e] : shift));
+                int g = clamp255(((c >> 8) & 0xFF) + (diffuse ? errCur[e + 1] : shift));
+                int b = clamp255((c & 0xFF) + (diffuse ? errCur[e + 2] : shift));
                 int qr, qg, qb;
                 if (mapPalette) {
                     int q = nearest(r, g, b);
@@ -265,7 +277,7 @@ public final class ImageStylizer {
                     qb = level(b, step);
                 }
                 px[i] = (c & 0xFF000000) | qr << 16 | qg << 8 | qb;
-                if (dither) {
+                if (diffuse) {
                     float dr = (r - qr) * strength;
                     float dg = (g - qg) * strength;
                     float db = (b - qb) * strength;

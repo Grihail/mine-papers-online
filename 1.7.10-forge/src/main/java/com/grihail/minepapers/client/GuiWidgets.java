@@ -3,6 +3,7 @@ package com.grihail.minepapers.client;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntBinaryOperator;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 
@@ -39,6 +40,8 @@ final class GuiWidgets {
     static final int PEN_U = 64, PEN_V = 64;
     /** "18+" 16x16 — на кнопке пометки NSFW: серая и красная (картина помечена). */
     static final int NSFW_U = 80, NSFW_ON_U = 96, NSFW_V = 64;
+    /** Виды дизеринга 16x16 — градиент, продизеренный каждым видом, по порядку PictureFrame.DITHER_*. */
+    static final int DITHER_ICON_U = 112, DITHER_ICON_V = 64;
     static final int ICON_RELOAD_U = 64, CHECK_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48,
         LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
@@ -205,20 +208,21 @@ final class GuiWidgets {
         }
     }
 
-    /** Ползунок высотой 20, как ванильный в настройках (GuiOptionSlider), с целым значением от min до max; подпись — label от значения, change — новое значение. Тянется, пока после клика по нему зажата кнопка мыши. Колёсико над ним (окно зовёт scroll) двигает его на wheelStep. */
+    /** Ползунок высотой 20, как ванильный в настройках (GuiOptionSlider), с целым значением от min до max; подпись — label от значения, change — новое значение. Тянется, пока после клика по нему зажата кнопка мыши. Колёсико над ним (окно зовёт scroll) меняет значение функцией wheel (значение, направление: 1 — вправо, -1 — влево). */
     static class Slider extends Widget {
 
-        private final int min, max, wheelStep;
+        private final int min, max;
+        private final IntBinaryOperator wheel;
         private final IntFunction<String> label;
         private final IntConsumer change;
         private int value;
         private boolean dragging;
 
-        Slider(int id, int x, int y, int w, int min, int max, int wheelStep, int value, IntFunction<String> label, IntConsumer change) {
+        Slider(int id, int x, int y, int w, int min, int max, IntBinaryOperator wheel, int value, IntFunction<String> label, IntConsumer change) {
             super(id, x, y, w, 20, "");
             this.min = min;
             this.max = max;
-            this.wheelStep = wheelStep;
+            this.wheel = wheel;
             this.label = label;
             this.change = change;
             setInt(value);
@@ -232,7 +236,7 @@ final class GuiWidgets {
 
         /** dir > 0 — вправо. Выключенный ползунок не двигается. */
         void scroll(int dir) {
-            if (enabled) change(value + dir * wheelStep);
+            if (enabled) change(wheel.applyAsInt(value, dir));
         }
 
         boolean isDragging() {

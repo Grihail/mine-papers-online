@@ -24,3 +24,21 @@ minecraft {
     mcVersion = '1.7.10'
     username = 'Developer'
 }
+
+// Библиотеки WebP распаковываются прямо в jar мода: вложенных jar в 1.7.10 нет.
+configurations {
+    shade
+    implementation.extendsFrom shade
+}
+
+dependencies {
+    webpLibs.each { shade it }
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from({ configurations.shade.collect { zipTree(it) } }) {
+        // Манифесты, подписи и module-info (Java 9+) чужих jar не нужны — читатель WebP регистрируется в коде.
+        exclude 'META-INF/**', 'module-info.class'
+    }
+}

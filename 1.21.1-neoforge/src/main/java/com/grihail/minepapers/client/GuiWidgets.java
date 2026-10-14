@@ -8,6 +8,7 @@ import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.GameProfile;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.IntBinaryOperator;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 
@@ -50,6 +51,8 @@ final class GuiWidgets {
     static final int PEN_U = 64, PEN_V = 64;
     /** "18+" 16x16 — на кнопке пометки NSFW: серая и красная (картина помечена). */
     static final int NSFW_U = 80, NSFW_ON_U = 96, NSFW_V = 64;
+    /** Виды дизеринга 16x16 — градиент, продизеренный каждым видом, по порядку PictureFrame.DITHER_*. */
+    static final int DITHER_ICON_U = 112, DITHER_ICON_V = 64;
     static final int ICON_RELOAD_U = 64, CHECK_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48, LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
@@ -210,18 +213,19 @@ final class GuiWidgets {
         }
     }
 
-    /** Ванильный ползунок с целым значением от min до max, подпись — label от значения; change — новое значение (перетаскиванием или колёсиком). Колёсико над ползунком двигает его на wheelStep: на себя — вправо, от себя — влево. */
+    /** Ванильный ползунок с целым значением от min до max, подпись — label от значения; change — новое значение (перетаскиванием или колёсиком). Колёсико над ползунком меняет значение функцией wheel (значение, направление: 1 — на себя, вправо; -1 — от себя, влево). */
     static class Slider extends AbstractSliderButton {
 
-        private final int min, max, wheelStep;
+        private final int min, max;
+        private final IntBinaryOperator wheel;
         private final IntFunction<Component> label;
         private final IntConsumer change;
 
-        Slider(int x, int y, int w, int min, int max, int wheelStep, int value, IntFunction<Component> label, IntConsumer change) {
+        Slider(int x, int y, int w, int min, int max, IntBinaryOperator wheel, int value, IntFunction<Component> label, IntConsumer change) {
             super(x, y, w, 20, Component.empty(), 0);
             this.min = min;
             this.max = max;
-            this.wheelStep = wheelStep;
+            this.wheel = wheel;
             this.label = label;
             this.change = change;
             setInt(value);
@@ -254,7 +258,7 @@ final class GuiWidgets {
         public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
             if (scrollY == 0 || !isMouseOver(mouseX, mouseY)) return false;
             int v = getInt();
-            setInt(v + (scrollY < 0 ? wheelStep : -wheelStep));
+            setInt(wheel.applyAsInt(v, scrollY < 0 ? 1 : -1));
             if (getInt() != v) change.accept(getInt());
             return true;
         }

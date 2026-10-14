@@ -46,7 +46,8 @@ public final class Numbers {
     public static final Field INTERVAL = new Field(false, 1, 999999),
         SIZE = new Field(true, 0, PictureSettings.MAX_SIZE_BLOCKS),
         OFFSET = new Field(true, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY),
-        PADDING = new Field(true, -PictureSettings.MAX_SIZE_BLOCKS / 2, PictureSettings.MAX_SIZE_BLOCKS / 2),
+        PADDING = new Field(true, 0, PictureSettings.MAX_SIZE_BLOCKS / 2),
+        ZOOM = new Field(true, -PictureSettings.MAX_SIZE_BLOCKS / 2, PictureSettings.MAX_SIZE_BLOCKS / 2),
         MOLDING = new Field(false, 0, PictureSettings.MAX_MOLDING);
 
     /** Числовое поле: дробное ли оно, бывает ли меньше нуля, и пределы, в которых его меняют стрелки и колёсико. */
