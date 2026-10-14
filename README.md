@@ -1,383 +1,385 @@
 # Mine Papers Online
 
-Мод для Minecraft, который добавляет рамку для своих картин. В рамку можно повесить картинку с компьютера, слайдшоу из папки, картинку по ссылке или из публичной папки Яндекс Диска. Картинки с компьютера игрока выкладываются на сервер, поэтому их видят все игроки.
+**English** | [Русский](README.ru.md)
 
-Мод собирается сразу под несколько версий игры из одного репозитория:
+A Minecraft mod that adds a frame for your own pictures. The frame can show a picture from your computer, a slideshow from a folder, a picture from a link, or one from a public Yandex Disk folder. Pictures from a player's computer are uploaded to the server, so every player sees them.
 
-| Версия Minecraft | Загрузчик | Java |
+The mod is built for several game versions from a single repository:
+
+| Minecraft version | Loader | Java |
 | --- | --- | --- |
 | 1.7.10 | Forge 10.13.4.1614 | 8 |
 | 1.21.1 | NeoForge 21.1.259 | 21 |
 
-Автор: Grihail. Лицензия: [LGPLv3](COPYING.LESSER). Список изменений: [CHANGELOG.md](CHANGELOG.md).
+Author: Grihail. License: [LGPLv3](COPYING.LESSER). Changelog: [CHANGELOG.md](CHANGELOG.md).
 
-## Содержание
+## Contents
 
-- [Что умеет мод](#что-умеет-мод)
-- [Сборка](#сборка)
-- [Структура репозитория](#структура-репозитория)
-- [Общий код и адаптеры](#общий-код-и-адаптеры)
-- [Словари](#словари)
-- [Ресурсы](#ресурсы)
-- [Данные и форматы](#данные-и-форматы)
-- [Сетевые пакеты](#сетевые-пакеты)
-- [Как добавить новую версию игры](#как-добавить-новую-версию-игры)
-- [Тестирование](#тестирование)
-- [Правила проекта](#правила-проекта)
-- [Лицензия](#лицензия)
+- [Features](#features)
+- [Building](#building)
+- [Repository layout](#repository-layout)
+- [Common code and adapters](#common-code-and-adapters)
+- [Translations](#translations)
+- [Resources](#resources)
+- [Data and formats](#data-and-formats)
+- [Network packets](#network-packets)
+- [Adding a new game version](#adding-a-new-game-version)
+- [Testing](#testing)
+- [Project rules](#project-rules)
+- [License](#license)
 
-## Что умеет мод
+## Features
 
-### Рамка для картин
+### Picture frame
 
-Рамка крафтится без формы из ванильной рамки и картины. Ставится на любую грань блока: на стену, на пол и на потолок. На полу и потолке верх картинки смотрит туда, куда смотрел игрок при установке. Картина прижимается к настоящей поверхности блока, поэтому её можно повесить на полублок, ковёр или боковину забора.
+The frame is crafted (shapeless) from a vanilla item frame and a painting. It can be placed on any face of a block: on a wall, on the floor and on the ceiling. On the floor and ceiling the top of the picture points where the player was looking when placing it. The picture sits flush against the actual block surface, so it can hang on a slab, a carpet or the side of a fence.
 
-В мире картина является сущностью, как ванильные картины и рамки. Она не занимает клеток, поэтому рядом и в той же клетке могут стоять блоки и другие картины. Опора ей не нужна. Нельзя только провести холст сквозь коллизию блока или другую картину. Две картины на перпендикулярных стенах могут сходиться во внутреннем углу.
+In the world the picture is an entity, like vanilla paintings and item frames. It does not occupy block cells, so blocks and other pictures can stand next to it and in the same cell. It needs no support. The only restriction is that the canvas cannot pass through a block's collision or another picture. Two pictures on perpendicular walls can meet in an inner corner.
 
-Пока в руке рамка, на месте будущей картины виден её контур. Если поставить нельзя, контур красный.
+While holding a frame, the outline of the future picture is shown where it will go. If it cannot be placed there, the outline is red.
 
-Окно настройки открывается кликом ПКМ по висящей картине или ПКМ с рамкой в руке, если не смотреть на блок. Во втором случае настройки сохраняются в самом предмете, и картина повесится уже настроенной. Пока окно открыто, предмет нельзя переложить. Окно настраивает сразу всю стопку в руке.
+The settings window opens by right-clicking a hanging picture, or by right-clicking with a frame in hand while not looking at a block. In the second case the settings are stored in the item itself, and the picture is hung already configured. While the window is open the item cannot be moved. The window configures the whole stack in hand at once.
 
-### Источники картинок
+### Picture sources
 
-| Источник | Что указывается |
+| Source | What you enter |
 | --- | --- |
-| config/minepapers | Файл или подпапка внутри папки `config/minepapers`. Кнопки `<` и `>` перебирают то, что в ней лежит. |
-| Яндекс Диск | Ссылка на публичную папку или файл. Работает без авторизации, через публичный API. |
-| Папка на компьютере | Полный путь к папке или файлу. |
-| Ссылка на картинку | Прямая ссылка `http` или `https` на сам файл картинки. |
+| config/minepapers | A file or subfolder inside the `config/minepapers` folder. The `<` and `>` buttons cycle through what is there. |
+| Yandex Disk | A link to a public folder or file. Works without authorization, through the public API. |
+| Folder on this PC | The full path to a folder or file. |
+| Picture link | A direct `http` or `https` link to the image file itself. |
 
-Поддерживаются форматы png, jpg (включая jfif, jpe, jif, pjpeg, pjp), gif и bmp. Анимированный GIF показывается с анимацией.
+Supported formats are png, jpg (including jfif, jpe, jif, pjpeg, pjp), gif and bmp. Animated GIFs are shown animated.
 
-Если в источнике несколько картинок, рамка показывает их слайдшоу с заданным интервалом в секундах. Порядок случайный, но считается от игрового времени и места рамки. Поэтому все игроки видят одну и ту же картинку, а две рамки с одной папкой показывают разное. За один круг каждая картинка показывается один раз.
+If the source has several pictures, the frame shows them as a slideshow with the given interval in seconds. The order is random, but it is derived from the game time and the frame's position. So all players see the same picture, while two frames with the same folder show different ones. Each picture is shown once per cycle.
 
-### Размер и место
+### Size and position
 
-- Ширина и высота холста задаются в блоках или в пикселях (1 пиксель равен 1/16 блока). От 1 пикселя до 64 блоков. Размер холста одновременно является хитбоксом картины.
-- Если ширину или высоту оставить 0, при сохранении она считается по пропорциям текущей картинки.
-- Смещение холста вправо и вверх от клетки, по которой кликнули. Холст всегда перекрывает эту клетку хотя бы на пиксель.
-- Внутренний отступ картинки от краёв холста.
-- Вписывание картинки в холст работает как CSS `object-fit`, всегда от центра: fill, contain, cover, none, scale-down.
+- Canvas width and height are set in blocks or in pixels (1 pixel is 1/16 of a block). From 1 pixel up to 64 blocks. The canvas size is also the picture's hitbox.
+- If width or height is left at 0, it is calculated from the current picture's proportions on save.
+- Canvas offset to the right and up from the clicked cell. The canvas always covers that cell by at least one pixel.
+- Padding between the image and the canvas edges.
+- Fitting the image into the canvas works like CSS `object-fit`, always from the center: fill, contain, cover, none, scale-down.
 
-### Вид и стиль
+### Look and style
 
-Рамка и холст выбираются по отдельности на вкладке "Рамка", кнопками справа от их слотов. Первая кнопка в ряду - глаз: он выключает рамку или холст.
+The frame and the canvas are chosen separately on the "Frame" tab, with the buttons to the right of their slots. The first button in each row is an eye: it turns the frame or canvas off.
 
-| Рамка | Как выглядит |
+| Frame | Looks like |
 | --- | --- |
-| Без рамки | Рамки нет. Торцы холста из его же материала. |
-| Обшивка | Рамка обшивает только торцы холста (как вид "Панель"). |
-| Багет | Настоящая рамка: заходит на картинку на 2 пикселя и выступает над ней. |
+| No frame | No frame. The canvas edges are made of the canvas material. |
+| Edges | The frame covers only the canvas edges (like the "Panel" look). |
+| Molding | A real frame: it covers 2 pixels of the picture and sticks out above it. |
 
-| Холст | Как выглядит |
+| Canvas | Looks like |
 | --- | --- |
-| Без холста | Картинка прямо на стене. Без рамки это граффити: PNG с прозрачным фоном выглядит как надпись или рисунок на стене. Обшивки без холста нет, багет можно. |
-| Холст из блока | Картинка на холсте толщиной в пиксель. |
-| Сама картинка | Картинка толщиной в пиксель, торцы растягивают её крайние пиксели. |
+| No canvas | The picture is right on the wall. Without a frame it is graffiti: a PNG with a transparent background looks like writing or a drawing on the wall. Edges are not available without a canvas, molding is. |
+| Block canvas | The picture on a 1-pixel thick canvas. |
+| Picture itself | The picture is 1 pixel thick, the edges stretch its outer pixels. |
 
-На вкладке "Стиль" выбираются цвета и разрешение.
+Colors and resolution are chosen on the "Style" tab.
 
-Стиль цвета:
+Color style:
 
-- исходные цвета (у новой картины);
-- палитра карт Minecraft;
-- палитра с дизерингом;
-- палитра с мягким дизерингом.
+- original colors (default for a new picture);
+- Minecraft map palette;
+- palette with dithering;
+- palette with soft dithering.
 
-Разрешение задаётся в пикселях на блок, от 1 до 256. 128 даёт вид карты в рамке, 16 даёт вид ванильной картины.
+Resolution is set in pixels per block, from 1 to 256. 128 looks like a map in an item frame, 16 looks like a vanilla painting.
 
-Картинка освещается плавно, как ванильные блоки.
+The picture uses smooth lighting, like vanilla blocks.
 
-### Материалы и свечение
+### Materials and glow
 
-На вкладке "Рамка" три слота:
+The "Frame" tab has three slots:
 
-- **Рамка.** Блок, из текстуры которого сделана рамка.
-- **Холст.** Блок, из текстуры которого сделан холст.
-- **Свечение.** Светящийся блок. Картина светит миру с его силой: перед холстом ставятся невидимые блоки света. Пыль светокамня делает картину яркой, но не освещает ничего вокруг.
+- **Frame.** The block whose texture the frame is made of.
+- **Canvas.** The block whose texture the canvas is made of.
+- **Glow.** A light-emitting block. The picture lights the world with its light level: invisible light blocks are placed in front of the canvas. Glowstone dust makes the picture bright but does not light anything around it.
 
-В слот кладётся настоящий предмет. Когда картину ломают, предметы остаются в её дропе.
+The slot takes a real item. When the picture is broken, the items are part of its drop.
 
-Под слотами нет названий блоков: их видно в подсказке самого блока. У свечения написана сила света. Слот рамки или холста, который выбранному виду не нужен, становится бледным, а его блоки возвращаются игроку при закрытии окна.
+There are no block names under the slots: they are shown in the block's own tooltip. The glow slot shows the light level. A frame or canvas slot that the chosen look does not need turns pale, and its blocks are returned to the player when the window closes.
 
-У стопки картин в руке в слоте лежит по блоку на каждую картину: у стопки из 16 картин с дубовой рамкой в слоте 16 досок. Положить в пустой слот стопку блоков значит дать материал стольким картинам, сколько блоков положено. Забрать из слота часть блоков значит снять материал со стольких же картин. Если изменились не все картины стопки, изменённые отделяются от неё и попадают в инвентарь, а если места нет, выпадают на землю. Правая кнопка мыши кладёт один блок или забирает половину, Shift+клик забирает все блоки в инвентарь. Сервер может это запретить (см. [Настройки мода](#настройки-мода)): тогда материалы меняются только у одной картины в руке.
+For a stack of pictures in hand, the slot holds one block per picture: a stack of 16 pictures with an oak frame has 16 planks in the slot. Putting a stack of blocks into an empty slot gives the material to as many pictures as there are blocks. Taking some blocks out of the slot removes the material from the same number of pictures. If not all pictures in the stack changed, the changed ones are split off into the inventory, or dropped on the ground if there is no room. Right-click puts one block or takes half, Shift+click moves all blocks to the inventory. The server can forbid this (see [Mod settings](#mod-settings)): then materials change only for a single picture in hand.
 
-### Заголовок, описание и приват
+### Title, description and lock
 
-- У картины есть заголовок и описание. Заголовок виден под картиной, когда на неё смотрят с зажатым Shift (у картины на полу - над ней). Оба видны в подсказке предмета.
-- Ссылки `http` и `https` в описании подчёркиваются. В окне чужой картины по ним можно кликнуть.
-- Замок делает картину приватной. Менять её может только владелец. Остальные видят только заголовок и описание, но сломать картину может любой. Приватная картина в инвентаре блестит, как зачарованный предмет.
-- Кнопка с пером над замком подписывает картину. Подписать можно только картину без привата и только один раз. Подписать можно только одну картину, не стопку в руке. Сначала игрок подтверждает подпись в ванильном окне "Да / Нет". После этого её уже не отменить, даже если закрыть замок: она ставится при закрытии окна картины и остаётся навсегда. Подпись уникальна: её нет в конфиге для копирования, подписанную картину нельзя скопировать крафтом и нельзя сбросить до чистой рамки (вынуть материалы можно). После этого в кнопке видна голова подписавшего, а в подсказке его ник. Если смотреть на картину с зажатым Shift, рядом с заголовком курсивом виден ник подписавшего: "Заголовок - ник". Подпись видна и в подсказке предмета.
+- A picture has a title and a description. The title shows under the picture when you look at it while holding Shift (above it for a picture on the floor). Both are shown in the item tooltip.
+- `http` and `https` links in the description are underlined. In the window of someone else's picture they can be clicked.
+- The lock makes the picture private. Only the owner can change it. Others see only the title and description, but anyone can break the picture. A private picture in the inventory has the enchantment glint.
+- The quill button above the lock signs the picture. Only an unlocked picture can be signed, and only once. Only a single picture can be signed, not a stack in hand. First the player confirms the signature in a vanilla "Yes / No" dialog. After that it cannot be undone, even by closing the lock: it is applied when the picture window closes and stays forever. A signature is unique: it is not in the config for copying, a signed picture cannot be copied by crafting and cannot be reset to a blank frame (materials can still be taken out). After signing, the button shows the signer's head and the tooltip shows their nickname. When looking at the picture while holding Shift, the signer's nickname is shown in italics next to the title: "Title - nickname". The signature is also shown in the item tooltip.
 
-### Копирование настроек
+### Copying settings
 
-Кнопки справа от окна копируют все настройки картины в буфер обмена в виде JSON и вставляют их обратно. JSON можно поправить в любом текстовом редакторе и вставить в другую картину, в том числе в другой версии игры. При вставке материалы берутся из инвентаря игрока, а в творческом режиме создаются. Если чего-то не хватает, мод пишет об этом в чат.
+The buttons to the right of the window copy all picture settings to the clipboard as JSON and paste them back. The JSON can be edited in any text editor and pasted into another picture, even in another game version. On paste, materials are taken from the player's inventory, or created in creative mode. If something is missing, the mod says so in chat.
 
-### Поведение в мире
+### Behavior in the world
 
-- В выживании картину ломают так же долго, как деревянный блок. Топор работает быстрее, в воде и в прыжке медленнее. В творческом режиме картина ломается сразу.
-- Взрывы ломают картину с дропом.
-- Картину можно открыть или сломать с того же расстояния, с какого игрок дотягивается до блоков.
-- Средняя кнопка мыши в творческом режиме даёт копию картины со всеми настройками.
-- Сломанная картина выпадает предметом, в котором сохранены её настройки.
+- In survival, breaking a picture takes as long as a wooden block. An axe is faster, in water and while jumping it is slower. In creative mode the picture breaks instantly.
+- Explosions break the picture and drop it.
+- A picture can be opened or broken from the same distance at which the player reaches blocks.
+- Middle-click in creative mode gives a copy of the picture with all its settings.
+- A broken picture drops as an item that keeps its settings.
 
-### Рецепты
+### Recipes
 
-| Рецепт | Результат |
+| Recipe | Result |
 | --- | --- |
-| Рамка + картина | Новая рамка для картин. |
-| Настроенная рамка + пустые рамки | Столько же копий настроенной рамки, но без материалов. Подписанную копировать нельзя. |
-| Одна настроенная рамка с материалами | Материалы возвращаются игроку, картина остаётся с настройками в виде граффити. |
-| Одна настроенная рамка без материалов | Чистая рамка. Подписанную сбросить нельзя. |
+| Item frame + painting | A new picture frame. |
+| Configured frame + blank frames | The same number of copies of the configured frame, without materials. A signed one cannot be copied. |
+| A single configured frame with materials | The materials are returned to the player, the picture keeps its settings as graffiti. |
+| A single configured frame without materials | A blank frame. A signed one cannot be reset. |
 
-Приватные картины в рецептах копирования не участвуют.
+Private pictures do not take part in copy recipes.
 
-### Картинки на сервере
+### Pictures on the server
 
-Картинки из локальных источников (config/minepapers и папка на компьютере) есть только у того игрока, на чьём компьютере они лежат. Поэтому при сохранении настроек мод выкладывает их на сервер:
+Pictures from local sources (config/minepapers and a folder on the computer) exist only on the computer of the player who has them. So when settings are saved, the mod uploads them to the server:
 
-1. Клиент готовит файлы. Небольшие png, jpg и gif отправляются как есть. Остальные уменьшаются до 2048 пикселей по большей стороне и пережимаются в PNG (если есть прозрачность) или в JPEG.
-2. Клиент отправляет серверу список SHA-1 этих файлов.
-3. Сервер просит только те файлы, которых у него ещё нет, и принимает только их.
-4. Когда все файлы на месте, сервер записывает список в картину, и её видят все игроки.
+1. The client prepares the files. Small png, jpg and gif files are sent as is. Others are scaled down to 2048 pixels on the longer side and re-encoded as PNG (if they have transparency) or JPEG.
+2. The client sends the server a list of SHA-1 hashes of these files.
+3. The server asks only for the files it does not have yet, and accepts only those.
+4. Once all files are in place, the server writes the list into the picture, and all players see it.
 
-Другие игроки скачивают картинки с сервера по одной и хранят их в кэше на диске. Одинаковые файлы из разных рамок и от разных игроков хранятся и скачиваются один раз.
+Other players download the pictures from the server one by one and keep them in a disk cache. Identical files from different frames and different players are stored and downloaded only once.
 
-Картинки из интернета (Яндекс Диск и ссылки) на сервер не выкладываются, каждый игрок скачивает их сам.
+Pictures from the internet (Yandex Disk and links) are not uploaded to the server, each player downloads them on their own.
 
-В одиночной игре и в мире, открытом для сети, хост выкладывает картинки своих рамок автоматически.
+In singleplayer and in a world opened to LAN, the host uploads the pictures of their frames automatically.
 
-### Настройки мода
+### Mod settings
 
-Файл `config/minepapers.json` один для всех версий игры. Мод создаёт его при первом запуске и читает при каждом запуске. В файле можно писать комментарии `//`. Действуют настройки сервера: на клиенте мира, подключённого к серверу, файл ни на что не влияет.
+The `config/minepapers.json` file is shared by all game versions. The mod creates it on first launch and reads it on every launch. The file may contain `//` comments. The server's settings apply: on a client connected to a server the file has no effect.
 
-| Ключ | По умолчанию | Что делает |
+| Key | Default | What it does |
 | --- | --- | --- |
-| `stackMaterials` | `true` | `true`: стопка картин в руке меняет материалы целиком, по блоку на картину. `false`: материалы меняются только у одной картины в руке, у стопки слоты материалов заперты, а на вкладке "Рамка" написано почему. Так админ сервера может запретить игрокам массово делать картины с материалами. |
+| `stackMaterials` | `true` | `true`: a stack of pictures in hand changes materials as a whole, one block per picture. `false`: materials change only for a single picture in hand, a stack's material slots are locked, and the "Frame" tab says why. This lets a server admin prevent players from mass-producing pictures with materials. |
 
-## Сборка
+## Building
 
-Gradle запускается на JDK 25: плагин RetroFuturaGradle для 1.7.10 собран под Java 25. Java 8 и Java 21 для самих версий мода Gradle находит сам через toolchains.
+Gradle runs on JDK 25: the RetroFuturaGradle plugin for 1.7.10 is built for Java 25. Gradle finds Java 8 and Java 21 for the mod versions themselves through toolchains.
 
 ```bat
 set JAVA_HOME=C:\Program Files\Java\jdk-25
 gradlew build
 ```
 
-В PowerShell:
+In PowerShell:
 
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-25'
 .\gradlew.bat build
 ```
 
-Готовые файлы:
+Output files:
 
 ```
-1.7.10-forge/build/libs/MinePapersOnline-1.7.10-forge-<версия>.jar
-1.21.1-neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<версия>.jar
+1.7.10-forge/build/libs/MinePapersOnline-1.7.10-forge-<version>.jar
+1.21.1-neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<version>.jar
 ```
 
-Версия мода задаётся в `gradle.properties` (`mod_version`).
+The mod version is set in `gradle.properties` (`mod_version`).
 
-Собрать одну версию:
+Build a single version:
 
 ```bat
 gradlew :1.21.1-neoforge:build
 ```
 
-Только проверить, что всё компилируется:
+Only check that everything compiles:
 
 ```bat
 gradlew compileJava
 ```
 
-Если декомпиляция Minecraft падает с ошибкой "paging file is too small", на компьютере кончилась память. Обычно помогает закрыть запущенные клиенты Minecraft.
+If Minecraft decompilation fails with "paging file is too small", the computer ran out of memory. Closing running Minecraft clients usually helps.
 
-## Структура репозитория
+## Repository layout
 
 ```
 Mine Papers Online/
-    build.gradle            общие настройки всех версий
-    settings.gradle         список подпроектов-версий
-    gradle.properties       группа, имя и версия мода
-    common/                 всё, что одинаково для всех версий
-        java/               общий код (Java 8, без API Minecraft)
-        lang/               словари в формате JSON
-        resources/          текстуры и таблица предметов
-    1.7.10-forge/           версия под Minecraft 1.7.10 + Forge
-    1.21.1-neoforge/        версия под Minecraft 1.21.1 + NeoForge
+    build.gradle            shared settings for all versions
+    settings.gradle         list of version subprojects
+    gradle.properties       mod group, name and version
+    common/                 everything shared by all versions
+        java/               shared code (Java 8, no Minecraft API)
+        lang/               translations in JSON format
+        resources/          textures and item table
+    1.7.10-forge/           Minecraft 1.7.10 + Forge version
+    1.21.1-neoforge/        Minecraft 1.21.1 + NeoForge version
 ```
 
-### Подпроекты-версии
+### Version subprojects
 
-Каждая пара "версия Minecraft + загрузчик" живёт в своей папке с именем `<версия>-<загрузчик>`. Версия Minecraft берётся из первой части имени папки, поэтому имя важно.
+Each "Minecraft version + loader" pair lives in its own folder named `<version>-<loader>`. The Minecraft version is taken from the first part of the folder name, so the name matters.
 
-Корневой `build.gradle` для каждого подпроекта:
+For each subproject, the root `build.gradle`:
 
-- подключает `common/java` как дополнительную папку исходников;
-- копирует `common/resources` в jar. Для версий до 1.13 папки `textures/block` и `textures/item` переименовываются в `textures/blocks` и `textures/items`;
-- кладёт словари из `common/lang` в `assets/minepapers/lang`. Для версий до 1.13 они переводятся в формат `.lang` (см. [Словари](#словари));
-- подставляет версию мода и версию Minecraft в `mcmod.info` и `META-INF/neoforge.mods.toml`.
+- adds `common/java` as an extra source folder;
+- copies `common/resources` into the jar. For versions before 1.13 the `textures/block` and `textures/item` folders are renamed to `textures/blocks` and `textures/items`;
+- puts the translations from `common/lang` into `assets/minepapers/lang`. For versions before 1.13 they are converted to the `.lang` format (see [Translations](#translations));
+- fills in the mod version and Minecraft version in `mcmod.info` and `META-INF/neoforge.mods.toml`.
 
-В `build.gradle` самой версии остаётся только её плагин, версия Java и версия загрузчика.
+A version's own `build.gradle` only keeps its plugin, Java version and loader version.
 
 ### common/java
 
-Пакет `com.grihail.minepapers`. Здесь только то, что не зависит от версии игры. Код должен собираться на Java 8 и не может обращаться к классам Minecraft и загрузчиков. Можно использовать библиотеки, которые есть во всех версиях игры: Gson и log4j.
+Package `com.grihail.minepapers`. Only things that do not depend on the game version go here. The code must build on Java 8 and cannot use Minecraft or loader classes. Libraries present in all game versions can be used: Gson and log4j.
 
-| Файл | Что делает |
+| File | What it does |
 | --- | --- |
-| `picture/PictureSettings.java` | Место и настройки картины: поля, константы (`SOURCE_*`, `FIT_*`, `MODE_*`, `STYLE_*`), ключ источника, размеры в блоках, чтение и запись NBT через адаптер `Tag`. Версия наследует отсюда `PictureFrame`. |
-| `picture/CanvasGeometry.java` | Геометрия картины: оси "координат стены", угол клетки рамки, рамка холста в мире, клетки света, стык картин в углу. Версия наследует отсюда `FrameGeometry`. |
-| `ModConfig.java` | Настройки мода из `config/minepapers.json`. |
-| `picture/MaterialStack.java` | Слот материала у стопки картин: сколько картин меняет клик и можно ли менять стопку. |
-| `picture/PictureTarget.java` | Что настраивает окно, одним числом для пакетов: id картины-сущности или слот картины-предмета в инвентаре игрока. |
-| `picture/PictureConfig.java` | Настройки картины в виде JSON для копирования и вставки. Перевод названий предметов между версиями до 1.13 и после. |
-| `picture/Links.java` | Поиск ссылок в описании. |
-| `picture/Numbers.java` | Разбор чисел из полей окна и их запись без лишних нулей. |
-| `client/PictureManager.java` | Загрузка картинок из всех источников, декодирование, кэш в памяти, слайдшоу, выгрузка текстур, которые давно не рисовали. |
-| `client/ImageStylizer.java` | Подготовка текстуры под холст: вписывание, пикселизация, палитра карт, дизеринг. |
-| `client/GifFrames.java` | Сборка кадров анимированного GIF в полные картинки. |
-| `client/ImageSync.java` | Клиентская часть обмена картинками с сервером: подготовка и выкладывание, скачивание в кэш. |
-| `client/ClientHost.java` | Адаптер: что клиентскому коду нужно от версии игры. |
-| `server/ImageStore.java` | Серверная часть обмена картинками: приём, хранение в папке мира, раздача игрокам. |
-| `server/ServerHost.java` | Адаптер: что серверному коду нужно от версии игры. |
-| `network/SharedImage.java` | Формат картинки на сервере, SHA-1, размеры кусков в пакетах. |
+| `picture/PictureSettings.java` | Picture position and settings: fields, constants (`SOURCE_*`, `FIT_*`, `MODE_*`, `STYLE_*`), source key, size in blocks, NBT read and write through the `Tag` adapter. The version's `PictureFrame` extends it. |
+| `picture/CanvasGeometry.java` | Picture geometry: "wall coordinate" axes, the frame cell corner, the canvas box in the world, light cells, pictures meeting in a corner. The version's `FrameGeometry` extends it. |
+| `ModConfig.java` | Mod settings from `config/minepapers.json`. |
+| `picture/MaterialStack.java` | Material slot for a stack of pictures: how many pictures a click changes and whether the stack may be changed. |
+| `picture/PictureTarget.java` | What the window configures, as a single number for packets: the picture entity id or the inventory slot of the picture item. |
+| `picture/PictureConfig.java` | Picture settings as JSON for copy and paste. Translation of item names between versions before and after 1.13. |
+| `picture/Links.java` | Finding links in the description. |
+| `picture/Numbers.java` | Parsing numbers from window fields and writing them without trailing zeros. |
+| `client/PictureManager.java` | Loading pictures from all sources, decoding, memory cache, slideshow, unloading textures that have not been drawn for a while. |
+| `client/ImageStylizer.java` | Preparing the texture for the canvas: fitting, pixelation, map palette, dithering. |
+| `client/GifFrames.java` | Assembling animated GIF frames into full images. |
+| `client/ImageSync.java` | Client side of picture exchange with the server: preparing and uploading, downloading into the cache. |
+| `client/ClientHost.java` | Adapter: what the client code needs from the game version. |
+| `server/ImageStore.java` | Server side of picture exchange: receiving, storing in the world folder, serving to players. |
+| `server/ServerHost.java` | Adapter: what the server code needs from the game version. |
+| `network/SharedImage.java` | Server picture format, SHA-1, packet chunk sizes. |
 
-### Папки версий
+### Version folders
 
-Обе версии устроены одинаково. Пакеты внутри `com.grihail.minepapers`:
+Both versions are organized the same way. Packages inside `com.grihail.minepapers`:
 
-| Пакет или файл | Что в нём |
+| Package or file | Contents |
 | --- | --- |
-| `MinePapers.java` | Главный класс мода: регистрация предмета, сущности, рецептов, окна, пакетов. Здесь же путь к `config/minepapers`. |
-| `CommonProxy.java`, `client/ClientProxy.java` | Код, который на клиенте и сервере работает по-разному. |
-| `picture/PictureFrame.java` | Настройки картины плюс материалы (предметы в слотах). |
-| `picture/NbtTag.java` | Адаптер NBT этой версии для `PictureSettings`. |
-| `picture/FrameGeometry.java` | Проверки по миру: пересекается ли холст с блоками и другими картинами. |
-| `picture/EntityPicture.java` | Сущность картины: хитбокс, свет, ломание, сохранение, синхронизация с клиентами. |
-| `picture/FrameHolder.java` | Картина, которую настраивает окно: сущность или предмет в инвентаре. Чтение настроек предмета и запись в него. |
-| `picture/ContainerPictureFrame.java` | Контейнер окна: инвентарь игрока и слоты материалов. Слот с настраиваемым предметом заперт. Клики по слотам материалов обрабатывает сервер: стопка картин меняется целиком или изменённые картины отделяются от неё. |
-| `client/GuiPictureFrame.java` | Окно настройки картины. |
-| `client/GuiWidgets.java` | Кнопки, вкладки, галочки и замок окна. Рисуются ванильными текстурами. |
-| `client/RenderPicture.java` | Отрисовка картины в мире. |
-| `client/RenderPictureItem.java` | Иконка предмета с миниатюрой картинки. |
-| `client/PictureControls.java` | Наведение на картину, её ломание, обводка и контур будущей картины. |
-| `client/FrameSkin.java` | Текстура рамки или холста по предмету из слота. |
-| `client/MinePapersClientHost.java` | Реализация `ClientHost` для этой версии. |
-| `server/ServerImages.java` | Права игроков на картину и реализация `ServerHost`. |
-| `network/` | Сетевые пакеты (см. [Сетевые пакеты](#сетевые-пакеты)). |
+| `MinePapers.java` | Main mod class: registers the item, entity, recipes, window and packets. Also holds the path to `config/minepapers`. |
+| `CommonProxy.java`, `client/ClientProxy.java` | Code that works differently on client and server. |
+| `picture/PictureFrame.java` | Picture settings plus materials (items in the slots). |
+| `picture/NbtTag.java` | This version's NBT adapter for `PictureSettings`. |
+| `picture/FrameGeometry.java` | World checks: whether the canvas intersects blocks and other pictures. |
+| `picture/EntityPicture.java` | Picture entity: hitbox, light, breaking, saving, syncing to clients. |
+| `picture/FrameHolder.java` | The picture the window configures: an entity or an item in the inventory. Reading and writing the item's settings. |
+| `picture/ContainerPictureFrame.java` | Window container: player inventory and material slots. The slot with the item being configured is locked. Clicks on material slots are handled by the server: a stack of pictures changes as a whole, or the changed pictures are split off from it. |
+| `client/GuiPictureFrame.java` | Picture settings window. |
+| `client/GuiWidgets.java` | Buttons, tabs, checkboxes and the lock of the window. Drawn with vanilla textures. |
+| `client/RenderPicture.java` | Rendering the picture in the world. |
+| `client/RenderPictureItem.java` | Item icon with a picture thumbnail. |
+| `client/PictureControls.java` | Picture targeting, breaking, outline and the outline of the future picture. |
+| `client/FrameSkin.java` | Frame or canvas texture from the item in the slot. |
+| `client/MinePapersClientHost.java` | `ClientHost` implementation for this version. |
+| `server/ServerImages.java` | Player permissions for a picture and the `ServerHost` implementation. |
+| `network/` | Network packets (see [Network packets](#network-packets)). |
 
-Отличия версий:
+Version differences:
 
-- **1.7.10.** Предмет картины является `ItemBlock` блока `BlockPictureFrame`, рецепт и предмет лежат в пакете `block`. В пакете `block` есть классы для старых сохранений, где картины были блоками: `TileLegacyPicture` превращает такую картину в сущность, `BlockPictureFiller` убирает лишние части. Свет ставится своим невидимым блоком `BlockPictureLight`. Своё многострочное поле ввода `GuiTextArea`, потому что в 1.7.10 его нет.
-- **1.21.1.** Предмет и рецепт в пакете `item`. Настройки хранятся в компоненте предмета `minepapers:frame`. Свет ставится ванильным блоком `minecraft:light`. Подсказки окна сделаны ванильными `Tooltip`. Клиентская регистрация в `client/MinePapersClient.java`, свои типы отрисовки в `client/PictureRenderTypes.java`, регистрация пакетов в `network/Network.java`.
+- **1.7.10.** The picture item is the `ItemBlock` of the `BlockPictureFrame` block; the recipe and item are in the `block` package. The `block` package also has classes for old saves where pictures were blocks: `TileLegacyPicture` turns such a picture into an entity, `BlockPictureFiller` removes leftover parts. Light is placed with a custom invisible block `BlockPictureLight`. A custom multiline text field `GuiTextArea`, because 1.7.10 has none.
+- **1.21.1.** The item and recipe are in the `item` package. Settings are stored in the `minepapers:frame` item component. Light is placed with the vanilla `minecraft:light` block. Window tooltips use vanilla `Tooltip`. Client registration is in `client/MinePapersClient.java`, custom render types in `client/PictureRenderTypes.java`, packet registration in `network/Network.java`.
 
-## Общий код и адаптеры
+## Common code and adapters
 
-Общий код не знает классов Minecraft. Всё, что зависит от версии, он получает через небольшие адаптеры. Версия реализует их у себя и подключает при запуске.
+The common code does not know Minecraft classes. Everything version-specific comes through small adapters. Each version implements them and installs them at startup.
 
-**ClientHost.** Подключается при запуске клиента (`ClientHost.install`). Даёт общему клиентскому коду:
+**ClientHost.** Installed when the client starts (`ClientHost.install`). Gives the common client code:
 
-- папку игры и папку `config/minepapers`;
-- User-Agent для запросов в интернет;
-- базовые цвета карт этой версии (в разных версиях их разное число);
-- признаки "есть соединение с сервером" и "сервер запущен в этом клиенте";
-- загрузку кадра в видеопамять и его освобождение. Ссылка на текстуру у каждой версии своя: в 1.7.10 это номер текстуры OpenGL, в 1.21.1 это `ResourceLocation`. Общий код хранит её как `Object` и отдаёт обратно рендеру версии;
-- отправку трёх клиентских пакетов обмена картинками.
+- the game folder and the `config/minepapers` folder;
+- the User-Agent for internet requests;
+- this version's base map colors (their number differs between versions);
+- the "connected to a server" and "server running in this client" flags;
+- uploading a frame to video memory and freeing it. Each version has its own texture handle: in 1.7.10 it is an OpenGL texture id, in 1.21.1 a `ResourceLocation`. The common code keeps it as an `Object` and passes it back to the version's renderer;
+- sending the three client packets for picture exchange.
 
-**ServerHost.** Подключается при запуске мода (`ServerImages.install`). Даёт `ImageStore`:
+**ServerHost.** Installed when the mod starts (`ServerImages.install`). Gives `ImageStore`:
 
-- папку текущего мира;
-- настройки картины по измерению и номеру из `PictureTarget`;
-- запись списка выложенных картинок в картину;
-- отправку двух серверных пакетов.
+- the current world folder;
+- picture settings by dimension and the number from `PictureTarget`;
+- writing the list of uploaded pictures into the picture;
+- sending the two server packets.
 
-Игрок и измерение передаются в `ImageStore` как `Object`. Общий код их только хранит и возвращает версии. У картины-предмета вместо измерения передаётся UUID игрока, в чьём инвентаре она лежит.
+The player and dimension are passed to `ImageStore` as `Object`. The common code only stores them and hands them back to the version. For a picture item, the UUID of the player whose inventory holds it is passed instead of the dimension.
 
-**PictureSettings.Tag.** Обёртка над NBT-тегом версии (`NbtTag`). Числа читаются и пишутся как int: обе версии умеют читать любое число тега как int. UUID в 1.7.10 хранится строкой, в 1.21.1 массивом чисел.
+**PictureSettings.Tag.** A wrapper over the version's NBT tag (`NbtTag`). Numbers are read and written as int: both versions can read any numeric tag as int. UUID is stored as a string in 1.7.10 and as an int array in 1.21.1.
 
-**Наследование.** `PictureFrame extends PictureSettings` и `FrameGeometry extends CanvasGeometry`. Поэтому код версии пишет `PictureFrame.FIT_COVER` или `FrameGeometry.normal(frame)`, хотя сами константы и методы лежат в общем коде.
+**Inheritance.** `PictureFrame extends PictureSettings` and `FrameGeometry extends CanvasGeometry`. So version code writes `PictureFrame.FIT_COVER` or `FrameGeometry.normal(frame)`, even though the constants and methods live in the common code.
 
-Права игроков проверяет версия. `ImageStore` вызывается уже после проверки.
+Player permissions are checked by the version. `ImageStore` is called after the check.
 
-## Словари
+## Translations
 
-Словари лежат в `common/lang`, по одному JSON на язык: `en_us.json`, `ru_ru.json`, `ja_jp.json`, `zh_cn.json`. Это единственный набор переводов для всех версий. Ключи во всех версиях одинаковые.
+Translations live in `common/lang`, one JSON per language: `en_us.json`, `ru_ru.json`, `ja_jp.json`, `zh_cn.json`. This is the only set of translations for all versions. Keys are the same in all versions.
 
-При сборке словари приводятся к формату версии:
+At build time the translations are converted to each version's format:
 
-| Версии | Файл в jar |
+| Versions | File in the jar |
 | --- | --- |
-| 1.13 и новее | `en_us.json` без изменений |
+| 1.13 and newer | `en_us.json` unchanged |
 | 1.11 - 1.12.2 | `en_us.lang` |
-| до 1.11 | `en_US.lang` |
+| before 1.11 | `en_US.lang` |
 
-Формат `.lang` строится задачей `convertLang` в корневом `build.gradle`: строки `ключ=значение`, перенос строки внутри значения записывается как `\n`.
+The `.lang` format is produced by the `convertLang` task in the root `build.gradle`: `key=value` lines, a line break inside a value is written as `\n`.
 
-Перенос строки в JSON пишется обычным `\n`. Версия 1.21.1 переносит такие строки сама. Версия 1.7.10 получает в `.lang` буквальный `\n` и разбивает строку по нему в коде окна.
+A line break in JSON is a plain `\n`. Version 1.21.1 wraps such lines by itself. Version 1.7.10 gets a literal `\n` in `.lang` and splits the line on it in the window code.
 
-Названия предмета и сущности в 1.7.10 берутся по тем же ключам, что и в 1.21.1 (`item.minepapers.picture_frame`, `entity.minepapers.picture`). Для этого в 1.7.10 переопределены методы, которые возвращают названия.
+Item and entity names in 1.7.10 use the same keys as in 1.21.1 (`item.minepapers.picture_frame`, `entity.minepapers.picture`). For this, 1.7.10 overrides the methods that return names.
 
-Новый ключ добавляется во все четыре JSON.
+A new key is added to all four JSON files.
 
-## Ресурсы
+## Resources
 
 `common/resources/assets/minepapers`:
 
-| Файл | Что это |
+| File | What it is |
 | --- | --- |
-| `textures/block/frame_border.png` | Обычная рамка. |
-| `textures/block/frame_canvas.png` | Обычный холст. |
-| `textures/item/picture_frame.png` | Иконка предмета. |
-| `textures/gui/picture_frame.png` | Иконки окна: вкладки, источники, вписывание, радиокнопки, галочки, копирование, вставка, замок. Раскладка описана в начале `GuiWidgets.java`. |
-| `flattening.txt` | Таблица "старое имя предмета + метаданные -> имя в новых версиях". Нужна, чтобы вставить конфиг картины из 1.7.10 в 1.21.1 и обратно. Собрана из ванильного DataFixer. |
+| `textures/block/frame_border.png` | Default frame. |
+| `textures/block/frame_canvas.png` | Default canvas. |
+| `textures/item/picture_frame.png` | Item icon. |
+| `textures/gui/picture_frame.png` | Window icons: tabs, sources, fit, radio buttons, checkboxes, copy, paste, lock. The layout is described at the top of `GuiWidgets.java`. |
+| `flattening.txt` | Table "old item name + metadata -> name in newer versions". Needed to paste a picture config from 1.7.10 into 1.21.1 and back. Built from the vanilla DataFixer. |
 
-Ресурсы, которые нужны только одной версии, лежат в её `src/main/resources`. В 1.21.1 это модели предмета, рецепты, `neoforge.mods.toml` и тег `data/sable/tags/entity_type/wall_entities.json`. Тег нужен Sable (подуровни Create Aeronautics): с ним картина переезжает вместе с подвижной конструкцией, на которой висит. В 1.7.10 это `mcmod.info`.
+Resources needed by only one version live in its `src/main/resources`. In 1.21.1 these are the item models, recipes, `neoforge.mods.toml` and the tag `data/sable/tags/entity_type/wall_entities.json`. The tag is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 this is `mcmod.info`.
 
-## Данные и форматы
+## Data and formats
 
-### Настройки картины в NBT
+### Picture settings in NBT
 
-Одинаковы для всех версий (`PictureSettings`):
+The same for all versions (`PictureSettings`):
 
-| Ключ | Значение |
+| Key | Value |
 | --- | --- |
-| `FX`, `FY`, `FZ` | Клетка рамки. |
-| `Facing` | Сторона, куда смотрит картина: 0 потолок, 1 пол, 2-5 стены. |
-| `Rot` | Поворот на полу и потолке, 0-3. |
-| `Surface` | Сдвиг от границы клетки до поверхности блока, от -1 до 0. |
-| `Src` | Источник: 0 config/minepapers, 1 Яндекс Диск, 2 папка, 3 ссылка. |
-| `Local`, `Url`, `Folder`, `ImageUrl` | Путь или ссылка для каждого источника. |
-| `Interval` | Интервал слайдшоу в секундах. |
-| `W`, `H`, `SizePx` | Размер холста и признак "в пикселях". |
-| `OX`, `OY`, `PosPx` | Смещение холста и признак "в пикселях". |
-| `Pad`, `PadPx` | Отступ картинки и признак "в пикселях". |
-| `Title`, `Desc` | Заголовок и описание. |
-| `Owner`, `OwnerName` | Владелец приватной картины и его ник. |
-| `Signer`, `SignerName` | Кто подписал картину и его ник. Ставит только сервер, снять нельзя. |
-| `Fit`, `PPB`, `Style`, `Mode` | Вписывание, пикселей на блок, стиль цвета, вид. Вид - сочетание рамки и холста: 0-3 - прежние виды (панель, рамка, граффити, пластина), 4-7 - новые сочетания (см. `PictureSettings.LOOK_FRAME`). |
-| `Files` | Картинки на сервере: подряд идущие SHA-1 по 20 байт. |
+| `FX`, `FY`, `FZ` | Frame cell. |
+| `Facing` | The side the picture faces: 0 ceiling, 1 floor, 2-5 walls. |
+| `Rot` | Rotation on the floor and ceiling, 0-3. |
+| `Surface` | Offset from the cell boundary to the block surface, from -1 to 0. |
+| `Src` | Source: 0 config/minepapers, 1 Yandex Disk, 2 folder, 3 link. |
+| `Local`, `Url`, `Folder`, `ImageUrl` | Path or link for each source. |
+| `Interval` | Slideshow interval in seconds. |
+| `W`, `H`, `SizePx` | Canvas size and the "in pixels" flag. |
+| `OX`, `OY`, `PosPx` | Canvas offset and the "in pixels" flag. |
+| `Pad`, `PadPx` | Image padding and the "in pixels" flag. |
+| `Title`, `Desc` | Title and description. |
+| `Owner`, `OwnerName` | Owner of a private picture and their nickname. |
+| `Signer`, `SignerName` | Who signed the picture and their nickname. Set only by the server, cannot be removed. |
+| `Fit`, `PPB`, `Style`, `Mode` | Fit, pixels per block, color style, look. The look is a combination of frame and canvas: 0-3 are the old looks (panel, frame, graffiti, plate), 4-7 are new combinations (see `PictureSettings.LOOK_FRAME`). |
+| `Files` | Pictures on the server: consecutive 20-byte SHA-1 hashes. |
 
-Материалы пишет версия: `Border`, `Canvas`, `Glow` (id предмета для текстуры) и `BorderItem`, `CanvasItem`, `GlowItem` (сам предмет). В 1.7.10 есть ещё `BorderMeta`, `CanvasMeta`, `GlowMeta`.
+Materials are written by the version: `Border`, `Canvas`, `Glow` (item id for the texture) and `BorderItem`, `CanvasItem`, `GlowItem` (the item itself). 1.7.10 also has `BorderMeta`, `CanvasMeta`, `GlowMeta`.
 
-Где хранятся настройки:
+Where settings are stored:
 
-- **Сущность.** Место картины лежит прямо в её NBT, настройки в `Settings`, клетки поставленного света в `Lights`.
-- **Предмет в 1.7.10.** NBT предмета, ключ `MinePapersFrame`.
-- **Предмет в 1.21.1.** Компонент `minepapers:frame`.
+- **Entity.** The picture position is right in its NBT, settings in `Settings`, the cells of placed light in `Lights`.
+- **Item in 1.7.10.** Item NBT, key `MinePapersFrame`.
+- **Item in 1.21.1.** Component `minepapers:frame`.
 
-### Конфиг для копирования
+### Config for copying
 
-Пример JSON, который кнопка копирования кладёт в буфер обмена:
+Example JSON that the copy button puts on the clipboard:
 
 ```json
 {
   "mod": "minepapers",
   "format": 1,
   "minecraft": "1.21.1",
-  "title": "Водяной дракон",
+  "title": "Water Dragon",
   "description": "",
   "source": { "type": "yandex", "path": "https://disk.yandex.ru/d/...", "interval": 10 },
   "size": { "width": 2, "height": 2, "pixels": false },
@@ -397,73 +399,73 @@ Mine Papers Online/
 }
 ```
 
-- Значения пишутся словами: `config`, `yandex`, `folder`, `url`; `fill`, `contain`, `cover`, `none`, `scale-down`; `panel`, `frame`, `graffiti`, `plate`; `none`, `edges`, `molding` (рамка); `none`, `block`, `picture` (холст); `original`, `map`, `map-dither`, `map-soft-dither`. Вместо слова можно указать номер.
-- `look` - вид из прежних версий мода. Рядом с `frame` и `canvas` пишется ближайший к ним `look`, чтобы конфиг понимали и старые версии. При вставке `frame` и `canvas` главнее `look`.
-- Если поля нет, при вставке оно не меняется.
-- У материала `null` означает "обычный", то есть вынуть предмет из слота. Материал можно записать и короче: `"frame": "minecraft:gold_block"`.
-- По полю `minecraft` мод понимает, в каких названиях записаны предметы.
+- Values are written as words: `config`, `yandex`, `folder`, `url`; `fill`, `contain`, `cover`, `none`, `scale-down`; `panel`, `frame`, `graffiti`, `plate`; `none`, `edges`, `molding` (frame); `none`, `block`, `picture` (canvas); `original`, `map`, `map-dither`, `map-soft-dither`. A number can be used instead of a word.
+- `look` is the look from older mod versions. Next to `frame` and `canvas`, the closest `look` is written so that older versions understand the config. On paste, `frame` and `canvas` take precedence over `look`.
+- If a field is missing, it is left unchanged on paste.
+- For a material, `null` means "default", i.e. take the item out of the slot. A material can also be written shorter: `"frame": "minecraft:gold_block"`.
+- The `minecraft` field tells the mod which naming the items are written in.
 
-### Файлы на диске
+### Files on disk
 
-| Где | Что |
+| Where | What |
 | --- | --- |
-| `config/minepapers/` | Локальные картинки игрока. Папка создаётся при запуске. |
-| `config/minepapers.json` | Настройки мода (см. [Настройки мода](#настройки-мода)). |
-| `<папка игры>/minepapers-cache/` | Кэш картинок, скачанных с сервера, и подготовленных к выкладыванию. Имя файла - SHA-1 в hex. |
-| `<папка мира>/minepapers/` | Картинки, выложенные на сервер. Имя файла - SHA-1 в hex. |
+| `config/minepapers/` | The player's local pictures. The folder is created at startup. |
+| `config/minepapers.json` | Mod settings (see [Mod settings](#mod-settings)). |
+| `<game folder>/minepapers-cache/` | Cache of pictures downloaded from the server and prepared for upload. The file name is the SHA-1 in hex. |
+| `<world folder>/minepapers/` | Pictures uploaded to the server. The file name is the SHA-1 in hex. |
 
-Файл картинки на сервере начинается с заголовка из 12 байт: `MPI1`, затем исходные ширина и высота картинки. Дальше идёт сам файл картинки. Исходный размер нужен, потому что большие картинки перед отправкой уменьшаются, а вписывание считается по исходному размеру. Картинка не больше 16 МБ.
+A picture file on the server starts with a 12-byte header: `MPI1`, then the original width and height of the picture. Then comes the image file itself. The original size is needed because large pictures are scaled down before sending, while fitting is calculated from the original size. A picture is at most 16 MB.
 
-## Сетевые пакеты
+## Network packets
 
-| Пакет | Направление | Что делает |
+| Packet | Direction | What it does |
 | --- | --- | --- |
-| `PacketOpenFrame` | клиент -> сервер | Открыть окно настройки картины. |
-| `PacketSaveFrame` | клиент -> сервер | Новые настройки картины. Список файлов на сервере и владельца клиент изменить не может, он только просит закрыть или открыть замок. |
-| `PacketPasteMaterials` | клиент -> сервер | Какие предметы положить в слоты материалов при вставке конфига. |
-| `PacketBreakPicture` | клиент -> сервер | Игрок начал ломать картину или доломал её. Сервер проверяет, что прошло достаточно времени. |
-| `PacketOfferFiles` | клиент -> сервер | Список SHA-1 картинок для рамки. |
-| `PacketHashes.Need` | сервер -> клиент | Пришли эти картинки. |
-| `PacketFileChunk.Upload` | клиент -> сервер | Кусок выкладываемой картинки, до 30000 байт. |
-| `PacketHashes.Request` | клиент -> сервер | Пришли мне эти картинки. |
-| `PacketFileChunk` | сервер -> клиент | Кусок картинки, до 32 КБ. `total = -1` значит, что такой картинки на сервере нет. |
+| `PacketOpenFrame` | client -> server | Open the picture settings window. |
+| `PacketSaveFrame` | client -> server | New picture settings. The client cannot change the server file list or the owner, it can only ask to close or open the lock. |
+| `PacketPasteMaterials` | client -> server | Which items to put into the material slots when pasting a config. |
+| `PacketBreakPicture` | client -> server | The player started or finished breaking the picture. The server checks that enough time has passed. |
+| `PacketOfferFiles` | client -> server | List of SHA-1 hashes of the pictures for a frame. |
+| `PacketHashes.Need` | server -> client | Send me these pictures. |
+| `PacketFileChunk.Upload` | client -> server | A chunk of an uploaded picture, up to 30000 bytes. |
+| `PacketHashes.Request` | client -> server | Send me these pictures. |
+| `PacketFileChunk` | server -> client | A chunk of a picture, up to 32 KB. `total = -1` means the server has no such picture. |
 
-Скорость ограничена, чтобы не забивать канал. Клиент отправляет 2 куска за тик. Сервер отдаёт до 3 кусков за тик одному игроку и до 24 кусков за тик на всех.
+The rate is limited so as not to flood the connection. The client sends 2 chunks per tick. The server sends up to 3 chunks per tick to one player and up to 24 chunks per tick in total.
 
-В 1.7.10 обработчики пакетов работают в сетевом потоке, поэтому серверные пакеты ставят задачу в очередь `ServerImages.schedule`, и она выполняется в серверном потоке. В 1.21.1 обработчики сразу работают в нужном потоке.
+In 1.7.10 packet handlers run on the network thread, so server packets queue a task with `ServerImages.schedule`, and it runs on the server thread. In 1.21.1 handlers already run on the right thread.
 
-## Как добавить новую версию игры
+## Adding a new game version
 
-1. Создать папку `<версия Minecraft>-<загрузчик>`, например `1.12.2-forge`, со своим `build.gradle`: плагин, версия Java, версия загрузчика.
-2. Добавить её в `settings.gradle` через `include`.
-3. Если нужен новый плагин сборки, объявить его в корневом `build.gradle` с `apply false`.
-4. Перенести классы версии по образцу соседних папок. Реализовать адаптеры: `NbtTag`, `MinePapersClientHost`, `ServerImages` (как `ServerHost`). Унаследовать `PictureFrame` от `PictureSettings` и `FrameGeometry` от `CanvasGeometry`.
-5. Подключить адаптеры при запуске: `ClientHost.install(...)` на клиенте и `ServerImages.install()` при старте мода.
-6. Словари, текстуры и формат `.lang` подхватятся сами по версии из имени папки.
+1. Create a `<Minecraft version>-<loader>` folder, for example `1.12.2-forge`, with its own `build.gradle`: plugin, Java version, loader version.
+2. Add it to `settings.gradle` with `include`.
+3. If a new build plugin is needed, declare it in the root `build.gradle` with `apply false`.
+4. Port the version classes following the neighboring folders. Implement the adapters: `NbtTag`, `MinePapersClientHost`, `ServerImages` (as `ServerHost`). Make `PictureFrame` extend `PictureSettings` and `FrameGeometry` extend `CanvasGeometry`.
+5. Install the adapters at startup: `ClientHost.install(...)` on the client and `ServerImages.install()` when the mod starts.
+6. Translations, textures and the `.lang` format are picked up automatically from the version in the folder name.
 
-Если код одинаков для двух и более версий и не обращается к API игры, он переносится в `common/java`. Копии из папок версий при этом удаляются.
+If code is the same for two or more versions and does not use the game API, it moves to `common/java`. The copies in the version folders are then removed.
 
-## Тестирование
+## Testing
 
-Сборки проверяются в Prism Launcher. Готовый jar копируется в папку `mods` нужного экземпляра.
+Builds are tested in Prism Launcher. The built jar is copied into the `mods` folder of the matching instance.
 
-| Экземпляр | Что внутри |
+| Instance | Contents |
 | --- | --- |
-| `1.7.10` | Minecraft 1.7.10, Forge 10.13.4.1614, Java 8. Тестовый мир "MinePapers Test". |
+| `1.7.10` | Minecraft 1.7.10, Forge 10.13.4.1614, Java 8. Test world "MinePapers Test". |
 | `1.21.1` | Minecraft 1.21.1, NeoForge 21.1.259. |
 
-Из среды разработки игру можно запустить задачей `runClient` нужной версии, например `gradlew :1.21.1-neoforge:runClient`.
+From the development environment the game can be launched with the `runClient` task of the needed version, for example `gradlew :1.21.1-neoforge:runClient`.
 
-Если игра зависла, снимок потоков можно получить командой `jstack <pid>` из того JDK, на котором запущена игра. По нему видно, где стоит игра.
+If the game hangs, a thread dump can be taken with `jstack <pid>` from the JDK the game runs on. It shows where the game is stuck.
 
-## Правила проекта
+## Project rules
 
-- Весь текст, который видит игрок (словари, подписи в окне, подсказки, чат), пишется обычной пунктуацией: `-` вместо длинного тире, `x` вместо знака умножения, обычные кавычки, `...` вместо многоточия одним символом. В японском и китайском переводах можно использовать родную пунктуацию этих языков.
-- Комментарии в коде пишутся на русском.
-- Где возможно, используются ванильные механики: блоки света, звуки дерева, правила дропа, подсказки виджетов, ванильные текстуры окон.
-- Код не страхуется заранее от всех возможных ошибок. Ограничения остаются там, где они задают правила игры (размер холста, место, разрешение) или защищают сервер от чужих клиентов (сервер принимает только те файлы, которые сам попросил, и не больше 16 МБ). Остальные ошибки исправляются, когда проявляются.
-- Заметные изменения записываются в [CHANGELOG.md](CHANGELOG.md) в раздел `[Unreleased]`. При выпуске версии раздел получает её номер.
+- All player-visible text (translations, window labels, tooltips, chat) uses plain punctuation: `-` instead of an em dash, `x` instead of the multiplication sign, plain quotes, `...` instead of a single ellipsis character. Japanese and Chinese translations may use the native punctuation of those languages.
+- Code comments are written in Russian.
+- Vanilla mechanics are used wherever possible: light blocks, wood sounds, drop rules, widget tooltips, vanilla window textures.
+- The code does not guard in advance against every possible error. Limits stay where they define game rules (canvas size, position, resolution) or protect the server from foreign clients (the server accepts only the files it asked for, and no more than 16 MB). Other errors are fixed when they show up.
+- Notable changes go into [CHANGELOG.md](CHANGELOG.md) under `[Unreleased]`. On release the section gets the version number.
 
-## Лицензия
+## License
 
-[LGPLv3](COPYING.LESSER). Текст GPLv3, на которую ссылается LGPLv3, лежит в [COPYING](COPYING).
+[LGPLv3](COPYING.LESSER). The text of GPLv3, which LGPLv3 refers to, is in [COPYING](COPYING).
