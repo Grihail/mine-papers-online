@@ -1,0 +1,2 @@
+# Постоянное имя Spi читателя WebP после ProGuard (см. webp.pro). Это же имя записано в ClientHost.WEBP_READER.
+com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi -> com.grihail.minepapers.lib.WebPImageReaderSpi:

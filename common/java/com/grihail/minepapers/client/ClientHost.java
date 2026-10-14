@@ -7,10 +7,11 @@ import javax.imageio.spi.ImageReaderSpi;
 
 import org.apache.logging.log4j.LogManager;
 
-import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
-
 /** Всё, что общему клиентскому коду (PictureManager, ImageSync, ImageStylizer) нужно от версии игры. Версия ставит свою реализацию через install() при запуске клиента. */
 public abstract class ClientHost {
+
+    /** Spi читателя WebP в jar мода. Сборка ужимает TwelveMonkeys ProGuard и даёт этому классу постоянное имя (common/proguard/webp.map). */
+    private static final String WEBP_READER = "com.grihail.minepapers.lib.WebPImageReaderSpi";
 
     private static volatile ClientHost current;
 
@@ -22,7 +23,8 @@ public abstract class ClientHost {
     /** WebP в ImageIO нет — читатель TwelveMonkeys лежит в jar мода. Регистрируем вручную: загрузчик модов не даёт ImageIO найти его через META-INF/services. */
     private static void registerWebP() {
         try {
-            IIORegistry.getDefaultInstance().registerServiceProvider(new WebPImageReaderSpi(), ImageReaderSpi.class);
+            ImageReaderSpi spi = (ImageReaderSpi) Class.forName(WEBP_READER).getDeclaredConstructor().newInstance();
+            IIORegistry.getDefaultInstance().registerServiceProvider(spi, ImageReaderSpi.class);
         } catch (Throwable e) {
             LogManager.getLogger("minepapers").warn("WebP не поддерживается: " + e);
         }

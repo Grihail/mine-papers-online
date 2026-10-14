@@ -212,6 +212,7 @@ Mine Papers Online/
         java/               shared code (Java 8, no Minecraft API)
         lang/               translations in JSON format
         resources/          textures and item table
+        proguard/           ProGuard rules for the WebP libraries
     1.7.10-forge/           Minecraft 1.7.10 + Forge version
     1.21.1-neoforge/        Minecraft 1.21.1 + NeoForge version
 ```
@@ -225,7 +226,9 @@ For each subproject, the root `build.gradle`:
 - adds `common/java` as an extra source folder;
 - copies `common/resources` into the jar. For versions before 1.13 the `textures/block` and `textures/item` folders are renamed to `textures/blocks` and `textures/items`;
 - puts the translations from `common/lang` into `assets/minepapers/lang`. For versions before 1.13 they are converted to the `.lang` format (see [Translations](#translations));
-- fills in the mod version and Minecraft version in `mcmod.info`, `version.properties` and `META-INF/neoforge.mods.toml`.
+- fills in the mod version and Minecraft version in `mcmod.info`, `version.properties` and `META-INF/neoforge.mods.toml`;
+- shrinks the WebP libraries with the `shrinkWebp` task and puts their classes into the jar (see [Common code and adapters](#common-code-and-adapters));
+- compiles the mod classes without local variable names (`-g:source,lines`): crash reports keep line numbers, and the jar is smaller.
 
 A version's own `build.gradle` only keeps its plugin, Java version and loader version.
 
@@ -294,7 +297,7 @@ The common code does not know Minecraft classes. Everything version-specific com
 - uploading a frame to video memory and freeing it. Each version has its own texture handle: in 1.7.10 it is an OpenGL texture id, in 1.21.1 a `ResourceLocation`. The common code keeps it as an `Object` and passes it back to the version's renderer;
 - sending the three client packets for picture exchange.
 
-`ClientHost.install` also registers the TwelveMonkeys WebP reader in ImageIO, because ImageIO cannot read WebP by itself. The libraries are listed in `webpLibs` in the root `build.gradle`. In 1.21.1 they are nested jars inside the mod jar (Jar-in-Jar); in 1.7.10 their classes are unpacked straight into the mod jar.
+`ClientHost.install` also registers the TwelveMonkeys WebP reader in ImageIO, because ImageIO cannot read WebP by itself. The full TwelveMonkeys libraries weigh ~500 KB, so the `shrinkWebp` task in the root `build.gradle` runs them through ProGuard with the rules from `common/proguard/webp.pro`. ProGuard keeps only the WebP reader and what it needs (~90 KB), gives the classes short names and moves them into the `com.grihail.minepapers.lib` package, so they cannot clash with a full TwelveMonkeys copy from another mod. The resulting classes go into the jar together with the resources, the same way in both versions. The mod itself is not compiled against TwelveMonkeys: `ClientHost` creates the reader by the name `com.grihail.minepapers.lib.WebPImageReaderSpi`, set in `common/proguard/webp.map`. The table of old and new names (to read a stack trace from a crash report) is the subproject's `build/webp/mapping.txt`.
 
 **ServerHost.** Installed when the mod starts (`ServerImages.install`). Gives `ImageStore`:
 

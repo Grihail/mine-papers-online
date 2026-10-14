@@ -37,19 +37,56 @@ subprojects {
 
     sourceSets.main.java.srcDir rootProject.file('common/java')
 
-    // Чтение WebP: плагин ImageIO от TwelveMonkeys (Java 8) со всеми зависимостями. Кладётся внутрь jar мода — как именно, решает подпроект.
+    // Чтение WebP: плагин ImageIO от TwelveMonkeys (Java 8). Мод не компилируется с ним: в jar попадает версия, ужатая ProGuard (см. shrinkWebp).
     repositories { mavenCentral() }
-    ext.webpLibs = [
-        'com.twelvemonkeys.imageio:imageio-webp',
-        'com.twelvemonkeys.imageio:imageio-metadata',
-        'com.twelvemonkeys.imageio:imageio-core',
-        'com.twelvemonkeys.common:common-image',
-        'com.twelvemonkeys.common:common-io',
-        'com.twelvemonkeys.common:common-lang',
-    ].collect { "${it}:3.15.3" }
+    configurations {
+        webp
+        proguard
+    }
+    dependencies {
+        // Остальные пять jar (imageio-core, imageio-metadata, common-image, common-io, common-lang) приходят как её зависимости.
+        webp 'com.twelvemonkeys.imageio:imageio-webp:3.15.3'
+        proguard 'com.guardsquare:proguard-base:7.6.1'
+    }
+
+    // ProGuard оставляет от библиотек WebP только читатель WebP и то, что ему нужно (~500 КБ -> ~90 КБ), и переносит классы
+    // в пакет com.grihail.minepapers.lib. Правила - в common/proguard/webp.pro, таблица имён (для разбора стека) - в build/webp/mapping.txt.
+    def webpJar = layout.buildDirectory.file('webp/webp.jar')
+    def shrinkWebp = tasks.register('shrinkWebp', JavaExec) {
+        def libs = configurations.webp
+        def rules = rootProject.file('common/proguard')
+        def mapping = layout.buildDirectory.file('webp/mapping.txt')
+        inputs.files(libs)
+        inputs.dir(rules)
+        outputs.file(webpJar)
+        outputs.file(mapping)
+        classpath = configurations.proguard
+        mainClass = 'proguard.ProGuard'
+        // Пути с пробелами ProGuard понимает только в кавычках, поэтому они передаются файлом paths.pro из рабочей папки.
+        workingDir = temporaryDir
+        args '@paths.pro'
+        doFirst {
+            def quoted = { File f -> "'${f.absolutePath.replace('\\', '/')}'" }
+            // Классы JDK, на которые ссылаются библиотеки, - из JDK версии игры (ProGuard запускается на нём же): rt.jar в Java 8, модули в Java 9+.
+            def home = javaLauncher.get().metadata.installationPath.asFile
+            def rt = new File(home, 'jre/lib/rt.jar')
+            def jdk = rt.exists() ? [quoted(rt)]
+                : ['java.base', 'java.desktop', 'java.xml', 'java.datatransfer', 'java.sql'].collect { quoted(new File(home, "jmods/${it}.jmod")) + '(!**.jar;!module-info.class)' }
+            new File(temporaryDir, 'paths.pro').text = (
+                libs.collect { "-injars ${quoted(it)}(!META-INF/**,!module-info.class,**.class)" } +
+                jdk.collect { "-libraryjars ${it}" } +
+                // Без -forceprocessing ProGuard пропускает работу, если jar новее входов, даже когда поменялись правила. Когда запускать, решает Gradle.
+                ["-outjars ${quoted(webpJar.get().asFile)}", "-printmapping ${quoted(mapping.get().asFile)}", '-forceprocessing', "-include ${quoted(new File(rules, 'webp.pro'))}"]
+            ).join('\n')
+        }
+    }
 
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
+    }
+    // В классах мода только номера строк (для крашрепортов), без имён локальных переменных: jar меньше на ~30 КБ.
+    tasks.named('compileJava') {
+        options.debugOptions.debugLevel = 'source,lines'
     }
 
     def legacyTextures = compareVersions(mcVersion, '1.13') < 0
@@ -95,5 +132,8 @@ subprojects {
         from(legacyLang ? convertLang : langSrc) {
             into 'assets/minepapers/lang'
         }
+        // Ужатые классы библиотек WebP идут вместе с ресурсами: так они попадают и в jar мода, и в запуск из среды разработки (runClient).
+        dependsOn shrinkWebp
+        from({ zipTree(webpJar) })
     }
 }

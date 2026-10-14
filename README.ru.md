@@ -212,6 +212,7 @@ Mine Papers Online/
         java/               общий код (Java 8, без API Minecraft)
         lang/               словари в формате JSON
         resources/          текстуры и таблица предметов
+        proguard/           правила ProGuard для библиотек WebP
     1.7.10-forge/           версия под Minecraft 1.7.10 + Forge
     1.21.1-neoforge/        версия под Minecraft 1.21.1 + NeoForge
 ```
@@ -225,7 +226,9 @@ Mine Papers Online/
 - подключает `common/java` как дополнительную папку исходников;
 - копирует `common/resources` в jar. Для версий до 1.13 папки `textures/block` и `textures/item` переименовываются в `textures/blocks` и `textures/items`;
 - кладёт словари из `common/lang` в `assets/minepapers/lang`. Для версий до 1.13 они переводятся в формат `.lang` (см. [Словари](#словари));
-- подставляет версию мода и версию Minecraft в `mcmod.info`, `version.properties` и `META-INF/neoforge.mods.toml`.
+- подставляет версию мода и версию Minecraft в `mcmod.info`, `version.properties` и `META-INF/neoforge.mods.toml`;
+- ужимает библиотеки WebP задачей `shrinkWebp` и кладёт их классы в jar (см. [Общий код и адаптеры](#общий-код-и-адаптеры));
+- собирает классы мода без имён локальных переменных (`-g:source,lines`): номера строк в крашрепортах остаются, а jar меньше.
 
 В `build.gradle` самой версии остаётся только её плагин, версия Java и версия загрузчика.
 
@@ -294,7 +297,7 @@ Mine Papers Online/
 - загрузку кадра в видеопамять и его освобождение. Ссылка на текстуру у каждой версии своя: в 1.7.10 это номер текстуры OpenGL, в 1.21.1 это `ResourceLocation`. Общий код хранит её как `Object` и отдаёт обратно рендеру версии;
 - отправку трёх клиентских пакетов обмена картинками.
 
-`ClientHost.install` заодно регистрирует в ImageIO читатель WebP от TwelveMonkeys: сама ImageIO WebP не читает. Библиотеки перечислены в `webpLibs` корневого `build.gradle`. В 1.21.1 они лежат в jar мода вложенными jar (Jar-in-Jar), в 1.7.10 их классы распакованы прямо в jar мода.
+`ClientHost.install` заодно регистрирует в ImageIO читатель WebP от TwelveMonkeys: сама ImageIO WebP не читает. Целиком библиотеки TwelveMonkeys весят ~500 КБ, поэтому задача `shrinkWebp` корневого `build.gradle` пропускает их через ProGuard по правилам из `common/proguard/webp.pro`. ProGuard оставляет только читатель WebP и то, что ему нужно (~90 КБ), даёт классам короткие имена и переносит их в пакет `com.grihail.minepapers.lib`. Так они не столкнутся с полной копией TwelveMonkeys из другого мода. Готовые классы попадают в jar вместе с ресурсами, одинаково в обеих версиях. Сам мод с TwelveMonkeys не компилируется: `ClientHost` создаёт читатель по имени `com.grihail.minepapers.lib.WebPImageReaderSpi`, которое задано в `common/proguard/webp.map`. Таблица старых и новых имён (для разбора стека из крашрепорта) - `build/webp/mapping.txt` подпроекта.
 
 **ServerHost.** Подключается при запуске мода (`ServerImages.install`). Даёт `ImageStore`:
 

@@ -26,11 +26,3 @@ neoForge {
         }
     }
 }
-
-dependencies {
-    // Библиотеки WebP — вложенными jar (Jar-in-Jar): если их принесёт и другой мод, NeoForge возьмёт одну, самую новую.
-    webpLibs.each {
-        jarJar(implementation(it))
-        additionalRuntimeClasspath(it)
-    }
-}
