@@ -43,7 +43,7 @@ public class PictureSettings {
     public static final int LOOK_COUNT = 8;
 
     /** Рамка: нет, обшивка торцов холста, багет (заходит на картину и выступает над ней). */
-    public static final int FRAME_NONE = 0, FRAME_EDGES = 1, FRAME_MOLDING = 2, FRAME_COUNT = 3;
+    public static final int FRAME_NONE = 0, FRAME_EDGES = 1, FRAME_MOLDING = 2;
     /** Холст: нет (картинка прямо на стене), из блока материала, сама картинка толщиной в пиксель. */
     public static final int CANVAS_NONE = 0, CANVAS_BLOCK = 1, CANVAS_PICTURE = 2, CANVAS_COUNT = 3;
     /** Рамка и холст каждого вида (по номеру вида). Обшивки без холста нет: обшивать нечего. */
@@ -60,6 +60,8 @@ public class PictureSettings {
     public static final float MAX_SIZE_BLOCKS = 64f;
     public static final int MIN_PPB = 1;
     public static final int MAX_PPB = 256;
+    /** Пикселей на блок в окне — степени двойки от MIN_PPB до MAX_PPB: ползунок ходит по их номерам (0 — 1 пиксель, PPB_STEPS — 256). */
+    public static final int PPB_STEPS = 31 - Integer.numberOfLeadingZeros(MAX_PPB);
     public static final int MAX_TITLE = 64;
     /** Ширина багета в пикселях: по умолчанию (и в картинах прежних версий) 2, больше половины холста не бывает. */
     public static final int DEFAULT_MOLDING = 2, MAX_MOLDING = (int) (MAX_SIZE_BLOCKS * 16 / 2);
@@ -169,7 +171,7 @@ public class PictureSettings {
     /** Резкие пиксели: без полупрозрачности — пиксель либо виден целиком, либо прозрачен (как на картах), поэтому края картинки с прозрачным фоном не размываются по стене. */
     public boolean sharpPixels = true;
     /** Палитра карт: только цвета, которые бывают на картах этой версии игры (вместо числа цветов colors); дизеринг действует и на неё. */
-    public boolean mapPalette = false;
+    public boolean mapPalette;
     /** Число цветов (MIN_COLORS..MAX_COLORS) и сила дизеринга в процентах. */
     public int colors = MAX_COLORS;
     public int dither = MAX_DITHER;
@@ -312,10 +314,7 @@ public class PictureSettings {
         return LOOK_CLASSIC[look];
     }
 
-    /** Пикселей на блок в окне — степени двойки от MIN_PPB до MAX_PPB: ползунок ходит по их номерам (0 — 1 пиксель, PPB_STEPS — 256). */
-    public static final int PPB_STEPS = 31 - Integer.numberOfLeadingZeros(MAX_PPB);
-
-    /** Номер ближайшей степени двойки (у картин прежних версий бывают любые числа). */
+    /** Номер ближайшей степени двойки для ползунка пикселей на блок (у картин прежних версий бывают любые числа). */
     public static int ppbStep(int ppb) {
         int step = (int) Math.round(Math.log(Math.max(MIN_PPB, ppb)) / Math.log(2));
         return Math.max(0, Math.min(PPB_STEPS, step));

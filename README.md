@@ -24,7 +24,6 @@ Author: Grihail. License: [LGPLv3](COPYING.LESSER). Changelog: [CHANGELOG.md](CH
 - [Data and formats](#data-and-formats)
 - [Network packets](#network-packets)
 - [Adding a new game version](#adding-a-new-game-version)
-- [Testing](#testing)
 - [Project rules](#project-rules)
 - [License](#license)
 
@@ -77,15 +76,15 @@ The frame and the canvas are chosen separately on the "Frame" tab, with the butt
 | Block canvas | The picture on a 1-pixel thick canvas. |
 | Picture itself | The picture is 1 pixel thick, the edges stretch its outer pixels. |
 
-Colors and resolution are chosen on the "Style" tab.
+The "Style" tab sets colors and resolution:
 
-The "Sharp pixels" checkbox (on by default) turns off semi-transparency: a pixel is either fully visible or fully transparent, like on maps, so the edges of a picture with a transparent background stay crisp instead of blending into the wall. The "Map palette" checkbox leaves only the colors Minecraft maps of this game version can show, like real map art; the palette sets the colors itself, so the "Colors" slider is inactive with it, and dithering works with the palette. Three sliders set the colors and the resolution (the mouse wheel over a slider moves it too):
+- **Sharp pixels** (on by default): no semi-transparency, a pixel is either fully visible or fully transparent, like on maps. The edges of a picture with a transparent background stay crisp instead of blending into the wall.
+- **Map palette**: only the colors that maps of this game version can show, like real map art. The "Colors" slider is inactive with it, dithering still applies.
+- **Colors**, 2-25 (default 25): posterization, how many shades each color channel keeps. 25 is closest to the original.
+- **Dither**, 0-100% (default 100%): mixes the colors with dots for smooth gradients. 0% gives flat areas of color.
+- **Pixels per block**, powers of two from 1 to 256 (default 128). 128 looks like a map in an item frame, 16 like a vanilla painting.
 
-- **Colors**, from 2 to 25 (default 25): posterization, how many shades each color channel keeps. 25 is closest to the original colors.
-- **Dither**, from 0% to 100% (default 100%): mixes the colors with dots for smooth gradients. 0% gives flat areas of color.
-- **Pixels per block**, in powers of two: 1, 2, 4 ... 256 (default 128). 128 looks like a map in an item frame, 16 looks like a vanilla painting.
-
-The picture uses smooth lighting, like vanilla blocks.
+The mouse wheel over a slider moves it. The picture uses smooth lighting, like vanilla blocks.
 
 ### Materials and glow
 
@@ -97,7 +96,7 @@ The "Frame" tab has three slots:
 
 The slot takes a real item. When the picture is broken, the items are part of its drop.
 
-There are no block names under the slots: they are shown in the block's own tooltip. The glow slot shows the light level. A frame or canvas slot that the chosen look does not need turns pale, and its blocks are returned to the player when the window closes.
+The glow slot shows the light level. A frame or canvas slot that the chosen look does not need turns pale, and its blocks are returned to the player when the window closes.
 
 For a stack of pictures in hand, the slot holds one block per picture: a stack of 16 pictures with an oak frame has 16 planks in the slot. Putting a stack of blocks into an empty slot gives the material to as many pictures as there are blocks. Taking some blocks out of the slot removes the material from the same number of pictures. If not all pictures in the stack changed, the changed ones are split off into the inventory, or dropped on the ground if there is no room. Right-click puts one block or takes half, Shift+click moves all blocks to the inventory. The server can forbid this (see [Mod settings](#mod-settings)): then materials change only for a single picture in hand.
 
@@ -106,7 +105,8 @@ For a stack of pictures in hand, the slot holds one block per picture: a stack o
 - A picture has a title and a description. The title shows under the picture when you look at it while holding Shift (above it for a picture on the floor). Both are shown in the item tooltip.
 - `http` and `https` links in the description are underlined. In the window of someone else's picture they can be clicked.
 - The lock makes the picture private. Only the owner can change it. Others see only the title and description, but anyone can break the picture. A private picture in the inventory has the enchantment glint.
-- The quill button above the lock signs the picture. Only an unlocked picture can be signed, and only once. Only a single picture can be signed, not a stack in hand. First the player confirms the signature in a vanilla "Yes / No" dialog. After that it cannot be undone, even by closing the lock: it is applied when the picture window closes and stays forever. A signature is unique: it is not in the config for copying, a signed picture cannot be copied by crafting and cannot be reset to a blank frame (materials can still be taken out). After signing, the button shows the signer's head and the tooltip shows their nickname. When looking at the picture while holding Shift, the signer's nickname is shown in italics next to the title: "Title - nickname". The signature is also shown in the item tooltip.
+- The quill button above the lock signs the picture: only a single unlocked picture, only once, after a vanilla "Yes / No" confirmation. The signature stays forever: it is not in the config for copying, and a signed picture cannot be copied by crafting or reset to a blank frame. The button then shows the signer's head; the nickname is in the tooltips and, in italics, next to the title when looking at the picture with Shift.
+- The "18+" button above the quill marks the picture as NSFW. Anyone who can change the picture can set or clear the mark. Players with `hideNsfw` see an empty canvas with a red "18+" mark instead (see [Mod settings](#mod-settings)).
 
 ### Copying settings
 
@@ -148,7 +148,7 @@ In singleplayer and in a world opened to LAN, the host uploads the pictures of t
 
 ### Mod settings
 
-The `config/minepapers.json` file is shared by all game versions. The mod creates it on first launch and reads it on every launch. The file may contain `//` comments. The server's settings apply: on a client connected to a server the file has no effect.
+The `config/minepapers.json` file is shared by all game versions. The mod creates it on first launch and reads it on every launch. The file may contain `//` comments. `stackMaterials` works on the server (a client connected to a server uses the server's value), `hideNsfw` only on the client where it is set.
 
 | Key | Default | What it does |
 | --- | --- | --- |
@@ -192,7 +192,11 @@ Only check that everything compiles:
 gradlew compileJava
 ```
 
-If Minecraft decompilation fails with "paging file is too small", the computer ran out of memory. Closing running Minecraft clients usually helps.
+Run the game from the development environment:
+
+```bat
+gradlew :1.21.1-neoforge:runClient
+```
 
 ## Repository layout
 
@@ -218,7 +222,7 @@ For each subproject, the root `build.gradle`:
 - adds `common/java` as an extra source folder;
 - copies `common/resources` into the jar. For versions before 1.13 the `textures/block` and `textures/item` folders are renamed to `textures/blocks` and `textures/items`;
 - puts the translations from `common/lang` into `assets/minepapers/lang`. For versions before 1.13 they are converted to the `.lang` format (see [Translations](#translations));
-- fills in the mod version and Minecraft version in `mcmod.info` and `META-INF/neoforge.mods.toml`.
+- fills in the mod version and Minecraft version in `mcmod.info`, `version.properties` and `META-INF/neoforge.mods.toml`.
 
 A version's own `build.gradle` only keeps its plugin, Java version and loader version.
 
@@ -228,14 +232,14 @@ Package `com.grihail.minepapers`. Only things that do not depend on the game ver
 
 | File | What it does |
 | --- | --- |
-| `picture/PictureSettings.java` | Picture position and settings: fields, constants (`SOURCE_*`, `FIT_*`, `MODE_*`, `STYLE_*`), source key, size in blocks, NBT read and write through the `Tag` adapter. The version's `PictureFrame` extends it. |
+| `picture/PictureSettings.java` | Picture position and settings: fields, constants (`SOURCE_*`, `FIT_*`, `MODE_*`, `FRAME_*`, `CANVAS_*`, old `STYLE_*`), source key, size in blocks, NBT read and write through the `Tag` adapter. The version's `PictureFrame` extends it. |
 | `picture/CanvasGeometry.java` | Picture geometry: "wall coordinate" axes, the frame cell corner, the canvas box in the world, light cells, pictures meeting in a corner. The version's `FrameGeometry` extends it. |
 | `ModConfig.java` | Mod settings from `config/minepapers.json`. |
 | `picture/MaterialStack.java` | Material slot for a stack of pictures: how many pictures a click changes and whether the stack may be changed. |
 | `picture/PictureTarget.java` | What the window configures, as a single number for packets: the picture entity id or the inventory slot of the picture item. |
 | `picture/PictureConfig.java` | Picture settings as JSON for copy and paste. Translation of item names between versions before and after 1.13. |
 | `picture/Links.java` | Finding links in the description. |
-| `picture/Numbers.java` | Parsing numbers from window fields and writing them without trailing zeros. |
+| `picture/Numbers.java` | Numbers in window fields: parsing, writing without trailing zeros, what can be typed and the step limits. |
 | `client/PictureManager.java` | Loading pictures from all sources, decoding, memory cache, slideshow, unloading textures that have not been drawn for a while. |
 | `client/ImageStylizer.java` | Preparing the texture for the canvas: fitting, pixelation, posterization, dithering. |
 | `client/GifFrames.java` | Assembling animated GIF frames into full images. |
@@ -282,6 +286,7 @@ The common code does not know Minecraft classes. Everything version-specific com
 
 - the game folder and the `config/minepapers` folder;
 - the User-Agent for internet requests;
+- this version's base map colors (for the map palette; their number differs between versions);
 - the "connected to a server" and "server running in this client" flags;
 - uploading a frame to video memory and freeing it. Each version has its own texture handle: in 1.7.10 it is an OpenGL texture id, in 1.21.1 a `ResourceLocation`. The common code keeps it as an `Object` and passes it back to the version's renderer;
 - sending the three client packets for picture exchange.
@@ -330,10 +335,12 @@ A new key is added to all four JSON files.
 | `textures/block/frame_border.png` | Default frame. |
 | `textures/block/frame_canvas.png` | Default canvas. |
 | `textures/item/picture_frame.png` | Item icon. |
-| `textures/gui/picture_frame.png` | Window icons: tabs, sources, fit, radio buttons, checkboxes, copy, paste, lock. The layout is described at the top of `GuiWidgets.java`. |
+| `textures/gui/picture_frame.png` | Window icons: tabs, sources, fit, frame and canvas looks, checkboxes, copy, paste, lock, quill, 18+. The layout is described at the top of `GuiWidgets.java`. |
+| `textures/misc/alpha_grid.png` | Checkerboard under a transparent picture on the item icon. |
+| `textures/misc/nsfw.png` | Red "18+" mark on a hidden NSFW picture. |
 | `flattening.txt` | Table "old item name + metadata -> name in newer versions". Needed to paste a picture config from 1.7.10 into 1.21.1 and back. Built from the vanilla DataFixer. |
 
-Resources needed by only one version live in its `src/main/resources`. In 1.21.1 these are the item models, recipes, `neoforge.mods.toml` and the tag `data/sable/tags/entity_type/wall_entities.json`. The tag is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 this is `mcmod.info`.
+Resources needed by only one version live in its `src/main/resources`. In 1.21.1 these are the item models, recipes, `neoforge.mods.toml` and the tag `data/sable/tags/entity_type/wall_entities.json`. The tag is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 these are `mcmod.info` and `version.properties` (the mod version for FML).
 
 ## Data and formats
 
@@ -451,19 +458,6 @@ In 1.7.10 packet handlers run on the network thread, so server packets queue a t
 6. Translations, textures and the `.lang` format are picked up automatically from the version in the folder name.
 
 If code is the same for two or more versions and does not use the game API, it moves to `common/java`. The copies in the version folders are then removed.
-
-## Testing
-
-Builds are tested in Prism Launcher. The built jar is copied into the `mods` folder of the matching instance.
-
-| Instance | Contents |
-| --- | --- |
-| `1.7.10` | Minecraft 1.7.10, Forge 10.13.4.1614, Java 8. Test world "MinePapers Test". |
-| `1.21.1` | Minecraft 1.21.1, NeoForge 21.1.259. |
-
-From the development environment the game can be launched with the `runClient` task of the needed version, for example `gradlew :1.21.1-neoforge:runClient`.
-
-If the game hangs, a thread dump can be taken with `jstack <pid>` from the JDK the game runs on. It shows where the game is stuck.
 
 ## Project rules
 

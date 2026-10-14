@@ -409,9 +409,9 @@ public class RenderPicture extends Render {
     /** Боковой брус багета внутри каймы: середина текстуры (пиксели 2..14) с повтором, повёрнутая на четверть оборота — её строки (волокна) идут вдоль бруса, сверху вниз. */
     private void sideBar(IIcon icon, double u0, double v0, double u1, double v1, double d) {
         for (double e = v1; e > v0 + 1e-6; ) {
-            double c = Math.max(v0, e - 12 * PX);
+            double c = Math.max(v0, e - TILE);
             for (double a = u0; a < u1 - 1e-6; ) {
-                double b = Math.min(u1, a + 12 * PX);
+                double b = Math.min(u1, a + TILE);
                 light((a + b) / 2, (c + e) / 2, d + 0.05, 1f);
                 double x0 = icon.getInterpolatedU(2), x1 = icon.getInterpolatedU(2 + (e - c) * 16);
                 double y0 = icon.getInterpolatedV(2), y1 = icon.getInterpolatedV(2 + (b - a) * 16);

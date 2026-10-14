@@ -92,6 +92,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
     private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
     private GuiWidgets.Slider slColors, slDither, slPpb;
+    /** Ползунки вкладки "Стиль" и их подсказки — по порядку. */
+    private GuiWidgets.Slider[] sliders;
+    private static final String[] SLIDER_TIPS = { "minepapers.gui.colors.tip", "minepapers.gui.dither.tip", "minepapers.gui.ppb.tip" };
     /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
     private final List<GuiWidgets.Toggle> sourceButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> fitButtons = new ArrayList<GuiWidgets.Toggle>();
@@ -126,9 +129,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         this.fitMode = tile.fitMode;
         this.sharp = tile.sharpPixels;
         this.mapPalette = tile.mapPalette;
-        this.ppb = 1 << PictureFrame.ppbStep(tile.pixelsPerBlock);
         this.colors = tile.colors;
         this.dither = tile.dither;
+        this.ppb = 1 << PictureFrame.ppbStep(tile.pixelsPerBlock);
         this.frameShape = tile.getFrameShape();
         this.canvasKind = tile.getCanvasKind();
         this.sizePx = tile.sizeInPixels;
@@ -176,8 +179,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         // Справа сверху, вне окна — копировать и вставить все настройки как JSON (PictureConfig).
         btnCopy = add(new GuiWidgets.Small(ID_COPY, x + xSize + 2, y + 4, 20, 20, "", GuiWidgets.ICON_COPY_U), -1);
         btnPaste = add(new GuiWidgets.Small(ID_PASTE, x + xSize + 2, y + 26, 20, 20, "", GuiWidgets.ICON_PASTE_U), -1);
-        // Ниже — подпись и замок привата. Чужой замок не нажимается, только показывает владельца.
-        // Над ними — пометка NSFW: ставит и снимает любой, кто может менять картину.
+        // Ниже — пометка NSFW (ставит и снимает любой, кто может менять картину), подпись и замок привата. Чужой замок не нажимается, только показывает владельца.
         btnNsfw = add(new GuiWidgets.Nsfw(ID_NSFW, x + xSize + 2, y + 82), -1);
         btnSign = add(new GuiWidgets.Sign(ID_SIGN, x + xSize + 2, y + 104), -1);
         btnLock = add(new GuiWidgets.Lock(ID_LOCK, x + xSize + 2, y + 126), -1);
@@ -224,6 +226,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             dither, v -> I18n.format("minepapers.gui.dither", v), v -> dither = v), TAB_STYLE);
         slPpb = add(new GuiWidgets.Slider(ID_STYLE + 2, x + 8, y + 92, 160, 0, PictureFrame.PPB_STEPS, 1,
             PictureFrame.ppbStep(ppb), v -> I18n.format("minepapers.gui.ppb", 1 << v), v -> ppb = 1 << v), TAB_STYLE);
+        sliders = new GuiWidgets.Slider[] { slColors, slDither, slPpb };
 
         // Рамка: справа от слотов рамки и холста — их вид. У рамки кнопки "нет" и "обшивка", за ними — ширина багета (поле рисует рамку на пиксель шире себя — как кнопка).
         int lookY = y + ContainerPictureFrame.MATERIAL_Y - 2;
@@ -320,12 +323,11 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         btnFolder.visible &= local;
         for (GuiWidgets.Tab t : tabs) t.selected = t.id - ID_TAB == tab;
         cbSharp.checked = sharp;
+        cbMapPalette.checked = mapPalette;
         slColors.setInt(colors);
+        slColors.enabled = !mapPalette; // с палитрой карт цвета задаёт она
         slDither.setInt(dither);
         slPpb.setInt(PictureFrame.ppbStep(ppb));
-        cbMapPalette.checked = mapPalette;
-        // С палитрой карт цвета задаёт она — ползунок их числа не действует.
-        slColors.enabled = !mapPalette;
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.id - ID_SOURCE == source;
         for (GuiWidgets.Toggle t : fitButtons) t.checked = t.id - ID_FIT == fitMode;
         for (GuiWidgets.Toggle t : frameButtons) t.checked = t.id - ID_FRAME == frameShape;
@@ -554,9 +556,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         if (frameShape == PictureFrame.FRAME_MOLDING) c.moldingWidth = moldingWidth();
         c.canvas = canvasKind;
         c.sharpPixels = sharp;
+        c.mapPalette = mapPalette;
         c.colors = colors;
         c.dither = dither;
-        c.mapPalette = mapPalette;
         c.style = PictureFrame.legacyStyle(mapPalette, dither);
         c.pixelsPerBlock = ppb;
         PictureFrame.Material[] materials = tile.materials();
@@ -824,7 +826,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Перетаскивание мыши после клика в многострочном поле — выделение текста, а не раскладка предметов по слотам. */
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int button, long sinceClick) {
-        for (GuiWidgets.Slider s : sliders()) {
+        for (GuiWidgets.Slider s : sliders) {
             if (s.isDragging()) return; // ползунок тянется сам (Slider.drawButton)
         }
         for (GuiTextArea a : areas) {
@@ -871,14 +873,11 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             if (isActive(e.getKey()) && over(e.getKey(), mouseX, mouseY)) step(e.getKey(), e.getValue(), wheel > 0 ? 1 : -1);
         }
         // Ползунок: колёсико на себя — вправо, от себя — влево.
-        for (GuiWidgets.Slider s : sliders()) {
+        for (GuiWidgets.Slider s : sliders) {
             if (s.visible && s.hovered()) s.scroll(wheel < 0 ? 1 : -1);
         }
     }
 
-    private GuiWidgets.Slider[] sliders() {
-        return new GuiWidgets.Slider[] { slColors, slDither, slPpb };
-    }
 
     /** Shift+клик кладёт предмет в слот рамки — только когда этот слот виден. */
     @Override
@@ -1114,11 +1113,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 return;
             }
         }
-        String[] sliderTips = { "minepapers.gui.colors.tip", "minepapers.gui.dither.tip", "minepapers.gui.ppb.tip" };
-        GuiWidgets.Slider[] sliders = sliders();
         for (int i = 0; i < sliders.length; i++) {
             if (!sliders[i].hovered()) continue;
-            if (!sliders[i].isDragging()) tooltip(sliderTips[i], mouseX, mouseY);
+            if (!sliders[i].isDragging()) tooltip(SLIDER_TIPS[i], mouseX, mouseY);
             return;
         }
         for (GuiWidgets.Toggle t : sourceButtons) {

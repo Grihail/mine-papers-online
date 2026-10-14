@@ -24,7 +24,7 @@ import net.minecraft.util.ResourceLocation;
 /** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры (сундук, вкладки творческого режима, кнопки), поэтому окно выглядит как родное и меняется вместе с ресурспаком. Из своей текстуры textures/gui/picture_frame.png — только иконки. */
 final class GuiWidgets {
 
-    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32). */
+    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), галочки 10x10 с (20, 16), вписывание 16x16 с (0, 32). */
     static final ResourceLocation ICONS = new ResourceLocation(MinePapers.MODID, "textures/gui/picture_frame.png");
     private static final ResourceLocation CHEST = new ResourceLocation("textures/gui/container/generic_54.png");
     private static final ResourceLocation TABS = new ResourceLocation("textures/gui/container/creative_inventory/tabs.png");
@@ -39,7 +39,7 @@ final class GuiWidgets {
     static final int PEN_U = 64, PEN_V = 64;
     /** "18+" 16x16 — на кнопке пометки NSFW: серая и красная (картина помечена). */
     static final int NSFW_U = 80, NSFW_ON_U = 96, NSFW_V = 64;
-    static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48,
+    static final int ICON_RELOAD_U = 64, CHECK_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48,
         LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
@@ -296,7 +296,7 @@ final class GuiWidgets {
 
         @Override
         void draw(Minecraft mc, boolean hovered) {
-            icon(xPosition, yPosition, checked ? 30 : 20, RADIO_V, 10, 10);
+            icon(xPosition, yPosition, checked ? 30 : 20, CHECK_V, 10, 10);
             mc.fontRenderer.drawString(displayString, xPosition + 13, yPosition + 1, hovered ? HOVER : TEXT);
         }
     }

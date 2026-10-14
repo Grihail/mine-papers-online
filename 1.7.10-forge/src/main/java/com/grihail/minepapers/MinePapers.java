@@ -19,6 +19,7 @@ import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.server.ServerImages;
 
 import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
@@ -59,7 +60,7 @@ public class MinePapers {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        VERSION = cpw.mods.fml.common.Loader.instance().activeModContainer().getVersion();
+        VERSION = Loader.instance().activeModContainer().getVersion();
         picturesDir = new File(event.getModConfigurationDirectory(), MODID);
         ModConfig.load(event.getModConfigurationDirectory());
         if (!picturesDir.exists()) {

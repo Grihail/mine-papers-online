@@ -48,9 +48,11 @@ public final class ModConfig {
             if (!root.isJsonObject()) throw new IllegalStateException("not a JSON object");
             JsonObject json = root.getAsJsonObject();
             if (json.has("stackMaterials")) stackMaterials = json.get("stackMaterials").getAsBoolean();
-            if (json.has("hideNsfw")) hideNsfw = json.get("hideNsfw").getAsBoolean();
-            // Файл прежней версии без новых настроек — дописываем их со значениями по умолчанию.
-            if (!json.has("hideNsfw")) save(file);
+            if (json.has("hideNsfw")) {
+                hideNsfw = json.get("hideNsfw").getAsBoolean();
+            } else {
+                save(file); // файл прежней версии — дописываем новую настройку (со значением по умолчанию)
+            }
         } catch (Exception e) {
             LOG.warn("Не удалось прочитать " + file + ", действуют настройки по умолчанию: " + e);
         }

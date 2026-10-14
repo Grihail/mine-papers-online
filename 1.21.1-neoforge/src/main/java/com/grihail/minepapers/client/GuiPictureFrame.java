@@ -122,9 +122,9 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         this.fitMode = tile.fitMode;
         this.sharp = tile.sharpPixels;
         this.mapPalette = tile.mapPalette;
-        this.ppb = 1 << PictureFrame.ppbStep(tile.pixelsPerBlock);
         this.colors = tile.colors;
         this.dither = tile.dither;
+        this.ppb = 1 << PictureFrame.ppbStep(tile.pixelsPerBlock);
         this.frameShape = tile.getFrameShape();
         this.canvasKind = tile.getCanvasKind();
         this.sizePx = tile.sizeInPixels;
@@ -172,8 +172,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         btnPaste = addRenderableWidget(new GuiWidgets.Small(x + imageWidth + 2, y + 26, 20, 20,
             Component.translatable("minepapers.gui.paste"), GuiWidgets.ICON_PASTE_U, this::pasteConfig));
         btnPaste.setTooltip(tip("minepapers.gui.paste", "minepapers.gui.paste.tip"));
-        // Ниже — подпись и замок привата. Чужой замок не нажимается, только показывает владельца.
-        // Над ними — пометка NSFW: ставит и снимает любой, кто может менять картину.
+        // Ниже — пометка NSFW (ставит и снимает любой, кто может менять картину), подпись и замок привата. Чужой замок не нажимается, только показывает владельца.
         btnNsfw = addRenderableWidget(new GuiWidgets.Nsfw(x + imageWidth + 2, y + 82, () -> {
             nsfw = !nsfw;
             updateWidgets();
@@ -534,12 +533,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         for (GuiWidgets.Toggle t : frameButtons) t.checked = t.value == frameShape;
         for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.value == canvasKind;
         cbSharp.checked = sharp;
+        cbMapPalette.checked = mapPalette;
         slColors.setInt(colors);
+        slColors.active = !mapPalette; // с палитрой карт цвета задаёт она
         slDither.setInt(dither);
         slPpb.setInt(PictureFrame.ppbStep(ppb));
-        cbMapPalette.checked = mapPalette;
-        // С палитрой карт цвета задаёт она — ползунок их числа не действует.
-        slColors.active = !mapPalette;
         cbSizePx.checked = sizePx;
         cbPosPx.checked = posPx;
         cbPadPx.checked = padPx;
@@ -645,9 +643,9 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (frameShape == PictureFrame.FRAME_MOLDING) c.moldingWidth = moldingWidth();
         c.canvas = canvasKind;
         c.sharpPixels = sharp;
+        c.mapPalette = mapPalette;
         c.colors = colors;
         c.dither = dither;
-        c.mapPalette = mapPalette;
         c.style = PictureFrame.legacyStyle(mapPalette, dither);
         c.pixelsPerBlock = ppb;
         PictureFrame.Material[] materials = tile.materials();

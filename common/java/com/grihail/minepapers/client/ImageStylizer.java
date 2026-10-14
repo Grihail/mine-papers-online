@@ -3,7 +3,6 @@ package com.grihail.minepapers.client;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 import com.grihail.minepapers.picture.PictureSettings;
 
@@ -26,7 +25,7 @@ public final class ImageStylizer {
     /** Параметры, от которых зависит итоговая текстура. */
     public static final class Layout {
         final double canvasW, canvasH;
-        /** Внутренний отступ картинки от краёв холста, в блоках. */
+        /** Поля картинки от краёв холста, в блоках (отрицательные — картинка крупнее холста). */
         final double padding;
         /** ppb — пикселей текстуры на блок; naturalPpb — для режимов none / scale-down (у картины в мире они равны). */
         final double ppb, naturalPpb;
@@ -46,8 +45,15 @@ public final class ImageStylizer {
             this.colors = tile.mapPalette ? 0 : tile.colors;
             this.dither = tile.dither;
             this.sharp = tile.sharpPixels;
-            this.key = String.format(Locale.ROOT, "%.4f|%.4f|%.4f|%d|%.4f|%.4f|%d|%d|%b", canvasW, canvasH, padding, fit, ppb,
-                naturalPpb, colors, dither, sharp);
+            // Ключ собирается каждый кадр для каждой картины и иконки — без String.format, дроби с точностью до 1/10000.
+            this.key = new StringBuilder(64).append(tenThousandths(canvasW)).append('|').append(tenThousandths(canvasH))
+                .append('|').append(tenThousandths(padding)).append('|').append(fit).append('|').append(tenThousandths(ppb))
+                .append('|').append(tenThousandths(naturalPpb)).append('|').append(colors).append('|').append(dither)
+                .append('|').append(sharp ? 1 : 0).toString();
+        }
+
+        private static long tenThousandths(double v) {
+            return Math.round(v * 10000);
         }
 
         /** Та же картина, уменьшенная так, что большая сторона холста — iconPixels пикселей (для иконки предмета). */
@@ -228,7 +234,7 @@ public final class ImageStylizer {
 
     /** Перевод в меньшее число цветов с дизерингом Флойда — Стейнберга: в палитру карт (mapPalette) или постеризация — у каждого канала levels ровных ступеней от 0 до 255. Прозрачность не меняется (на картах её нет — там пиксель либо виден, либо прозрачен), полностью прозрачные пиксели пропускаются. @param strength доля ошибки, которая переносится на соседей: 0 — без дизеринга (ровные пятна), 1 — полный (зернистый, зато плавные переходы). */
     private static void posterize(int[] px, int w, int h, int levels, float strength, boolean mapPalette) {
-        float step = 255f / (levels - 1);
+        float step = mapPalette ? 0 : 255f / (levels - 1);
         float[] errCur = new float[(w + 2) * 3];
         float[] errNext = new float[(w + 2) * 3];
         boolean dither = strength > 0;

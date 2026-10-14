@@ -31,6 +31,8 @@ public final class PictureConfig {
     /** Версия игры, в которой конфиг скопирован: по ней понятно, в каких названиях записаны предметы (до 1.13 и после — разные, см. translate). */
     public String minecraft;
     public String title, description;
+    /** Пометка NSFW (18+). */
+    public Boolean nsfw;
     public Integer source;
     public String path;
     public Integer interval;
@@ -45,8 +47,6 @@ public final class PictureConfig {
     public Integer moldingWidth;
     /** Резкие пиксели (без полупрозрачности), палитра карт, число цветов и сила дизеринга в процентах. Рядом пишется ближайший старый style — для прежних версий; при вставке эти поля главнее style. */
     public Boolean sharpPixels, mapPalette;
-    /** Пометка NSFW (18+). */
-    public Boolean nsfw;
     public Integer colors, dither;
 
     /** Предмет материала: id в реестре и (только для 1.7.10) метаданные; meta < 0 — любые. */

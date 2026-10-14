@@ -5,3 +5,6 @@ logs/
 out/
 .idea/
 *.iml
+# Отчёты о падениях JVM (Gradle, игра)
+hs_err_pid*.log
+replay_pid*.log

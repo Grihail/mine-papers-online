@@ -3,8 +3,8 @@ package com.grihail.minepapers.client;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -65,7 +65,9 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         int x1 = x0 + iw + 2 * ring, y1 = y0 + ih + 2 * ring;
         int cx0 = x0 + ring, cy0 = y0 + ring, cx1 = x1 - ring, cy1 = y1 - ring;
 
-        String key = ModConfig.hides(s.nsfw) ? null : s.getSourceKey(); // NSFW скрыт - обычная иконка
+        // Картина NSFW, скрытая настройкой hideNsfw: картинка не загружается, на заглушке — значок "18+" (см. ниже).
+        boolean hidden = ModConfig.hides(s.nsfw);
+        String key = hidden ? null : s.getSourceKey();
         PictureManager.Variant thumb = key == null ? null
             : PictureManager.thumbnail(key, ImageStylizer.Layout.icon(s, inner));
 
@@ -142,8 +144,8 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 }
             }
         }
-        // 3. Картина NSFW, скрытая настройкой hideNsfw: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
-        if (ModConfig.hides(s.nsfw)) {
+        // 3. Скрытая картина NSFW: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
+        if (hidden) {
             int size = Math.min(cx1 - cx0, cy1 - cy0);
             double mx = (cx0 + cx1 - size) / 2.0, my = (cy0 + cy1 - size) / 2.0;
             out = buffers.getBuffer(RenderType.entityCutoutNoCull(NSFW_MARK));
