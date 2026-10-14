@@ -60,13 +60,18 @@ public final class PictureManager {
     private static final String[] IMAGE_EXTENSIONS = { ".png", ".jpg", ".jpeg", ".jfif", ".jpe", ".jif", ".pjpeg",
         ".pjp", ".gif", ".bmp" };
 
+    /** Загрузка и стилизация в фоне: до половины ядер (от 2 до 4 потоков), приоритет чуть ниже обычного — игре не мешают, но и в большой сборке не стоят в очереди за всеми остальными потоками (самый низкий приоритет там почти не получал времени). */
     private static final AtomicInteger THREADS = new AtomicInteger();
-    private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(2, r -> {
-        Thread t = new Thread(r, "MinePapers loader #" + THREADS.incrementAndGet());
-        t.setDaemon(true);
-        t.setPriority(Thread.MIN_PRIORITY);
-        return t;
-    });
+    private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(
+        Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)), r -> {
+            Thread t = new Thread(r, "MinePapers loader #" + THREADS.incrementAndGet());
+            t.setDaemon(true);
+            t.setPriority(Thread.NORM_PRIORITY - 1);
+            return t;
+        });
+
+    /** Сколько пикселей кадров анимации одна картина загружает в видеопамять за кадр игры: сотня кадров GIF разом — заметный фриз. */
+    private static final long UPLOAD_PIXELS_PER_FRAME = 2L * 1024 * 1024;
 
     private static final Map<String, Source> SOURCES = new HashMap<String, Source>();
 
@@ -475,6 +480,9 @@ public final class PictureManager {
         volatile boolean failed;
         /** Текстуры кадров — то, что вернул ClientHost.uploadTexture. */
         private Object[] textures;
+        /** Кадры, уже загруженные в видеопамять, пока загружаются остальные (см. upload), и их число. */
+        private Object[] pending;
+        private int uploaded;
         /** Момент конца каждого кадра от начала анимации, мс (null, если кадр один). */
         private int[] frameEnds;
         private boolean empty;
@@ -504,10 +512,10 @@ public final class PictureManager {
             return textures[0];
         }
 
-        /** Кадр анимации в момент timeMs (анимация идёт по кругу); у обычной картинки — единственный кадр. */
-        public Object getTexture(long timeMs) {
+        /** Текущий кадр анимации (у обычной картинки — единственный кадр). Анимация идёт по реальным часам, а не по игровому времени: при просадках TPS игровое время замедляется и скачет, и GIF растягивался и дёргался. Часы — общие для всего мира (от 1970 года), поэтому у игроков с верными часами кадр тот же. */
+        public Object getCurrentTexture() {
             if (frameEnds == null) return textures[0];
-            long t = Math.floorMod(timeMs, (long) frameEnds[frameEnds.length - 1]);
+            long t = Math.floorMod(System.currentTimeMillis(), (long) frameEnds[frameEnds.length - 1]);
             int i = 0;
             while (t >= frameEnds[i]) i++;
             return textures[i];
@@ -517,41 +525,53 @@ public final class PictureManager {
             lastUsed = owner.lastUsed = System.currentTimeMillis();
         }
 
+        /** Загружает готовые кадры в видеопамять — не больше UPLOAD_PIXELS_PER_FRAME за вызов (хотя бы один кадр), остальные в следующих кадрах игры. Вариант готов, когда загружены все кадры. */
         void upload() {
             Styled s = result;
             if (s == null || textures != null || empty) return;
-            result = null;
-            ImageStylizer.Result first = s.frames[0];
-            x0 = first.x0;
-            y0 = first.y0;
-            x1 = first.x1;
-            y1 = first.y1;
-            if (first.empty) {
-                empty = true;
-                return;
+            if (pending == null) {
+                ImageStylizer.Result first = s.frames[0];
+                x0 = first.x0;
+                y0 = first.y0;
+                x1 = first.x1;
+                y1 = first.y1;
+                if (first.empty) {
+                    empty = true;
+                    result = null;
+                    return;
+                }
+                width = first.width;
+                height = first.height;
+                if (keepPixels) pixels = first.pixels;
+                pending = new Object[s.frames.length];
+                uploaded = 0;
             }
-            width = first.width;
-            height = first.height;
-            if (keepPixels) pixels = first.pixels;
-            Object[] ids = new Object[s.frames.length];
-            for (int i = 0; i < ids.length; i++) {
-                ImageStylizer.Result r = s.frames[i];
-                ids[i] = ClientHost.get().uploadTexture(r.pixels, r.width, r.height);
+            long budget = UPLOAD_PIXELS_PER_FRAME;
+            while (uploaded < pending.length && budget > 0) {
+                ImageStylizer.Result r = s.frames[uploaded];
+                pending[uploaded] = ClientHost.get().uploadTexture(r.pixels, r.width, r.height);
+                s.frames[uploaded++] = null; // пиксели больше не нужны (у иконки они остались в pixels)
+                budget -= (long) r.width * r.height;
             }
+            if (uploaded < pending.length) return;
             if (s.delays != null) {
                 frameEnds = new int[s.delays.length];
                 int end = 0;
                 for (int i = 0; i < frameEnds.length; i++) frameEnds[i] = end += s.delays[i];
             }
-            textures = ids;
+            textures = pending;
+            pending = null;
+            result = null;
         }
 
         void release() {
-            if (textures != null) {
-                for (Object id : textures) ClientHost.get().releaseTexture(id);
-                textures = null;
-                frameEnds = null;
+            Object[] ids = textures != null ? textures : pending;
+            if (ids != null) {
+                for (int i = 0; i < ids.length && ids[i] != null; i++) ClientHost.get().releaseTexture(ids[i]);
             }
+            textures = pending = null;
+            result = null;
+            frameEnds = null;
             pixels = null;
             empty = false;
         }

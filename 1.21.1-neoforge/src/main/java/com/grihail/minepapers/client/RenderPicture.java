@@ -129,8 +129,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         // 2. Картинка (без холста — прижата к стене смещением полигонов, без мерцания; пластина — объёмная, сама по себе, торцы в рамке закрывает рамка)
         if (hasPicture) {
             double d = decal ? DECAL_DEPTH : plate ? PX : PX + 0.002;
-            // Кадр анимации — по игровому времени: у всех игроков одинаковый, как и слайд.
-            ResourceLocation texture = (ResourceLocation) shown.getTexture((long) ((level.getGameTime() + partialTick) * 50));
+            // Кадр анимации — по реальным часам (см. getCurrentTexture): при просадках TPS анимация не тормозит и не дёргается.
+            ResourceLocation texture = (ResourceLocation) shown.getCurrentTexture();
             out = buffers.getBuffer(decal ? PictureRenderTypes.decal(texture) : RenderType.entityTranslucent(texture));
             setTint(1f, 1f, 1f);
             double pu0 = u0 + shown.x0, pv0 = v0 + shown.y0, pu1 = u0 + shown.x1, pv1 = v0 + shown.y1;

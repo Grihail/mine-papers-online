@@ -131,8 +131,8 @@ public class RenderPicture extends Render {
                 GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
                 GL11.glPolygonOffset(-1f, -10f);
             }
-            // Кадр анимации — по игровому времени: у всех игроков одинаковый, как и слайд.
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, (Integer) shown.getTexture((long) ((world.getTotalWorldTime() + partialTicks) * 50)));
+            // Кадр анимации — по реальным часам (см. getCurrentTexture): при просадках TPS анимация не тормозит и не дёргается.
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, (Integer) shown.getCurrentTexture());
             t.startDrawingQuads();
             double pu0 = u0 + shown.x0, pv0 = v0 + shown.y0, pu1 = u0 + shown.x1, pv1 = v0 + shown.y1;
             picture(pu0, pv0, pu1, pv1, d);
