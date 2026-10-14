@@ -2,6 +2,8 @@ package com.grihail.minepapers.client;
 
 import org.lwjgl.opengl.GL11;
 
+import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
@@ -29,6 +31,10 @@ public class RenderPicture extends Render {
     private static final double DECAL_DEPTH = 0.003;
     /** Длина одного повтора текстуры рамки вдоль ребра: 12 пикселей текстуры = 12/16 блока. */
     private static final double TILE = 12 * PX;
+    /** Кайма багета — два крайних пикселя текстуры рамки (тёмный край и светлая фаска). */
+    private static final double RIM = 2 * PX;
+    /** Значок "18+" на скрытой картине NSFW. */
+    private static final ResourceLocation NSFW_MARK = new ResourceLocation(MinePapers.MODID, "textures/misc/nsfw.png");
 
     // Состояние текущей отрисовки (рендер однопоточный)
     private int facing, rotation;
@@ -108,7 +114,7 @@ public class RenderPicture extends Render {
                 if (frame == PictureFrame.FRAME_EDGES) {
                     edges(skin.icon, u0, v0, u1, v1, 0, PX);
                 } else {
-                    realisticFrame(skin.icon, u0, v0, u1, v1, base);
+                    realisticFrame(skin.icon, u0, v0, u1, v1, base, tile.getMoldingBlocks());
                 }
             }
             t.draw();
@@ -138,6 +144,10 @@ public class RenderPicture extends Render {
             t.draw();
             if (decal) GL11.glDisable(GL11.GL_POLYGON_OFFSET_FILL);
         }
+
+        // 2б. Картина NSFW, скрытая настройкой hideNsfw: по центру холста красный значок "18+" (1x1 блок, не больше холста) -
+        // чтобы её не путали с картиной, которая ещё не загрузилась.
+        if (ModConfig.hides(tile.nsfw)) nsfwMark(u0, v0, u1, v1, decal ? DECAL_DEPTH : PX);
 
         // Возвращаем состояние OpenGL как было: моды вроде Angelica следят за ним и не любят "хвостов".
         GL11.glDisable(GL11.GL_BLEND);
@@ -250,6 +260,21 @@ public class RenderPicture extends Render {
         return result;
     }
 
+    /** Значок "18+" по центру холста: квадрат в блок (у холста меньше блока — по его меньшей стороне), чуть над лицевой плоскостью base. */
+    private void nsfwMark(double u0, double v0, double u1, double v1, double base) {
+        double half = Math.min(1, Math.min(u1 - u0, v1 - v0)) / 2;
+        double cu = (u0 + u1) / 2, cv = (v0 + v1) / 2, d = base + 0.002;
+        bindTexture(NSFW_MARK);
+        t.startDrawingQuads();
+        setTint(1f, 1f, 1f);
+        light(cu, cv, d + 0.05, 1f);
+        vertex(cu - half, cv - half, d, 0, 1);
+        vertex(cu + half, cv - half, d, 1, 1);
+        vertex(cu + half, cv + half, d, 1, 0);
+        vertex(cu - half, cv + half, d, 0, 0);
+        t.draw();
+    }
+
     /** Торцы пластины: крайние пиксели картинки, растянутые на всю толщину. */
     private void plateEdges(PictureManager.Variant shown, double u0, double v0, double u1, double v1) {
         // Середина крайнего пикселя текстуры, чтобы не захватить соседний.
@@ -315,33 +340,32 @@ public class RenderPicture extends Render {
         alongV(icon, v0, v1, u1, d0, d1, rows, false, true, 0.05, 0.8f);
     }
 
-    /** Багет: брусья шириной 2 пикселя заходят на холст и выступают над картинкой (base — лицевая плоскость холста); лицевая сторона — кольцо из текстуры рамки (дерево + золотая кайма), углы — её же углы. */
-    private void realisticFrame(IIcon icon, double u0, double v0, double u1, double v1, double base) {
-        double b = Math.min(2 * PX, Math.min((u1 - u0) / 2, (v1 - v0) / 2));
+    /** Багет: брусья шириной width заходят на холст и выступают над картинкой (base — лицевая плоскость холста). Лицевая сторона: по внешнему краю — кайма из краёв и углов текстуры рамки (не шире RIM), внутри неё — середина текстуры без шва (у боковых брусьев повёрнута, чтобы волокна шли вдоль бруса). */
+    private void realisticFrame(IIcon icon, double u0, double v0, double u1, double v1, double base, double width) {
+        double b = Math.min(width, Math.min((u1 - u0) / 2, (v1 - v0) / 2));
         double top = 2 * PX; // лицевая плоскость рамки
-        double px = b * 16;   // ширина бруса в пикселях текстуры
+        double r = Math.min(b, RIM);
+        double px = r * 16;   // ширина каймы в пикселях текстуры
+        double far = 16 - px; // справа и снизу кайма кончается у края текстуры
 
         // Внешние торцы — на всю толщину
         edges(icon, u0, v0, u1, v1, 0, top);
 
-        // Углы
-        front(icon, u0, v1 - b, u0 + b, v1, top, 0, 0, px, px);
-        front(icon, u1 - b, v1 - b, u1, v1, top, 16 - px, 0, 16, px);
-        front(icon, u0, v0, u0 + b, v0 + b, top, 0, 16 - px, px, 16);
-        front(icon, u1 - b, v0, u1, v0 + b, top, 16 - px, 16 - px, 16, 16);
+        // Кайма: углы — углы текстуры, стороны — её края, вдоль повторяется середина (12 пикселей)
+        front(icon, u0, v1 - r, u0 + r, v1, top, 0, 0, px, px);
+        front(icon, u1 - r, v1 - r, u1, v1, top, far, 0, 16, px);
+        front(icon, u0, v0, u0 + r, v0 + r, top, 0, far, px, 16);
+        front(icon, u1 - r, v0, u1, v0 + r, top, far, far, 16, 16);
+        tiledFront(icon, u0 + r, v1 - r, u1 - r, v1, top, 2, 2, 12, 0, 0, 16);
+        tiledFront(icon, u0 + r, v0, u1 - r, v0 + r, top, 2, 2, 12, far, 0, 16);
+        tiledFront(icon, u0, v0 + r, u0 + r, v1 - r, top, 0, 0, 16, 2, 2, 12);
+        tiledFront(icon, u1 - r, v0 + r, u1, v1 - r, top, far, 0, 16, 2, 2, 12);
 
-        // Верхний и нижний брусья (между углами), повтор по 12 пикселей
-        for (double s = u0 + b; s < u1 - b - 1e-6; s += TILE) {
-            double e = Math.min(s + TILE, u1 - b), len = (e - s) * 16;
-            front(icon, s, v1 - b, e, v1, top, 2, 0, 2 + len, px);
-            front(icon, s, v0, e, v0 + b, top, 2, 16 - px, 2 + len, 16);
-        }
-        // Левый и правый брусья, повтор сверху вниз
-        for (double s = v1 - b; s > v0 + b + 1e-6; s -= TILE) {
-            double e = Math.max(s - TILE, v0 + b), len = (s - e) * 16;
-            front(icon, u0, e, u0 + b, s, top, 0, 2, px, 2 + len);
-            front(icon, u1 - b, e, u1, s, top, 16 - px, 2, 16, 2 + len);
-        }
+        // Внутри каймы: верхний и нижний брусья — во всю ширину, боковые — между ними
+        tiledFront(icon, u0 + r, v1 - b, u1 - r, v1 - r, top, 2, 2, 12, 2, 2, 12);
+        tiledFront(icon, u0 + r, v0 + r, u1 - r, v0 + b, top, 2, 2, 12, 2, 2, 12);
+        sideBar(icon, u0 + r, v0 + b, u0 + b, v1 - b, top);
+        sideBar(icon, u1 - b, v0 + b, u1 - r, v1 - b, top);
 
         // Внутренние торцы брусьев — ступенька от картинки до лицевой стороны рамки
         double ib0 = u0 + b, ib1 = u1 - b, jb0 = v0 + b, jb1 = v1 - b;
@@ -364,6 +388,47 @@ public class RenderPicture extends Render {
         vertex(u1, v0, d, ib, ic);
         vertex(u1, v1, d, ib, ie);
         vertex(u0, v1, d, ia, ie);
+    }
+
+    /** Лицевой прямоугольник с повторяющейся текстурой: вправо от u0 — пиксели иконки с tu, повтор [su, su + nu); вниз от v1 — с tv, повтор [sv, sv + nv). На границах повторов прямоугольник режется, чтобы не выйти за иконку. */
+    private void tiledFront(IIcon icon, double u0, double v0, double u1, double v1, double d,
+                            double tu, double su, double nu, double tv, double sv, double nv) {
+        double a = u0;
+        for (double ta = wrap(tu, su, nu); a < u1 - 1e-6; ta = su) {
+            double b = Math.min(u1, a + (su + nu - ta) / 16);
+            double e = v1;
+            for (double te = wrap(tv, sv, nv); e > v0 + 1e-6; te = sv) {
+                double c = Math.max(v0, e - (sv + nv - te) / 16);
+                front(icon, a, c, b, e, d, ta, te, ta + (b - a) * 16, te + (e - c) * 16);
+                e = c;
+            }
+            a = b;
+        }
+    }
+
+    /** Боковой брус багета внутри каймы: середина текстуры (пиксели 2..14) с повтором, повёрнутая на четверть оборота — её строки (волокна) идут вдоль бруса, сверху вниз. */
+    private void sideBar(IIcon icon, double u0, double v0, double u1, double v1, double d) {
+        for (double e = v1; e > v0 + 1e-6; ) {
+            double c = Math.max(v0, e - 12 * PX);
+            for (double a = u0; a < u1 - 1e-6; ) {
+                double b = Math.min(u1, a + 12 * PX);
+                light((a + b) / 2, (c + e) / 2, d + 0.05, 1f);
+                double x0 = icon.getInterpolatedU(2), x1 = icon.getInterpolatedU(2 + (e - c) * 16);
+                double y0 = icon.getInterpolatedV(2), y1 = icon.getInterpolatedV(2 + (b - a) * 16);
+                vertex(a, c, d, x1, y0);
+                vertex(b, c, d, x1, y1);
+                vertex(b, e, d, x0, y1);
+                vertex(a, e, d, x0, y0);
+                a = b;
+            }
+            e = c;
+        }
+    }
+
+    /** Пиксель t, приведённый в повтор [start, start + size). */
+    private static double wrap(double t, double start, double size) {
+        double r = ((t - start) % size + size) % size;
+        return start + (size - r < 1e-6 ? 0 : r);
     }
 
     /** Горизонтальный торец (плоскость v = const) вдоль u, повтор текстуры по 12 пикселей. */
@@ -433,6 +498,8 @@ public class RenderPicture extends Render {
         String key = tile.getSourceKey();
         if (key == null) return null;
         if (!tile.hasSharedFiles() && !tile.isNetworkSource()) ImageSync.autoOffer(picture.worldObj.provider.dimensionId, picture.getEntityId(), tile);
+        // Картина с пометкой NSFW, а у игрока в конфиге hideNsfw: вместо картинки пустой холст, картинки не скачиваются.
+        if (ModConfig.hides(tile.nsfw)) return null;
 
         PictureManager.Source source = PictureManager.get(key);
         long time = picture.worldObj.getTotalWorldTime();

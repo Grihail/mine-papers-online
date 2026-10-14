@@ -3,6 +3,8 @@ package com.grihail.minepapers.client;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.grihail.minepapers.ModConfig;
+import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -28,6 +30,10 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
     private static final int RING = 2;
     private static final float THICKNESS = 1f / 16f;
     private static final float FRONT = 0.5f + THICKNESS / 2, BACK = 0.5f - THICKNESS / 2;
+    /** Шахматка под картинкой без холста в инвентаре: прозрачный фон картинки виден как сетка, и картина не теряется в слоте. Клетка — пиксель иконки. */
+    private static final ResourceLocation ALPHA_GRID = MinePapers.id("textures/misc/alpha_grid.png");
+    /** Значок "18+" на скрытой картине NSFW (как на холсте в мире). */
+    private static final ResourceLocation NSFW_MARK = MinePapers.id("textures/misc/nsfw.png");
 
     private boolean flat;
     private PoseStack.Pose pose;
@@ -59,7 +65,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         int x1 = x0 + iw + 2 * ring, y1 = y0 + ih + 2 * ring;
         int cx0 = x0 + ring, cy0 = y0 + ring, cx1 = x1 - ring, cy1 = y1 - ring;
 
-        String key = s.getSourceKey();
+        String key = ModConfig.hides(s.nsfw) ? null : s.getSourceKey(); // NSFW скрыт - обычная иконка
         PictureManager.Variant thumb = key == null ? null
             : PictureManager.thumbnail(key, ImageStylizer.Layout.icon(s, inner));
 
@@ -84,7 +90,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
             sides(canvas.sprite, x0, y0, x1, y1);
         }
 
-        // 2. Картинка. На холсте из блока — на его фоне, как в мире. Без холста прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы. Пластина — цельная, торцы только по краю.
+        // 2. Картинка. На холсте из блока — на его фоне, как в мире. Без холста прозрачный фон картинки остаётся прозрачным (в инвентаре под ним шахматка), а в руке и на земле она выдавливается по пикселям, как обычные предметы. Пластина — цельная, торцы только по краю.
         color(1f, 1f, 1f);
         if (thumb != null) {
             if (canvasBlock) {
@@ -93,10 +99,13 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 color(canvas.r, canvas.g, canvas.b);
                 for (int face = 0; face < faces(); face++) atlasRect(canvas.sprite, face, cx0, cy0, cx1, cy1);
                 color(1f, 1f, 1f);
+            } else if (flat) {
+                out = buffers.getBuffer(RenderType.entityTranslucent(ALPHA_GRID));
+                rect(0, cx0, cy0, cx1, cy1, cx0 / (double) ICON, cy0 / (double) ICON, cx1 / (double) ICON, cy1 / (double) ICON, 0);
             }
             out = buffers.getBuffer(RenderType.entityTranslucent((ResourceLocation) thumb.getTexture()));
             // Настоящая рамка в мире заходит на холст: на иконке её кольцо и есть эта часть, внутри — только то, что видно из-под неё.
-            double ov = s.getFrameShape() == PictureFrame.FRAME_MOLDING ? Math.min(2 * PictureFrame.PIXEL, Math.min(w, h) / 2) : 0;
+            double ov = s.getFrameShape() == PictureFrame.FRAME_MOLDING ? Math.min(s.getMoldingBlocks(), Math.min(w, h) / 2) : 0;
             if (w - 2 * ov < 1e-6 || h - 2 * ov < 1e-6) ov = 0;
             double ww = w - 2 * ov, wh = h - 2 * ov;
             double px0 = Math.max(thumb.x0, ov), px1 = Math.min(thumb.x1, w - ov);
@@ -132,6 +141,14 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                         (x, y) -> !placeholder.contents().isTransparent(0, RING + x, RING + y));
                 }
             }
+        }
+        // 3. Картина NSFW, скрытая настройкой hideNsfw: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
+        if (ModConfig.hides(s.nsfw)) {
+            int size = Math.min(cx1 - cx0, cy1 - cy0);
+            double mx = (cx0 + cx1 - size) / 2.0, my = (cy0 + cy1 - size) / 2.0;
+            out = buffers.getBuffer(RenderType.entityCutoutNoCull(NSFW_MARK));
+            color(1f, 1f, 1f);
+            for (int face = 0; face < faces(); face++) rect(face, mx, my, mx + size, my + size, 0, 0, 1, 1, 2);
         }
         if (stack.hasFoil()) glint(buffers);
         out = null;

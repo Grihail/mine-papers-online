@@ -72,7 +72,7 @@ subprojects {
         filteringCharset = 'UTF-8'
         inputs.property 'version', project.version
         inputs.property 'mcversion', mcVersion
-        filesMatching(['mcmod.info', 'META-INF/neoforge.mods.toml']) {
+        filesMatching(['mcmod.info', 'version.properties', 'META-INF/neoforge.mods.toml']) {
             expand 'version': project.version, 'mcversion': mcVersion
         }
 

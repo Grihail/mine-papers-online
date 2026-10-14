@@ -178,6 +178,7 @@ public class ItemPictureFrame extends Item {
         if (s.isSigned()) {
             lines.add(Component.translatable("minepapers.tooltip.signer", s.signerName).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
         }
+        if (s.nsfw) lines.add(Component.translatable("minepapers.tooltip.nsfw").withStyle(ChatFormatting.RED));
         if (s.isLocked()) {
             lines.add(Component.translatable("minepapers.tooltip.owner", s.ownerName).withStyle(ChatFormatting.LIGHT_PURPLE));
         }

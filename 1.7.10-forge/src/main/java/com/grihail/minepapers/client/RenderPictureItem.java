@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.lwjgl.opengl.GL11;
 
+import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.block.BlockPictureFrame;
 import com.grihail.minepapers.picture.PictureFrame;
@@ -28,6 +29,10 @@ public class RenderPictureItem implements IItemRenderer {
     private static final int RING = 2;
     private static final float THICKNESS = 1f / 16f;
     private static final ResourceLocation GLINT = new ResourceLocation("textures/misc/enchanted_item_glint.png");
+    /** Шахматка под картинкой без холста в инвентаре: прозрачный фон картинки виден как сетка, и картина не теряется в слоте. Клетка — пиксель иконки. */
+    private static final ResourceLocation ALPHA_GRID = new ResourceLocation(MinePapers.MODID, "textures/misc/alpha_grid.png");
+    /** Значок "18+" на скрытой картине NSFW (как на холсте в мире). */
+    private static final ResourceLocation NSFW_MARK = new ResourceLocation(MinePapers.MODID, "textures/misc/nsfw.png");
 
     private boolean flat;
     private Tessellator t;
@@ -61,7 +66,7 @@ public class RenderPictureItem implements IItemRenderer {
         int x1 = x0 + iw + 2 * ring, y1 = y0 + ih + 2 * ring;
         int cx0 = x0 + ring, cy0 = y0 + ring, cx1 = x1 - ring, cy1 = y1 - ring;
 
-        String key = s.getSourceKey();
+        String key = ModConfig.hides(s.nsfw) ? null : s.getSourceKey(); // NSFW скрыт - обычная иконка
         PictureManager.Variant thumb = key == null ? null
             : PictureManager.thumbnail(key, ImageStylizer.Layout.icon(s, inner));
 
@@ -95,7 +100,7 @@ public class RenderPictureItem implements IItemRenderer {
             t.draw();
         }
 
-        // 2. Картинка. На холсте из блока — на его фоне, как в мире. Без холста и у пластины прозрачный фон картинки остаётся прозрачным, а в руке и на земле она выдавливается по пикселям, как обычные предметы.
+        // 2. Картинка. На холсте из блока — на его фоне, как в мире. Без холста и у пластины прозрачный фон картинки остаётся прозрачным (в инвентаре под ним шахматка), а в руке и на земле она выдавливается по пикселям, как обычные предметы.
         if (thumb != null) {
             if (canvasBlock) {
                 FrameSkin canvas = FrameSkin.canvas(s.canvas);
@@ -108,9 +113,16 @@ public class RenderPictureItem implements IItemRenderer {
 
             GL11.glEnable(GL11.GL_BLEND);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            if (!canvasBlock && flat) {
+                mc.getTextureManager().bindTexture(ALPHA_GRID);
+                t.startDrawingQuads();
+                t.setColorRGBA_F(1f, 1f, 1f, 1f);
+                rect(0, cx0, cy0, cx1, cy1, cx0 / (double) ICON, cy0 / (double) ICON, cx1 / (double) ICON, cy1 / (double) ICON, 0);
+                t.draw();
+            }
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, (Integer) thumb.getTexture());
             // Настоящая рамка в мире заходит на холст: на иконке её кольцо и есть эта часть, внутри — только то, что видно из-под неё.
-            double ov = s.getFrameShape() == PictureFrame.FRAME_MOLDING ? Math.min(2 * PictureFrame.PIXEL, Math.min(w, h) / 2) : 0;
+            double ov = s.getFrameShape() == PictureFrame.FRAME_MOLDING ? Math.min(s.getMoldingBlocks(), Math.min(w, h) / 2) : 0;
             if (w - 2 * ov < 1e-6 || h - 2 * ov < 1e-6) ov = 0;
             double ww = w - 2 * ov, wh = h - 2 * ov;
             double px0 = Math.max(thumb.x0, ov), px1 = Math.min(thumb.x1, w - ov);
@@ -154,6 +166,19 @@ public class RenderPictureItem implements IItemRenderer {
             }
         }
 
+        // 3. Картина NSFW, скрытая настройкой hideNsfw: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
+        if (ModConfig.hides(s.nsfw)) {
+            int size = Math.min(cx1 - cx0, cy1 - cy0);
+            double mx = (cx0 + cx1 - size) / 2.0, my = (cy0 + cy1 - size) / 2.0;
+            mc.getTextureManager().bindTexture(NSFW_MARK);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            t.startDrawingQuads();
+            t.setColorRGBA_F(1f, 1f, 1f, 1f);
+            for (int face = 0; face < faces(); face++) rect(face, mx, my, mx + size, my + size, 0, 0, 1, 1, 2);
+            t.draw();
+            if (!blend) GL11.glDisable(GL11.GL_BLEND);
+        }
         if (stack.hasEffect(0)) glint(mc);
 
         GL11.glPopMatrix();

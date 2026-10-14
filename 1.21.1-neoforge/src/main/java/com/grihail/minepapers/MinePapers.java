@@ -41,7 +41,8 @@ public class MinePapers {
 
     public static final String MODID = "minepapers";
     public static final String NAME = "Mine Papers Online";
-    public static String VERSION = "1.4.1";
+    /** Версия мода — из neoforge.mods.toml (туда её при сборке подставляет mod_version), ставится при запуске. */
+    public static String VERSION = "";
 
     private static final Logger LOG = LogUtils.getLogger();
 

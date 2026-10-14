@@ -50,7 +50,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** id кнопок: вкладки — 0..3, группы переключателей — начало группы + значение. */
     private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_FRAME = 30, ID_CANVAS = 35, ID_STYLE = 40,
         ID_PREV = 50, ID_NEXT = 51, ID_FOLDER = 52, ID_RELOAD = 53, ID_SIZE_PX = 54, ID_POS_PX = 55,
-        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60;
+        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63;
 
     /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
     private static final int WIDTH = 176,
@@ -67,7 +67,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private final PictureFrame tile;
 
     private int tab = lastTab;
-    private int source, fitMode, style, frameShape, canvasKind;
+    private int source, fitMode, frameShape, canvasKind;
+    /** Резкие пиксели и палитра карт (галочки), число цветов, сила дизеринга и пикселей на блок (ползунки) на вкладке "Стиль". */
+    private boolean sharp, mapPalette;
+    private int colors, dither, ppb;
     private boolean sizePx, posPx, padPx;
     /** Замок закрыт (картина заприватится при закрытии окна). */
     private boolean locked;
@@ -83,9 +86,12 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private final String myName;
     private GuiWidgets.Lock btnLock;
     private GuiWidgets.Sign btnSign;
+    /** Пометка NSFW (18+); применится при закрытии окна. */
+    private boolean nsfw;
+    private GuiWidgets.Nsfw btnNsfw;
 
     private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
-    private final List<GuiWidgets.Radio> radios = new ArrayList<GuiWidgets.Radio>();
+    private GuiWidgets.Slider slColors, slDither, slPpb;
     /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
     private final List<GuiWidgets.Toggle> sourceButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> fitButtons = new ArrayList<GuiWidgets.Toggle>();
@@ -97,12 +103,16 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Вкладка, на которой лежит кнопка (у самих вкладок записи нет — они видны всегда). */
     private final Map<GuiButton, Integer> buttonTab = new HashMap<GuiButton, Integer>();
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
-    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx;
+    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbSharp, cbMapPalette;
 
-    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fPpb, fTitle, fDesc;
+    private GuiTextField fPath, fUrl, fFolder, fImage, fInterval, fWidth, fHeight, fOffX, fOffY, fPad, fTitle, fDesc;
+    /** Ширина багета в пикселях: 0 — багета нет. */
+    private GuiTextField fMolding;
     private final List<GuiTextField> fields = new ArrayList<GuiTextField>();
     /** Поле -> {вкладка, x, y, ширина, высота}: видимость и подсказки при наведении. */
     private final Map<GuiTextField, int[]> fieldRect = new HashMap<GuiTextField, int[]>();
+    /** Числовые поля: набрать можно только число, стрелки вверх и вниз в поле и колёсико над ним меняют его на 1. */
+    private final Map<GuiTextField, Numbers.Field> numbers = new HashMap<GuiTextField, Numbers.Field>();
     /** Однострочное поле, в котором зажали кнопку мыши: перетаскивание выделяет в нём текст. */
     private GuiTextField dragField;
 
@@ -114,7 +124,11 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         this.tile = holder.frame;
         this.source = tile.source;
         this.fitMode = tile.fitMode;
-        this.style = tile.style;
+        this.sharp = tile.sharpPixels;
+        this.mapPalette = tile.mapPalette;
+        this.ppb = 1 << PictureFrame.ppbStep(tile.pixelsPerBlock);
+        this.colors = tile.colors;
+        this.dither = tile.dither;
         this.frameShape = tile.getFrameShape();
         this.canvasKind = tile.getCanvasKind();
         this.sizePx = tile.sizeInPixels;
@@ -124,6 +138,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         this.me = player.getUniqueID();
         this.myName = player.getCommandSenderName();
         this.locked = tile.isLocked();
+        this.nsfw = tile.nsfw;
         this.readOnly = !tile.mayEdit(me);
         this.xSize = WIDTH;
         this.ySize = HEIGHT;
@@ -142,8 +157,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         }
         fields.clear();
         fieldRect.clear();
+        numbers.clear();
         tabs.clear();
-        radios.clear();
         sourceButtons.clear();
         fitButtons.clear();
         frameButtons.clear();
@@ -162,6 +177,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         btnCopy = add(new GuiWidgets.Small(ID_COPY, x + xSize + 2, y + 4, 20, 20, "", GuiWidgets.ICON_COPY_U), -1);
         btnPaste = add(new GuiWidgets.Small(ID_PASTE, x + xSize + 2, y + 26, 20, 20, "", GuiWidgets.ICON_PASTE_U), -1);
         // Ниже — подпись и замок привата. Чужой замок не нажимается, только показывает владельца.
+        // Над ними — пометка NSFW: ставит и снимает любой, кто может менять картину.
+        btnNsfw = add(new GuiWidgets.Nsfw(ID_NSFW, x + xSize + 2, y + 82), -1);
         btnSign = add(new GuiWidgets.Sign(ID_SIGN, x + xSize + 2, y + 104), -1);
         btnLock = add(new GuiWidgets.Lock(ID_LOCK, x + xSize + 2, y + 126), -1);
         btnLock.enabled = !readOnly;
@@ -180,17 +197,17 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         String open = I18n.format("minepapers.gui.openFolder");
         btnFolder = small(TAB_SOURCE, ID_FOLDER, x + 40, y + 100, fontRendererObj.getStringWidth(open) + 12, 14, open, -1);
         // Интервал и состояние — внизу вкладки, над инвентарём
-        fInterval = field(TAB_SOURCE, x + 129, y + 117, 38, 6, String.valueOf(tile.interval));
+        fInterval = field(TAB_SOURCE, x + 129, y + 117, 38, 6, String.valueOf(tile.interval), Numbers.INTERVAL);
         btnReload = small(TAB_SOURCE, ID_RELOAD, x + 154, y + 131, 14, 14, "", GuiWidgets.ICON_RELOAD_U);
 
         // Размер и позиция
-        fWidth = field(TAB_SIZE, x + 9, y + 19, 40, 10, Numbers.fmt(tile.width));
-        fHeight = field(TAB_SIZE, x + 63, y + 19, 40, 10, Numbers.fmt(tile.height));
+        fWidth = field(TAB_SIZE, x + 9, y + 19, 40, 10, Numbers.fmt(tile.width), Numbers.SIZE);
+        fHeight = field(TAB_SIZE, x + 63, y + 19, 40, 10, Numbers.fmt(tile.height), Numbers.SIZE);
         cbSizePx = check(TAB_SIZE, ID_SIZE_PX, x + 112, y + 20, sizePx);
-        fOffX = field(TAB_SIZE, x + 9, y + 49, 40, 10, Numbers.fmt(tile.offsetX));
-        fOffY = field(TAB_SIZE, x + 63, y + 49, 40, 10, Numbers.fmt(tile.offsetY));
+        fOffX = field(TAB_SIZE, x + 9, y + 49, 40, 10, Numbers.fmt(tile.offsetX), Numbers.OFFSET);
+        fOffY = field(TAB_SIZE, x + 63, y + 49, 40, 10, Numbers.fmt(tile.offsetY), Numbers.OFFSET);
         cbPosPx = check(TAB_SIZE, ID_POS_PX, x + 112, y + 50, posPx);
-        fPad = field(TAB_SIZE, x + 9, y + 79, 40, 10, Numbers.fmt(tile.padding));
+        fPad = field(TAB_SIZE, x + 9, y + 79, 40, 10, Numbers.fmt(tile.padding), Numbers.PADDING);
         cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + 112, y + 80, padPx);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
             // Внизу вкладки, над инвентарём
@@ -198,16 +215,22 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 TAB_SIZE));
         }
 
-        // Стиль
-        for (int i = 0; i < PictureFrame.STYLE_COUNT; i++) {
-            radio(TAB_STYLE, ID_STYLE + i, x + 8, y + 17 + i * 11, "minepapers.gui.style." + i);
-        }
-        fPpb = field(TAB_STYLE, x + 129, y + 133, 38, 3, String.valueOf(tile.pixelsPerBlock));
+        // Стиль: резкие пиксели и палитра карт, под ними ползунки — число цветов (с палитрой не действует), сила дизеринга и пикселей на блок (степени двойки)
+        cbSharp = add(new GuiWidgets.Check(ID_SHARP, x + 8, y + 18, I18n.format("minepapers.gui.sharp"), sharp), TAB_STYLE);
+        cbMapPalette = add(new GuiWidgets.Check(ID_MAP_PALETTE, x + 8, y + 31, I18n.format("minepapers.gui.mapPalette"), mapPalette), TAB_STYLE);
+        slColors = add(new GuiWidgets.Slider(ID_STYLE, x + 8, y + 44, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, 1,
+            colors, v -> I18n.format("minepapers.gui.colors", v), v -> colors = v), TAB_STYLE);
+        slDither = add(new GuiWidgets.Slider(ID_STYLE + 1, x + 8, y + 68, 160, 0, PictureFrame.MAX_DITHER, 5,
+            dither, v -> I18n.format("minepapers.gui.dither", v), v -> dither = v), TAB_STYLE);
+        slPpb = add(new GuiWidgets.Slider(ID_STYLE + 2, x + 8, y + 92, 160, 0, PictureFrame.PPB_STEPS, 1,
+            PictureFrame.ppbStep(ppb), v -> I18n.format("minepapers.gui.ppb", 1 << v), v -> ppb = 1 << v), TAB_STYLE);
 
-        // Рамка: справа от слотов рамки и холста — их вид
-        lookButtons(frameButtons, ID_FRAME, PictureFrame.FRAME_COUNT, 0, x, y + ContainerPictureFrame.MATERIAL_Y - 2);
-        lookButtons(canvasButtons, ID_CANVAS, PictureFrame.CANVAS_COUNT, PictureFrame.FRAME_COUNT - 1, x,
-            y + ContainerPictureFrame.MATERIAL_Y - 2 + ContainerPictureFrame.MATERIAL_STEP);
+        // Рамка: справа от слотов рамки и холста — их вид. У рамки кнопки "нет" и "обшивка", за ними — ширина багета (поле рисует рамку на пиксель шире себя — как кнопка).
+        int lookY = y + ContainerPictureFrame.MATERIAL_Y - 2;
+        lookButtons(frameButtons, ID_FRAME, PictureFrame.FRAME_MOLDING, 0, x, lookY);
+        fMolding = field(TAB_FRAME, x + LOOK_X + GuiWidgets.Eye.WIDTH + 2 + 22 + 1, lookY + 4, 18, 3,
+            tile.getFrameShape() == PictureFrame.FRAME_MOLDING ? String.valueOf(tile.moldingWidth) : "0", Numbers.MOLDING);
+        lookButtons(canvasButtons, ID_CANVAS, PictureFrame.CANVAS_COUNT, 1, x, lookY + ContainerPictureFrame.MATERIAL_STEP);
 
         // Описание
         fTitle = field(TAB_INFO, x + 9, y + 18, 158, PictureFrame.MAX_TITLE, tile.title);
@@ -236,10 +259,6 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         }
     }
 
-    private void radio(int onTab, int id, int x, int y, String key) {
-        radios.add(add(new GuiWidgets.Radio(id, x, y, 160, I18n.format(key)), onTab));
-    }
-
     private GuiWidgets.Small small(int onTab, int id, int x, int y, int w, int h, String text, int iconU) {
         return add(new GuiWidgets.Small(id, x, y, w, h, text, iconU), onTab);
     }
@@ -250,6 +269,12 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
     private GuiTextField field(int onTab, int x, int y, int w, int maxLength, String text) {
         return register(new GuiTextField(fontRendererObj, x, y, w, 12), onTab, x, y, w, 12, maxLength, text);
+    }
+
+    private GuiTextField field(int onTab, int x, int y, int w, int maxLength, String text, Numbers.Field number) {
+        GuiTextField f = field(onTab, x, y, w, maxLength, text);
+        numbers.put(f, number);
+        return f;
     }
 
     /** Многострочное поле для пути или ссылки. */
@@ -287,18 +312,23 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         btnSign.signerName = tile.signer != null ? tile.signerName : myName;
         btnSign.enabled = !readOnly && !tile.isSigned() && !sign && !locked && holder.count() == 1;
         btnSign.visible = !readOnly || tile.isSigned();
+        btnNsfw.marked = nsfw;
+        btnNsfw.enabled = !readOnly;
+        btnNsfw.visible = !readOnly || nsfw;
         btnPrev.visible &= local;
         btnNext.visible &= local;
         btnFolder.visible &= local;
         for (GuiWidgets.Tab t : tabs) t.selected = t.id - ID_TAB == tab;
-        for (GuiWidgets.Radio r : radios) r.checked = isChosen(r.id);
+        cbSharp.checked = sharp;
+        slColors.setInt(colors);
+        slDither.setInt(dither);
+        slPpb.setInt(PictureFrame.ppbStep(ppb));
+        cbMapPalette.checked = mapPalette;
+        // С палитрой карт цвета задаёт она — ползунок их числа не действует.
+        slColors.enabled = !mapPalette;
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.id - ID_SOURCE == source;
         for (GuiWidgets.Toggle t : fitButtons) t.checked = t.id - ID_FIT == fitMode;
-        for (GuiWidgets.Toggle t : frameButtons) {
-            t.checked = t.id - ID_FRAME == frameShape;
-            // Обшивать торцы можно только у холста.
-            t.enabled = t.id - ID_FRAME != PictureFrame.FRAME_EDGES || canvasKind != PictureFrame.CANVAS_NONE;
-        }
+        for (GuiWidgets.Toggle t : frameButtons) t.checked = t.id - ID_FRAME == frameShape;
         for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.id - ID_CANVAS == canvasKind;
         // Слот рамки есть всегда (его содержимое синхронизирует сервер), но виден и кликается только на своей вкладке.
         for (Object o : inventorySlots.inventorySlots) {
@@ -315,13 +345,31 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         }
     }
 
-    private boolean isChosen(int radioId) {
-        return radioId - ID_STYLE == style;
-    }
-
     /** Вид, выбранный в окне. */
     private int look() {
         return PictureFrame.look(frameShape, canvasKind);
+    }
+
+    /** "Нет" или "обшивка" — багета больше нет. Обшивать без холста нечего, поэтому с ней включается холст из блока. */
+    private void chooseFrame(int value) {
+        frameShape = value;
+        if (value == PictureFrame.FRAME_EDGES && canvasKind == PictureFrame.CANVAS_NONE) canvasKind = PictureFrame.CANVAS_BLOCK;
+        fMolding.setText("0");
+    }
+
+    /** Ширина багета больше нуля — рамка становится багетом, ноль — рамки нет (если был багет). */
+    private void moldingChanged() {
+        if (moldingWidth() > 0) {
+            frameShape = PictureFrame.FRAME_MOLDING;
+        } else if (frameShape == PictureFrame.FRAME_MOLDING) {
+            frameShape = PictureFrame.FRAME_NONE;
+        }
+        updateWidgets();
+    }
+
+    private int moldingWidth() {
+        Float v = Numbers.parse(fMolding.getText());
+        return v == null ? 0 : Math.round(v);
     }
 
     /** Нужен ли выбранному в окне виду материал index (в порядке PictureFrame.materials(): рамка, холст, свечение). Ненужные блоки вернутся игроку при закрытии окна. */
@@ -360,12 +408,12 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         } else if (id < ID_FRAME) {
             fitMode = id - ID_FIT;
         } else if (id < ID_CANVAS) {
-            frameShape = id - ID_FRAME;
+            chooseFrame(id - ID_FRAME);
         } else if (id < ID_STYLE) {
             canvasKind = id - ID_CANVAS;
             frameShape = PictureFrame.frameShapeOf(look()); // без холста обшивки нет
         } else if (id < ID_PREV) {
-            style = id - ID_STYLE;
+            // Ползунки стиля: значение окно уже получило (Slider.change)
         } else {
             switch (id) {
                 case ID_PREV:
@@ -397,8 +445,17 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 case ID_LOCK:
                     if (!readOnly) locked = !locked;
                     break;
+                case ID_NSFW:
+                    if (!readOnly) nsfw = !nsfw;
+                    break;
                 case ID_SIGN:
                     if (btnSign.enabled) confirmSign();
+                    break;
+                case ID_SHARP:
+                    sharp = !sharp;
+                    break;
+                case ID_MAP_PALETTE:
+                    mapPalette = !mapPalette;
                     break;
                 case ID_PAD_PX:
                     padPx = !padPx;
@@ -478,6 +535,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         c.minecraft = "1.7.10";
         c.title = fTitle.getText().trim();
         c.description = fDesc.getText().trim();
+        c.nsfw = nsfw;
         c.source = source;
         c.path = pathField(source).getText().trim();
         Float interval = Numbers.parse(fInterval.getText());
@@ -493,10 +551,14 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         c.fit = fitMode;
         c.look = PictureFrame.classicLook(look());
         c.frame = frameShape;
+        if (frameShape == PictureFrame.FRAME_MOLDING) c.moldingWidth = moldingWidth();
         c.canvas = canvasKind;
-        c.style = style;
-        Float ppb = Numbers.parse(fPpb.getText());
-        if (ppb != null) c.pixelsPerBlock = Math.round(ppb);
+        c.sharpPixels = sharp;
+        c.colors = colors;
+        c.dither = dither;
+        c.mapPalette = mapPalette;
+        c.style = PictureFrame.legacyStyle(mapPalette, dither);
+        c.pixelsPerBlock = ppb;
         PictureFrame.Material[] materials = tile.materials();
         for (int i = 0; i < materials.length && i < PictureConfig.MATERIALS.length; i++) {
             c.hasMaterial[i] = true;
@@ -517,6 +579,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         }
         if (c.title != null) fTitle.setText(c.title);
         if (c.description != null) fDesc.setText(c.description);
+        if (c.nsfw != null) nsfw = c.nsfw;
         if (c.source != null) source = c.source;
         if (c.path != null) pathField(source).setText(c.path);
         if (c.interval != null) fInterval.setText(String.valueOf(c.interval));
@@ -536,8 +599,18 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         if (c.frame != null) frameShape = c.frame;
         if (c.canvas != null) canvasKind = c.canvas;
         frameShape = PictureFrame.frameShapeOf(look());
-        if (c.style != null) style = c.style;
-        if (c.pixelsPerBlock != null) fPpb.setText(String.valueOf(c.pixelsPerBlock));
+        // Багет без ширины (конфиг прежних версий) — обычной ширины.
+        fMolding.setText(frameShape != PictureFrame.FRAME_MOLDING ? "0" : String.valueOf(
+            c.moldingWidth != null && c.moldingWidth > 0 ? c.moldingWidth : PictureFrame.DEFAULT_MOLDING));
+        if (c.style != null) {
+            mapPalette = sharp = c.style != PictureFrame.STYLE_ORIGINAL;
+            dither = PictureFrame.legacyDither(c.style);
+        }
+        if (c.sharpPixels != null) sharp = c.sharpPixels;
+        if (c.mapPalette != null) mapPalette = c.mapPalette;
+        if (c.colors != null) colors = Math.max(PictureFrame.MIN_COLORS, Math.min(PictureFrame.MAX_COLORS, c.colors));
+        if (c.dither != null) dither = Math.max(0, Math.min(PictureFrame.MAX_DITHER, c.dither));
+        if (c.pixelsPerBlock != null) ppb = 1 << PictureFrame.ppbStep(c.pixelsPerBlock);
         updateWidgets();
         // Конфиг из новых версий: предметы там названы иначе (grass_block вместо grass) — переводим.
         for (int i = 0; i < c.materials.length; i++) {
@@ -564,6 +637,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
         tile.title = fTitle.getText().trim();
         tile.description = fDesc.getText().trim();
+        tile.nsfw = nsfw;
         // Владельца решает сервер (PacketSaveFrame); здесь — только просьба закрыть или открыть замок.
         if (locked && tile.owner == null) {
             tile.owner = me;
@@ -594,10 +668,13 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         tile.paddingInPixels = padPx;
         tile.padding = Numbers.orDefault(Numbers.parse(fPad.getText()), tile.padding);
         tile.fitMode = fitMode;
-        tile.style = style;
+        tile.sharpPixels = sharp;
+        tile.mapPalette = mapPalette;
+        tile.colors = colors;
+        tile.dither = dither;
         tile.mode = look();
-        Float ppb = Numbers.parse(fPpb.getText());
-        if (ppb != null) tile.pixelsPerBlock = Math.round(ppb);
+        if (frameShape == PictureFrame.FRAME_MOLDING) tile.moldingWidth = moldingWidth();
+        tile.pixelsPerBlock = ppb;
 
         // Прогоняем через те же ограничения, что и сервер.
         NBTTagCompound tag = new NBTTagCompound();
@@ -666,11 +743,41 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         }
         for (GuiTextField f : fields) {
             if (isActive(f) && f.isFocused()) {
-                f.textboxKeyTyped(c, key);
+                Numbers.Field number = numbers.get(f);
+                if (number == null) {
+                    f.textboxKeyTyped(c, key);
+                } else {
+                    numberKeyTyped(f, number, c, key);
+                }
                 return;
             }
         }
         super.keyTyped(c, key); // E закрывает окно, цифры — обмен с хотбаром, как в любом инвентаре
+    }
+
+    /** Числовое поле: стрелки вверх и вниз меняют число (влево и вправо, как обычно, двигают курсор); то, что не число (набранное или вставленное), не проходит. */
+    private void numberKeyTyped(GuiTextField f, Numbers.Field number, char c, int key) {
+        int dir = key == Keyboard.KEY_UP ? 1 : key == Keyboard.KEY_DOWN ? -1 : 0;
+        if (dir != 0) {
+            step(f, number, dir);
+            return;
+        }
+        String old = f.getText();
+        int cursor = f.getCursorPosition(), selection = f.getSelectionEnd();
+        f.textboxKeyTyped(c, key);
+        if (!number.accepts(f.getText())) {
+            f.setText(old);
+            f.setCursorPosition(cursor);
+            f.setSelectionPos(selection);
+        }
+        if (f == fMolding) moldingChanged();
+    }
+
+    /** Шаг числа стрелкой или колёсиком: размер и отступ — в единицах, выбранных галочкой "px". */
+    private void step(GuiTextField f, Numbers.Field number, int dir) {
+        boolean px = f == fWidth || f == fHeight ? sizePx : f == fPad && padPx;
+        f.setText(number.step(f.getText(), dir, px ? 16f : 1f));
+        if (f == fMolding) moldingChanged();
     }
 
     private void focusNext() {
@@ -717,6 +824,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Перетаскивание мыши после клика в многострочном поле — выделение текста, а не раскладка предметов по слотам. */
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int button, long sinceClick) {
+        for (GuiWidgets.Slider s : sliders()) {
+            if (s.isDragging()) return; // ползунок тянется сам (Slider.drawButton)
+        }
         for (GuiTextArea a : areas) {
             if (isActive(a) && a.mouseDragged(mouseX, mouseY)) return;
         }
@@ -746,7 +856,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         super.mouseMovedOrUp(mouseX, mouseY, button);
     }
 
-    /** Колёсико над многострочным полем прокручивает его. */
+    /** Колёсико над многострочным полем прокручивает его, над числовым (и без клика по нему) — меняет число. */
     @Override
     public void handleMouseInput() {
         super.handleMouseInput();
@@ -757,6 +867,17 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         for (GuiTextArea a : areas) {
             if (isActive(a) && a.contains(mouseX, mouseY)) a.scrollBy(wheel > 0 ? -1 : 1);
         }
+        for (Map.Entry<GuiTextField, Numbers.Field> e : numbers.entrySet()) {
+            if (isActive(e.getKey()) && over(e.getKey(), mouseX, mouseY)) step(e.getKey(), e.getValue(), wheel > 0 ? 1 : -1);
+        }
+        // Ползунок: колёсико на себя — вправо, от себя — влево.
+        for (GuiWidgets.Slider s : sliders()) {
+            if (s.visible && s.hovered()) s.scroll(wheel < 0 ? 1 : -1);
+        }
+    }
+
+    private GuiWidgets.Slider[] sliders() {
+        return new GuiWidgets.Slider[] { slColors, slDither, slPpb };
     }
 
     /** Shift+клик кладёт предмет в слот рамки — только когда этот слот виден. */
@@ -844,7 +965,6 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 break;
             case TAB_STYLE:
                 text(I18n.format("minepapers.gui.style"), 8, 6, GuiWidgets.TEXT);
-                text(I18n.format("minepapers.gui.ppb"), 8, 135, GuiWidgets.TEXT);
                 break;
             case TAB_INFO:
                 text(I18n.format("minepapers.gui.titleLabel"), 8, 6, GuiWidgets.TEXT);
@@ -994,9 +1114,11 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 return;
             }
         }
-        for (GuiWidgets.Radio r : radios) {
-            if (!r.hovered()) continue;
-            tooltip("minepapers.gui.style.tip", mouseX, mouseY);
+        String[] sliderTips = { "minepapers.gui.colors.tip", "minepapers.gui.dither.tip", "minepapers.gui.ppb.tip" };
+        GuiWidgets.Slider[] sliders = sliders();
+        for (int i = 0; i < sliders.length; i++) {
+            if (!sliders[i].hovered()) continue;
+            if (!sliders[i].isDragging()) tooltip(sliderTips[i], mouseX, mouseY);
             return;
         }
         for (GuiWidgets.Toggle t : sourceButtons) {
@@ -1016,9 +1138,13 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         for (GuiWidgets.Toggle t : frameButtons) {
             if (t.hovered()) {
                 String key = "minepapers.gui.frameShape." + (t.id - ID_FRAME);
-                titledTooltip(key, t.enabled ? key + ".tip" : "minepapers.gui.frameShape.needsCanvas", mouseX, mouseY);
+                titledTooltip(key, key + ".tip", mouseX, mouseY);
                 return;
             }
+        }
+        if (tab == TAB_FRAME && over(fMolding, mouseX, mouseY)) {
+            titledTooltip("minepapers.gui.frameShape.2", "minepapers.gui.frameShape.2.tip", mouseX, mouseY);
+            return;
         }
         for (GuiWidgets.Toggle t : canvasButtons) {
             if (t.hovered()) {
@@ -1027,7 +1153,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 return;
             }
         }
-        if (btnSign.hovered()) {
+        if (btnNsfw.hovered()) {
+            titledTooltip("minepapers.gui.nsfw", nsfw ? "minepapers.gui.nsfw.on" : "minepapers.gui.nsfw.tip", mouseX, mouseY);
+        } else if (btnSign.hovered()) {
             if (tile.isSigned()) {
                 tooltip("minepapers.gui.signer", mouseX, mouseY, tile.signerName);
             } else if (sign) {
@@ -1054,6 +1182,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             titledTooltip("minepapers.gui.copy", "minepapers.gui.copy.tip", mouseX, mouseY);
         } else if (btnPaste.hovered()) {
             titledTooltip("minepapers.gui.paste", "minepapers.gui.paste.tip", mouseX, mouseY);
+        } else if (cbSharp.hovered()) {
+            tooltip("minepapers.gui.sharp.tip", mouseX, mouseY);
+        } else if (cbMapPalette.hovered()) {
+            tooltip("minepapers.gui.mapPalette.tip", mouseX, mouseY);
         } else if (cbSizePx.hovered() || cbPosPx.hovered() || cbPadPx.hovered()) {
             tooltip("minepapers.gui.pixels.tip", mouseX, mouseY);
         } else if (tab == TAB_SIZE && over(fWidth, mouseX, mouseY)) {
@@ -1068,8 +1200,6 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             tooltip("minepapers.gui.padding.tip", mouseX, mouseY);
         } else if (btnReload.hovered()) {
             tooltip("minepapers.gui.reload", mouseX, mouseY);
-        } else if (tab == TAB_STYLE && over(fPpb, mouseX, mouseY)) {
-            tooltip("minepapers.gui.ppb.tip", mouseX, mouseY);
         }
     }
 

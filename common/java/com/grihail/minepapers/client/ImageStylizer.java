@@ -7,7 +7,7 @@ import java.util.Locale;
 
 import com.grihail.minepapers.picture.PictureSettings;
 
-/** Готовит текстуру под конкретный холст: вписывание по правилам CSS object-fit (от центра), пикселизация до N пикселей на блок и, при желании, перевод в палитру цветов карт Minecraft. Работает в фоновом потоке, OpenGL не трогает. */
+/** Готовит текстуру под конкретный холст: вписывание по правилам CSS object-fit (от центра), пикселизация до N пикселей на блок, перевод в палитру карт Minecraft или постеризация — заданное число цветов — с дизерингом и, для резких пикселей, прозрачность без полутонов. Работает в фоновом потоке, OpenGL не трогает. */
 public final class ImageStylizer {
 
     /** Предельный размер итоговой текстуры по большей стороне. */
@@ -16,10 +16,7 @@ public final class ImageStylizer {
     /** Оттенки цветов карт, доступные в выживании (180, 220, 255 из 255). */
     private static final int[] MAP_SHADES = { 180, 220, 255 };
 
-    /** Сила мягкого дизеринга (доля переносимой ошибки). */
-    private static final float SOFT_DITHER = 0.45f;
-
-    /** Цвета карт во всех оттенках; базовые цвета даёт версия (ClientHost.mapColors). */
+    /** Цвета карт во всех оттенках (см. palette). */
     private static volatile int[] palette;
     /** Кэш "15-битный цвет -> ближайший цвет палитры" (0 = ещё не посчитано). */
     private static final int[] NEAREST_CACHE = new int[1 << 15];
@@ -33,26 +30,30 @@ public final class ImageStylizer {
         final double padding;
         /** ppb — пикселей текстуры на блок; naturalPpb — для режимов none / scale-down (у картины в мире они равны). */
         final double ppb, naturalPpb;
-        final int fit, style;
+        /** Число цветов (ступеней у каждого канала; 0 — палитра карт) и сила дизеринга в процентах. */
+        final int fit, colors, dither;
+        /** Резкие пиксели: пиксель либо непрозрачен, либо прозрачен целиком. */
+        final boolean sharp;
         final String key;
 
-        Layout(double canvasW, double canvasH, double padding, int fit, double ppb, double naturalPpb, int style) {
+        Layout(double canvasW, double canvasH, double padding, int fit, double ppb, double naturalPpb, PictureSettings tile) {
             this.canvasW = canvasW;
             this.canvasH = canvasH;
             this.padding = padding;
             this.fit = fit;
             this.ppb = ppb;
             this.naturalPpb = naturalPpb;
-            this.style = style;
-            this.key = String.format(Locale.ROOT, "%.4f|%.4f|%.4f|%d|%.4f|%.4f|%d", canvasW, canvasH, padding, fit, ppb,
-                naturalPpb, style);
+            this.colors = tile.mapPalette ? 0 : tile.colors;
+            this.dither = tile.dither;
+            this.sharp = tile.sharpPixels;
+            this.key = String.format(Locale.ROOT, "%.4f|%.4f|%.4f|%d|%.4f|%.4f|%d|%d|%b", canvasW, canvasH, padding, fit, ppb,
+                naturalPpb, colors, dither, sharp);
         }
 
         /** Та же картина, уменьшенная так, что большая сторона холста — iconPixels пикселей (для иконки предмета). */
         public static Layout icon(PictureSettings tile, int iconPixels) {
             double w = tile.getWidthBlocks(), h = tile.getHeightBlocks();
-            return new Layout(w, h, tile.getPaddingBlocks(), tile.fitMode, iconPixels / Math.max(w, h), tile.pixelsPerBlock,
-                tile.style);
+            return new Layout(w, h, tile.getPaddingBlocks(), tile.fitMode, iconPixels / Math.max(w, h), tile.pixelsPerBlock, tile);
         }
 
         /** Размер холста в блоках: 0 по одной из сторон = подобрать по пропорциям картинки. */
@@ -63,8 +64,7 @@ public final class ImageStylizer {
             if (w <= 0 && h <= 0) w = 1;
             if (h <= 0) h = w * aspect;
             else if (w <= 0) w = h / aspect;
-            return new Layout(w, h, tile.getPaddingBlocks(), tile.fitMode, tile.pixelsPerBlock, tile.pixelsPerBlock,
-                tile.style);
+            return new Layout(w, h, tile.getPaddingBlocks(), tile.fitMode, tile.pixelsPerBlock, tile.pixelsPerBlock, tile);
         }
     }
 
@@ -79,7 +79,7 @@ public final class ImageStylizer {
     /** @param src    пиксели исходника (ARGB), возможно уже уменьшенного @param origW  исходная ширина картинки до уменьшения — нужна для режимов none / scale-down */
     public static Result process(int[] src, int srcW, int srcH, int origW, int origH, Layout l) {
         Result res = new Result();
-        // Картинка вписывается в холст за вычетом отступа; в конце сдвигаем её обратно на отступ.
+        // Картинка вписывается в холст за вычетом отступа; в конце сдвигаем её обратно на отступ. Отрицательный отступ — область вписывания больше холста: картинка крупнее, а холст обрезает её по своим краям.
         double pad = l.padding;
         double canvasW = l.canvasW - 2 * pad, canvasH = l.canvasH - 2 * pad;
         if (canvasW < 1e-6 || canvasH < 1e-6) {
@@ -120,10 +120,11 @@ public final class ImageStylizer {
             }
         }
 
-        // 2. Картинка центрирована на холсте, всё, что вылезает за холст, обрезается.
+        // 2. Картинка центрирована на холсте, всё, что вылезает за область вписывания (и за сам холст, если она больше него), обрезается.
+        double cut = Math.max(0, -pad);
         double rx0 = (canvasW - dw) / 2, ry0 = (canvasH - dh) / 2;
-        double vx0 = Math.max(0, rx0), vx1 = Math.min(canvasW, rx0 + dw);
-        double vy0 = Math.max(0, ry0), vy1 = Math.min(canvasH, ry0 + dh);
+        double vx0 = Math.max(cut, rx0), vx1 = Math.min(canvasW - cut, rx0 + dw);
+        double vy0 = Math.max(cut, ry0), vy1 = Math.min(canvasH - cut, ry0 + dh);
         if (vx1 - vx0 < 1e-6 || vy1 - vy0 < 1e-6) {
             res.empty = true;
             return res;
@@ -149,13 +150,8 @@ public final class ImageStylizer {
         int outH = Math.max(1, (int) Math.round(th));
 
         int[] out = resample(src, srcW, srcH, sx0, sy0, sx1, sy1, outW, outH);
-        if (l.style == PictureSettings.STYLE_MAP) {
-            quantize(out, outW, outH, 0f);
-        } else if (l.style == PictureSettings.STYLE_MAP_DITHER) {
-            quantize(out, outW, outH, 1f);
-        } else if (l.style == PictureSettings.STYLE_MAP_SOFT_DITHER) {
-            quantize(out, outW, outH, SOFT_DITHER);
-        }
+        if (l.sharp) sharpen(out);
+        posterize(out, outW, outH, l.colors, l.dither / (float) PictureSettings.MAX_DITHER, l.colors == 0);
 
         res.pixels = out;
         res.width = outW;
@@ -205,6 +201,14 @@ public final class ImageStylizer {
         return out;
     }
 
+    /** Резкие пиксели: полупрозрачные края (сглаженные края букв и фигур на прозрачном фоне, смешанные при уменьшении пиксели) не размываются по стене — пиксель видимый наполовину и больше становится непрозрачным, остальные исчезают. */
+    private static void sharpen(int[] px) {
+        for (int i = 0; i < px.length; i++) {
+            int c = px[i];
+            px[i] = (c >>> 24) < 128 ? 0 : c | 0xFF000000;
+        }
+    }
+
     /** Диапазон исходных пикселей [from, to) для одного выходного. */
     private static int[] span(double start, double step, int size) {
         int from, to;
@@ -220,10 +224,11 @@ public final class ImageStylizer {
         return new int[] { from, to };
     }
 
-    // --------------------------------------------------------------------- Палитра карт
+    // --------------------------------------------------------------------- Постеризация
 
-    /** Перевод в палитру карт с дизерингом Флойда — Стейнберга. @param strength доля ошибки, которая переносится на соседей: 0 — без дизеринга, 1 — полный (зернистый), меньше 1 — мягкий: меньше шума, но градиенты чуть ступенчатее. */
-    private static void quantize(int[] px, int w, int h, float strength) {
+    /** Перевод в меньшее число цветов с дизерингом Флойда — Стейнберга: в палитру карт (mapPalette) или постеризация — у каждого канала levels ровных ступеней от 0 до 255. Прозрачность не меняется (на картах её нет — там пиксель либо виден, либо прозрачен), полностью прозрачные пиксели пропускаются. @param strength доля ошибки, которая переносится на соседей: 0 — без дизеринга (ровные пятна), 1 — полный (зернистый, зато плавные переходы). */
+    private static void posterize(int[] px, int w, int h, int levels, float strength, boolean mapPalette) {
+        float step = 255f / (levels - 1);
         float[] errCur = new float[(w + 2) * 3];
         float[] errNext = new float[(w + 2) * 3];
         boolean dither = strength > 0;
@@ -235,20 +240,29 @@ public final class ImageStylizer {
                 int x = ltr ? k : w - 1 - k;
                 int i = y * w + x;
                 int c = px[i];
-                if ((c >>> 24) < 128) {
-                    px[i] = 0; // на картах нет полупрозрачности
-                    continue;
-                }
+                if (mapPalette && (c >>> 24) < 128) c = px[i] = 0;
+                if ((c >>> 24) == 0) continue;
                 int e = (x + 1) * 3;
                 int r = clamp255(((c >> 16) & 0xFF) + (dither ? errCur[e] : 0));
                 int g = clamp255(((c >> 8) & 0xFF) + (dither ? errCur[e + 1] : 0));
                 int b = clamp255((c & 0xFF) + (dither ? errCur[e + 2] : 0));
-                int q = nearest(r, g, b);
-                px[i] = 0xFF000000 | q;
+                int qr, qg, qb;
+                if (mapPalette) {
+                    int q = nearest(r, g, b);
+                    qr = (q >> 16) & 0xFF;
+                    qg = (q >> 8) & 0xFF;
+                    qb = q & 0xFF;
+                    c |= 0xFF000000;
+                } else {
+                    qr = level(r, step);
+                    qg = level(g, step);
+                    qb = level(b, step);
+                }
+                px[i] = (c & 0xFF000000) | qr << 16 | qg << 8 | qb;
                 if (dither) {
-                    float dr = (r - ((q >> 16) & 0xFF)) * strength;
-                    float dg = (g - ((q >> 8) & 0xFF)) * strength;
-                    float db = (b - (q & 0xFF)) * strength;
+                    float dr = (r - qr) * strength;
+                    float dg = (g - qg) * strength;
+                    float db = (b - qb) * strength;
                     spread(errCur, e + dir, dr, dg, db, 7f / 16);
                     spread(errNext, e - dir, dr, dg, db, 3f / 16);
                     spread(errNext, e, dr, dg, db, 5f / 16);
@@ -272,6 +286,14 @@ public final class ImageStylizer {
         return v < 0 ? 0 : v > 255 ? 255 : (int) v;
     }
 
+    /** Ближайшая ступень канала. */
+    private static int level(int v, float step) {
+        return Math.min(255, Math.round(Math.round(v / step) * step));
+    }
+
+    // --------------------------------------------------------------------- Палитра карт
+
+    /** Ближайший цвет палитры карт. */
     private static int nearest(int r, int g, int b) {
         int key = (r >> 3) << 10 | (g >> 3) << 5 | (b >> 3);
         int cached = NEAREST_CACHE[key];
@@ -296,6 +318,7 @@ public final class ImageStylizer {
         return best;
     }
 
+    /** Цвета карт во всех оттенках, доступных в выживании; базовые цвета даёт версия (ClientHost.mapColors). */
     private static int[] palette() {
         int[] p = palette;
         if (p == null) {

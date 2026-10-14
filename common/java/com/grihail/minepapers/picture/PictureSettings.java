@@ -24,12 +24,16 @@ public class PictureSettings {
     public static final int FIT_SCALE_DOWN = 4;
     public static final int FIT_COUNT = 5;
 
-    /** Стилизация цветов. */
+    /** Стилизация цветов прежних версий (до 1.5.0): исходные цвета или палитра карт без дизеринга, с полным и с мягким. Теперь вместо неё палитра карт или число цветов и сила дизеринга (mapPalette, colors, dither); старые картины и конфиги переводятся в них (legacyDither), а в конфиг рядом пишется ближайший старый стиль (legacyStyle). */
     public static final int STYLE_ORIGINAL = 0;
     public static final int STYLE_MAP = 1;
     public static final int STYLE_MAP_DITHER = 2;
     public static final int STYLE_MAP_SOFT_DITHER = 3;
-    public static final int STYLE_COUNT = 4;
+
+    /** Число цветов — ступеней яркости у каждого канала (постеризация): MAX_COLORS почти не отличается от исходника. Дизеринг — в процентах. */
+    public static final int MIN_COLORS = 2, MAX_COLORS = 25, MAX_DITHER = 100;
+    /** Сила мягкого дизеринга старого стиля. */
+    private static final int LEGACY_SOFT_DITHER = 45;
 
     /** Вид картины — сочетание рамки (FRAME_*) и холста (CANVAS_*), см. getFrameShape и getCanvasKind. Первые четыре — виды прежних версий, дальше — новые сочетания. */
     public static final int MODE_PANEL = 0;     // холст-панель, торцы обшиты рамкой
@@ -57,6 +61,8 @@ public class PictureSettings {
     public static final int MIN_PPB = 1;
     public static final int MAX_PPB = 256;
     public static final int MAX_TITLE = 64;
+    /** Ширина багета в пикселях: по умолчанию (и в картинах прежних версий) 2, больше половины холста не бывает. */
+    public static final int DEFAULT_MOLDING = 2, MAX_MOLDING = (int) (MAX_SIZE_BLOCKS * 16 / 2);
     /** Сколько картинок из локальной папки можно выложить на сервер для одной рамки. */
     public static final int MAX_FILES = 256;
     public static final byte[] NO_FILES = new byte[0];
@@ -101,7 +107,7 @@ public class PictureSettings {
     public float offsetY = 0f;
     public boolean offsetInPixels = false;
 
-    /** Внутренний отступ картинки от краёв холста (со всех сторон): в блоках или в пикселях. */
+    /** Отступ картинки от краёв холста (со всех сторон): в блоках или в пикселях. Отрицательный — картинка вписывается в область больше холста (крупнее), а холст обрезает её по своим краям. */
     public float padding = 0f;
     public boolean paddingInPixels = true;
 
@@ -116,6 +122,9 @@ public class PictureSettings {
     /** Кто подписал картину (null — никто) и его ник. Подпись ставится один раз и навсегда, только на картину без привата. Меняет только сервер (PacketSaveFrame), в конфиг JSON не попадает. */
     public UUID signer;
     public String signerName = "";
+
+    /** Пометка NSFW (18+): игроки, у которых в конфиге hideNsfw, вместо картинки видят пустой холст. Ставит и снимает любой, кто может менять картину. */
+    public boolean nsfw;
 
     public boolean isLocked() {
         return owner != null;
@@ -157,8 +166,16 @@ public class PictureSettings {
     public int fitMode = FIT_COVER;
     /** Разрешение стилизации: пикселей картинки на один блок (128 = как карта, 16 = как ванильная картина) */
     public int pixelsPerBlock = 128;
-    public int style = STYLE_ORIGINAL;
+    /** Резкие пиксели: без полупрозрачности — пиксель либо виден целиком, либо прозрачен (как на картах), поэтому края картинки с прозрачным фоном не размываются по стене. */
+    public boolean sharpPixels = true;
+    /** Палитра карт: только цвета, которые бывают на картах этой версии игры (вместо числа цветов colors); дизеринг действует и на неё. */
+    public boolean mapPalette = false;
+    /** Число цветов (MIN_COLORS..MAX_COLORS) и сила дизеринга в процентах. */
+    public int colors = MAX_COLORS;
+    public int dither = MAX_DITHER;
     public int mode = MODE_PANEL;
+    /** Ширина багета в пикселях (у видов с багетом). */
+    public int moldingWidth = DEFAULT_MOLDING;
 
     /** Клиентский кэш последнего нарисованного варианта картинки (см. client.RenderPicture). На сервере не используется. */
     public Object clientRenderState;
@@ -246,7 +263,7 @@ public class PictureSettings {
     public float getPaddingBlocks() {
         float p = paddingInPixels ? padding / 16f : padding;
         float max = (Math.min(getWidthBlocks(), getHeightBlocks()) - PIXEL) / 2;
-        return Math.max(0, Math.min(p, max));
+        return Math.max(-MAX_SIZE_BLOCKS / 2, Math.min(p, max));
     }
 
     /** С какого расстояния (в блоках) от центра картины игрок может открыть её настройки или сломать её: EDIT_DISTANCE от любой точки холста, поэтому к нему добавляется полудиагональ холста. Расстояние до центра версия считает ванильным расстоянием до сущности — его поправляют моды, которые переносят картину в свои координаты (движущиеся конструкции). */
@@ -259,6 +276,11 @@ public class PictureSettings {
     public float getDepth() {
         if (getFrameShape() == FRAME_MOLDING) return 2 * PIXEL;
         return getCanvasKind() == CANVAS_NONE ? PIXEL / 2 : PIXEL;
+    }
+
+    /** Ширина брусьев багета в блоках. */
+    public float getMoldingBlocks() {
+        return moldingWidth / 16f;
     }
 
     public int getFrameShape() {
@@ -288,6 +310,28 @@ public class PictureSettings {
 
     public static int classicLook(int look) {
         return LOOK_CLASSIC[look];
+    }
+
+    /** Пикселей на блок в окне — степени двойки от MIN_PPB до MAX_PPB: ползунок ходит по их номерам (0 — 1 пиксель, PPB_STEPS — 256). */
+    public static final int PPB_STEPS = 31 - Integer.numberOfLeadingZeros(MAX_PPB);
+
+    /** Номер ближайшей степени двойки (у картин прежних версий бывают любые числа). */
+    public static int ppbStep(int ppb) {
+        int step = (int) Math.round(Math.log(Math.max(MIN_PPB, ppb)) / Math.log(2));
+        return Math.max(0, Math.min(PPB_STEPS, step));
+    }
+
+    /** Сила дизеринга вместо старого стиля (палитра карт — все стили, кроме исходных цветов). */
+    public static int legacyDither(int style) {
+        if (style == STYLE_MAP) return 0;
+        return style == STYLE_MAP_SOFT_DITHER ? LEGACY_SOFT_DITHER : MAX_DITHER;
+    }
+
+    /** Ближайший старый стиль — для конфига, который вставят в прежнюю версию мода. */
+    public static int legacyStyle(boolean mapPalette, int dither) {
+        if (!mapPalette) return STYLE_ORIGINAL;
+        if (dither == 0) return STYLE_MAP;
+        return dither * 4 >= MAX_DITHER * 3 ? STYLE_MAP_DITHER : STYLE_MAP_SOFT_DITHER;
     }
 
     /** Нужен ли этому виду блок рамки. */
@@ -364,10 +408,15 @@ public class PictureSettings {
             tag.putUuid("Signer", signer);
             tag.putString("SignerName", signerName);
         }
+        if (nsfw) tag.putInt("Nsfw", 1);
         tag.putInt("Fit", fitMode);
         tag.putInt("PPB", pixelsPerBlock);
-        tag.putInt("Style", style);
+        tag.putInt("Sharp", sharpPixels ? 1 : 0);
+        tag.putInt("MapPalette", mapPalette ? 1 : 0);
+        tag.putInt("Colors", colors);
+        tag.putInt("Dither", dither);
         tag.putInt("Mode", mode);
+        tag.putInt("Molding", moldingWidth);
         if (files.length > 0) tag.putByteArray("Files", files);
     }
 
@@ -399,7 +448,8 @@ public class PictureSettings {
         offsetY = clamp(tag.getFloat("OY"), minY, maxY);
 
         paddingInPixels = !tag.contains("PadPx") || tag.getInt("PadPx") != 0;
-        padding = clamp(tag.getFloat("Pad"), 0, MAX_SIZE_BLOCKS / 2 * (paddingInPixels ? 16f : 1f));
+        float padLimit = MAX_SIZE_BLOCKS / 2 * (paddingInPixels ? 16f : 1f);
+        padding = clamp(tag.getFloat("Pad"), -padLimit, padLimit);
 
         title = tag.getString("Title").replace("\r", "").replace("\n", " ");
         description = tag.getString("Desc").replace("\r", "");
@@ -408,10 +458,23 @@ public class PictureSettings {
         signer = tag.getUuid("Signer");
         signerName = tag.getString("SignerName");
 
+        nsfw = tag.getInt("Nsfw") != 0;
         fitMode = tag.contains("Fit") ? tag.getInt("Fit") : FIT_COVER;
         pixelsPerBlock = tag.contains("PPB") ? range(tag.getInt("PPB"), MIN_PPB, MAX_PPB) : 128;
-        style = tag.contains("Style") ? tag.getInt("Style") : STYLE_MAP_SOFT_DITHER;
+        if (tag.contains("Colors")) {
+            sharpPixels = !tag.contains("Sharp") || tag.getInt("Sharp") != 0;
+            mapPalette = tag.getInt("MapPalette") != 0;
+            colors = range(tag.getInt("Colors"), MIN_COLORS, MAX_COLORS);
+            dither = range(tag.getInt("Dither"), 0, MAX_DITHER);
+        } else {
+            // Картина прежних версий: стиль вместо числа цветов (совсем старые — без стиля, с мягким дизерингом).
+            int style = tag.contains("Style") ? tag.getInt("Style") : STYLE_MAP_SOFT_DITHER;
+            mapPalette = sharpPixels = style != STYLE_ORIGINAL; // палитра карт не знала полупрозрачности
+            colors = MAX_COLORS;
+            dither = legacyDither(style);
+        }
         mode = range(tag.getInt("Mode"), 0, LOOK_COUNT - 1);
+        moldingWidth = tag.contains("Molding") ? range(tag.getInt("Molding"), 1, MAX_MOLDING) : DEFAULT_MOLDING;
         files = tag.getByteArray("Files");
     }
 

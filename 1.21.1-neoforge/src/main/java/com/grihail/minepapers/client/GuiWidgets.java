@@ -8,6 +8,8 @@ import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.GameProfile;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.IntConsumer;
+import java.util.function.IntFunction;
 
 import org.joml.Matrix4f;
 
@@ -23,6 +25,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -38,13 +41,15 @@ import net.minecraft.resources.ResourceLocation;
 /** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры и спрайты (сундук, вкладки творческого режима, кнопки, кнопки маяка), поэтому окно выглядит как родное и меняется вместе с ресурспаком. Из своей текстуры textures/gui/picture_frame.png — только иконки. */
 final class GuiWidgets {
 
-    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48), с (0, 64) — рамки (обшивка, багет), за ними холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
+    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), радио и галочки 10x10 с (0, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48), с (0, 64) — обшивка рамки, за ней холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
     static final ResourceLocation ICONS = MinePapers.id("textures/gui/picture_frame.png");
     /** Копировать, вставить и открытый замок 10x10 — в ряду иконок (v = 0). */
     static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186,
         ICON_EYE_OPEN_U = 196, ICON_EYE_CLOSED_U = 206;
     /** Перо 16x16 (контур ванильного пера) — на кнопке подписи. */
     static final int PEN_U = 64, PEN_V = 64;
+    /** "18+" 16x16 — на кнопке пометки NSFW: серая и красная (картина помечена). */
+    static final int NSFW_U = 80, NSFW_ON_U = 96, NSFW_V = 64;
     static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48, LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
@@ -205,21 +210,53 @@ final class GuiWidgets {
         }
     }
 
-    /** Радиокнопка с подписью. */
-    static class Radio extends Widget {
+    /** Ванильный ползунок с целым значением от min до max, подпись — label от значения; change — новое значение (перетаскиванием или колёсиком). Колёсико над ползунком двигает его на wheelStep: на себя — вправо, от себя — влево. */
+    static class Slider extends AbstractSliderButton {
 
-        final int value;
-        boolean checked;
+        private final int min, max, wheelStep;
+        private final IntFunction<Component> label;
+        private final IntConsumer change;
 
-        Radio(int x, int y, int w, int value, Component text, Runnable action) {
-            super(x, y, w, 10, text, action);
-            this.value = value;
+        Slider(int x, int y, int w, int min, int max, int wheelStep, int value, IntFunction<Component> label, IntConsumer change) {
+            super(x, y, w, 20, Component.empty(), 0);
+            this.min = min;
+            this.max = max;
+            this.wheelStep = wheelStep;
+            this.label = label;
+            this.change = change;
+            setInt(value);
+        }
+
+        int getInt() {
+            return min + (int) Math.round(value * (max - min));
+        }
+
+        /** Поставить значение без change (окно и так его знает). */
+        void setInt(int v) {
+            value = (Math.max(min, Math.min(max, v)) - min) / (double) (max - min);
+            updateMessage();
         }
 
         @Override
-        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            icon(g, getX(), getY(), checked ? 10 : 0, RADIO_V, 10, 10);
-            g.drawString(font(), getMessage(), getX() + 13, getY() + 1, isHovered() ? HOVER : TEXT, false);
+        protected void updateMessage() {
+            setMessage(label.apply(getInt()));
+        }
+
+        /** Ползунок встаёт на целое значение. */
+        @Override
+        protected void applyValue() {
+            int v = getInt();
+            setInt(v);
+            change.accept(v);
+        }
+
+        @Override
+        public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+            if (scrollY == 0 || !isMouseOver(mouseX, mouseY)) return false;
+            int v = getInt();
+            setInt(v + (scrollY < 0 ? wheelStep : -wheelStep));
+            if (getInt() != v) change.accept(getInt());
+            return true;
         }
     }
 
@@ -283,6 +320,22 @@ final class GuiWidgets {
             } else {
                 PlayerFaceRenderer.draw(g, skin(signer, signerName), getX() + 2, getY() + 2, 16);
             }
+        }
+    }
+
+    /** Пометка NSFW 20x20: "18+" — серая, у помеченной картины — красная. */
+    static class Nsfw extends Widget {
+
+        boolean marked;
+
+        Nsfw(int x, int y, Runnable action) {
+            super(x, y, 20, 20, Component.translatable("minepapers.gui.nsfw"), action);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            g.blitSprite(BUTTON.get(active, isHovered()), getX(), getY(), width, height);
+            icon(g, getX() + 2, getY() + 2, marked ? NSFW_ON_U : NSFW_U, NSFW_V, 16, 16);
         }
     }
 

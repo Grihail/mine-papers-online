@@ -33,12 +33,14 @@ import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.RecipeSorter;
 
-@Mod(modid = MinePapers.MODID, name = MinePapers.NAME, version = MinePapers.VERSION)
+/** Версию FML берёт из version.properties (minepapers.version), а туда, как и в mcmod.info, её при сборке подставляет mod_version из gradle.properties. */
+@Mod(modid = MinePapers.MODID, name = MinePapers.NAME, useMetadata = true)
 public class MinePapers {
 
     public static final String MODID = "minepapers";
     public static final String NAME = "Mine Papers Online";
-    public static final String VERSION = "1.4.1";
+    /** Версия мода — та, что нашёл FML, ставится в preInit. */
+    public static String VERSION = "";
 
     @Mod.Instance(MODID)
     public static MinePapers instance;
@@ -57,6 +59,7 @@ public class MinePapers {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
+        VERSION = cpw.mods.fml.common.Loader.instance().activeModContainer().getVersion();
         picturesDir = new File(event.getModConfigurationDirectory(), MODID);
         ModConfig.load(event.getModConfigurationDirectory());
         if (!picturesDir.exists()) {

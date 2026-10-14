@@ -18,7 +18,7 @@ import com.google.gson.JsonParser;
 /** Настройки картины в виде JSON — одинакового для всех версий мода: окно копирует его в буфер обмена, его можно поправить в любом редакторе и вставить в другую картину. Значения записаны словами (look: "graffiti"), числа — как в полях окна. Чего в конфиге нет (поле не указано, null), то при вставке не меняется; у материалов явный null значит "обычный" — вынуть предмет из слота. */
 public final class PictureConfig {
 
-    /** Названия значений — по порядку констант PictureFrame (SOURCE_*, FIT_*, MODE_*, STYLE_*), материалов — по порядку PictureFrame.materials(). */
+    /** Названия значений — по порядку констант PictureFrame (SOURCE_*, FIT_*, MODE_*, STYLE_* прежних версий), материалов — по порядку PictureFrame.materials(). */
     public static final String[] SOURCES = { "config", "yandex", "folder", "url" };
     public static final String[] FITS = { "fill", "contain", "cover", "none", "scale-down" };
     public static final String[] LOOKS = { "panel", "frame", "graffiti", "plate" };
@@ -41,6 +41,13 @@ public final class PictureConfig {
     public Float padding;
     public Boolean paddingPixels;
     public Integer fit, look, frame, canvas, style, pixelsPerBlock;
+    /** Ширина багета в пикселях (у frame "molding"). */
+    public Integer moldingWidth;
+    /** Резкие пиксели (без полупрозрачности), палитра карт, число цветов и сила дизеринга в процентах. Рядом пишется ближайший старый style — для прежних версий; при вставке эти поля главнее style. */
+    public Boolean sharpPixels, mapPalette;
+    /** Пометка NSFW (18+). */
+    public Boolean nsfw;
+    public Integer colors, dither;
 
     /** Предмет материала: id в реестре и (только для 1.7.10) метаданные; meta < 0 — любые. */
     public static final class Item {
@@ -66,6 +73,7 @@ public final class PictureConfig {
         if (minecraft != null) root.addProperty("minecraft", minecraft);
         if (title != null) root.addProperty("title", title);
         if (description != null) root.addProperty("description", description);
+        if (nsfw != null) root.addProperty("nsfw", nsfw);
 
         JsonObject src = new JsonObject();
         if (source != null) src.addProperty("type", name(SOURCES, source));
@@ -93,8 +101,13 @@ public final class PictureConfig {
         if (fit != null) root.addProperty("fit", name(FITS, fit));
         if (look != null) root.addProperty("look", name(LOOKS, look));
         if (frame != null) root.addProperty("frame", name(FRAMES, frame));
+        if (moldingWidth != null) root.addProperty("moldingWidth", moldingWidth);
         if (canvas != null) root.addProperty("canvas", name(CANVASES, canvas));
         if (style != null) root.addProperty("style", name(STYLES, style));
+        if (sharpPixels != null) root.addProperty("sharpPixels", sharpPixels);
+        if (mapPalette != null) root.addProperty("mapPalette", mapPalette);
+        if (colors != null) root.addProperty("colors", colors);
+        if (dither != null) root.addProperty("dither", dither);
         if (pixelsPerBlock != null) root.addProperty("pixelsPerBlock", pixelsPerBlock);
 
         JsonObject mats = new JsonObject();
@@ -134,6 +147,7 @@ public final class PictureConfig {
             c.minecraft = string(root, "minecraft");
             c.title = string(root, "title");
             c.description = string(root, "description");
+            c.nsfw = bool(root, "nsfw");
             JsonObject src = object(root, "source");
             if (src != null) {
                 c.source = value(src, "type", SOURCES);
@@ -160,8 +174,13 @@ public final class PictureConfig {
             c.fit = value(root, "fit", FITS);
             c.look = value(root, "look", LOOKS);
             c.frame = value(root, "frame", FRAMES);
+            c.moldingWidth = integer(root, "moldingWidth");
             c.canvas = value(root, "canvas", CANVASES);
             c.style = value(root, "style", STYLES);
+            c.sharpPixels = bool(root, "sharpPixels");
+            c.mapPalette = bool(root, "mapPalette");
+            c.colors = integer(root, "colors");
+            c.dither = integer(root, "dither");
             c.pixelsPerBlock = integer(root, "pixelsPerBlock");
 
             JsonObject mats = object(root, "materials");

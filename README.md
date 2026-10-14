@@ -58,18 +58,18 @@ If the source has several pictures, the frame shows them as a slideshow with the
 - Canvas width and height are set in blocks or in pixels (1 pixel is 1/16 of a block). From 1 pixel up to 64 blocks. The canvas size is also the picture's hitbox.
 - If width or height is left at 0, it is calculated from the current picture's proportions on save.
 - Canvas offset to the right and up from the clicked cell. The canvas always covers that cell by at least one pixel.
-- Padding between the image and the canvas edges.
+- Inset of the image from the canvas edges, on all sides. A negative inset makes the image bigger than the canvas, and the canvas crops it at its edges.
 - Fitting the image into the canvas works like CSS `object-fit`, always from the center: fill, contain, cover, none, scale-down.
 
 ### Look and style
 
-The frame and the canvas are chosen separately on the "Frame" tab, with the buttons to the right of their slots. The first button in each row is an eye: it turns the frame or canvas off.
+The frame and the canvas are chosen separately on the "Frame" tab, with the buttons to the right of their slots. The first button in each row is an eye: it turns the frame or canvas off. In the frame row, the field after the buttons is the molding width in pixels.
 
 | Frame | Looks like |
 | --- | --- |
 | No frame | No frame. The canvas edges are made of the canvas material. |
-| Edges | The frame covers only the canvas edges (like the "Panel" look). |
-| Molding | A real frame: it covers 2 pixels of the picture and sticks out above it. |
+| Edges | The frame covers only the canvas edges (like the "Panel" look). Without a canvas, choosing it turns on the block canvas. |
+| Molding (width 1 or more) | A real frame of the given width in pixels: it covers the edge of the picture and sticks out above it. 0 means no molding. |
 
 | Canvas | Looks like |
 | --- | --- |
@@ -79,14 +79,11 @@ The frame and the canvas are chosen separately on the "Frame" tab, with the butt
 
 Colors and resolution are chosen on the "Style" tab.
 
-Color style:
+The "Sharp pixels" checkbox (on by default) turns off semi-transparency: a pixel is either fully visible or fully transparent, like on maps, so the edges of a picture with a transparent background stay crisp instead of blending into the wall. The "Map palette" checkbox leaves only the colors Minecraft maps of this game version can show, like real map art; the palette sets the colors itself, so the "Colors" slider is inactive with it, and dithering works with the palette. Three sliders set the colors and the resolution (the mouse wheel over a slider moves it too):
 
-- original colors (default for a new picture);
-- Minecraft map palette;
-- palette with dithering;
-- palette with soft dithering.
-
-Resolution is set in pixels per block, from 1 to 256. 128 looks like a map in an item frame, 16 looks like a vanilla painting.
+- **Colors**, from 2 to 25 (default 25): posterization, how many shades each color channel keeps. 25 is closest to the original colors.
+- **Dither**, from 0% to 100% (default 100%): mixes the colors with dots for smooth gradients. 0% gives flat areas of color.
+- **Pixels per block**, in powers of two: 1, 2, 4 ... 256 (default 128). 128 looks like a map in an item frame, 16 looks like a vanilla painting.
 
 The picture uses smooth lighting, like vanilla blocks.
 
@@ -156,6 +153,7 @@ The `config/minepapers.json` file is shared by all game versions. The mod create
 | Key | Default | What it does |
 | --- | --- | --- |
 | `stackMaterials` | `true` | `true`: a stack of pictures in hand changes materials as a whole, one block per picture. `false`: materials change only for a single picture in hand, a stack's material slots are locked, and the "Frame" tab says why. This lets a server admin prevent players from mass-producing pictures with materials. |
+| `hideNsfw` | `false` | Client only. `true`: pictures marked as NSFW (18+) show an empty canvas with a red "18+" mark in the center (1x1 block) instead of the image, the item icon shows the placeholder with the same mark, and their images are not downloaded. The source link stays visible in the window and the item tooltip. Takes effect after restarting the game. |
 
 ## Building
 
@@ -239,7 +237,7 @@ Package `com.grihail.minepapers`. Only things that do not depend on the game ver
 | `picture/Links.java` | Finding links in the description. |
 | `picture/Numbers.java` | Parsing numbers from window fields and writing them without trailing zeros. |
 | `client/PictureManager.java` | Loading pictures from all sources, decoding, memory cache, slideshow, unloading textures that have not been drawn for a while. |
-| `client/ImageStylizer.java` | Preparing the texture for the canvas: fitting, pixelation, map palette, dithering. |
+| `client/ImageStylizer.java` | Preparing the texture for the canvas: fitting, pixelation, posterization, dithering. |
 | `client/GifFrames.java` | Assembling animated GIF frames into full images. |
 | `client/ImageSync.java` | Client side of picture exchange with the server: preparing and uploading, downloading into the cache. |
 | `client/ClientHost.java` | Adapter: what the client code needs from the game version. |
@@ -284,7 +282,6 @@ The common code does not know Minecraft classes. Everything version-specific com
 
 - the game folder and the `config/minepapers` folder;
 - the User-Agent for internet requests;
-- this version's base map colors (their number differs between versions);
 - the "connected to a server" and "server running in this client" flags;
 - uploading a frame to video memory and freeing it. Each version has its own texture handle: in 1.7.10 it is an OpenGL texture id, in 1.21.1 a `ResourceLocation`. The common code keeps it as an `Object` and passes it back to the version's renderer;
 - sending the three client packets for picture exchange.
@@ -355,11 +352,14 @@ The same for all versions (`PictureSettings`):
 | `Interval` | Slideshow interval in seconds. |
 | `W`, `H`, `SizePx` | Canvas size and the "in pixels" flag. |
 | `OX`, `OY`, `PosPx` | Canvas offset and the "in pixels" flag. |
-| `Pad`, `PadPx` | Image padding and the "in pixels" flag. |
+| `Pad`, `PadPx` | Image inset (negative - the image is bigger than the canvas and cropped) and the "in pixels" flag. |
 | `Title`, `Desc` | Title and description. |
 | `Owner`, `OwnerName` | Owner of a private picture and their nickname. |
 | `Signer`, `SignerName` | Who signed the picture and their nickname. Set only by the server, cannot be removed. |
-| `Fit`, `PPB`, `Style`, `Mode` | Fit, pixels per block, color style, look. The look is a combination of frame and canvas: 0-3 are the old looks (panel, frame, graffiti, plate), 4-7 are new combinations (see `PictureSettings.LOOK_FRAME`). |
+| `Nsfw` | NSFW (18+) mark, 1 - marked. |
+| `Molding` | Molding width in pixels. |
+| `Sharp`, `MapPalette`, `Colors`, `Dither` | Sharp pixels (1 - no semi-transparency), map palette (1 - instead of the number of colors), number of colors (2-25) and dither strength in percent. Pictures from older versions have `Style` instead (0 original colors, 1-3 map palette without, with and with soft dithering); it is converted on load into the same look. |
+| `Fit`, `PPB`, `Mode` | Fit, pixels per block, look. The look is a combination of frame and canvas: 0-3 are the old looks (panel, frame, graffiti, plate), 4-7 are new combinations (see `PictureSettings.LOOK_FRAME`). |
 | `Files` | Pictures on the server: consecutive 20-byte SHA-1 hashes. |
 
 Materials are written by the version: `Border`, `Canvas`, `Glow` (item id for the texture) and `BorderItem`, `CanvasItem`, `GlowItem` (the item itself). 1.7.10 also has `BorderMeta`, `CanvasMeta`, `GlowMeta`.
@@ -381,6 +381,7 @@ Example JSON that the copy button puts on the clipboard:
   "minecraft": "1.21.1",
   "title": "Water Dragon",
   "description": "",
+  "nsfw": false,
   "source": { "type": "yandex", "path": "https://disk.yandex.ru/d/...", "interval": 10 },
   "size": { "width": 2, "height": 2, "pixels": false },
   "offset": { "right": 0, "up": 0, "pixels": false },
@@ -390,6 +391,10 @@ Example JSON that the copy button puts on the clipboard:
   "frame": "edges",
   "canvas": "block",
   "style": "map-soft-dither",
+  "sharpPixels": true,
+  "mapPalette": true,
+  "colors": 6,
+  "dither": 45,
   "pixelsPerBlock": 128,
   "materials": {
     "frame": { "item": "minecraft:oak_planks" },
@@ -400,6 +405,8 @@ Example JSON that the copy button puts on the clipboard:
 ```
 
 - Values are written as words: `config`, `yandex`, `folder`, `url`; `fill`, `contain`, `cover`, `none`, `scale-down`; `panel`, `frame`, `graffiti`, `plate`; `none`, `edges`, `molding` (frame); `none`, `block`, `picture` (canvas); `original`, `map`, `map-dither`, `map-soft-dither`. A number can be used instead of a word.
+- With `"frame": "molding"`, `moldingWidth` is the molding width in pixels (2 if it is missing).
+- `sharpPixels` turns semi-transparency off; `mapPalette` uses the map palette instead of `colors`; `colors` (2-25) and `dither` (0-100) are the number of colors and the dither strength. `style` is the color style from older mod versions: the closest one is written for them, and on paste `colors` and `dither` take precedence over it.
 - `look` is the look from older mod versions. Next to `frame` and `canvas`, the closest `look` is written so that older versions understand the config. On paste, `frame` and `canvas` take precedence over `look`.
 - If a field is missing, it is left unchanged on paste.
 - For a material, `null` means "default", i.e. take the item out of the slot. A material can also be written shorter: `"frame": "minecraft:gold_block"`.

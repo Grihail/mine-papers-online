@@ -165,6 +165,7 @@ public class ItemPictureFrame extends ItemBlock {
             lines.add(EnumChatFormatting.GRAY + "" + EnumChatFormatting.ITALIC
                 + StatCollector.translateToLocalFormatted("minepapers.tooltip.signer", s.signerName));
         }
+        if (s.nsfw) lines.add(EnumChatFormatting.RED + StatCollector.translateToLocal("minepapers.tooltip.nsfw"));
         if (s.isLocked()) {
             lines.add(EnumChatFormatting.LIGHT_PURPLE + StatCollector.translateToLocalFormatted("minepapers.tooltip.owner",
                 s.ownerName));

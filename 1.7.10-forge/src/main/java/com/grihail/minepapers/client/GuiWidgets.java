@@ -3,7 +3,10 @@ package com.grihail.minepapers.client;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntConsumer;
+import java.util.function.IntFunction;
 
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import com.grihail.minepapers.MinePapers;
@@ -28,12 +31,14 @@ final class GuiWidgets {
     private static final ResourceLocation BUTTONS = new ResourceLocation("textures/gui/widgets.png");
     private static final ResourceLocation BEACON = new ResourceLocation("textures/gui/container/beacon.png");
 
-    /** Иконки вписывания и источников 16x16 — в ряд с (0, 32) и (0, 48), по порядку PictureFrame.FIT_* и SOURCE_*; с (0, 64) — рамки (обшивка, багет), за ними холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
+    /** Иконки вписывания и источников 16x16 — в ряд с (0, 32) и (0, 48), по порядку PictureFrame.FIT_* и SOURCE_*; с (0, 64) — обшивка рамки, за ней холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
     /** Копировать, вставить, открытый и закрытый замок 10x10 — в ряду иконок (v = 0). */
     static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186,
         ICON_EYE_OPEN_U = 196, ICON_EYE_CLOSED_U = 206;
     /** Перо 16x16 (контур ванильного пера) — на кнопке подписи. */
     static final int PEN_U = 64, PEN_V = 64;
+    /** "18+" 16x16 — на кнопке пометки NSFW: серая и красная (картина помечена). */
+    static final int NSFW_U = 80, NSFW_ON_U = 96, NSFW_V = 64;
     static final int ICON_RELOAD_U = 64, RADIO_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48,
         LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
@@ -200,19 +205,82 @@ final class GuiWidgets {
         }
     }
 
-    /** Радиокнопка с подписью. */
-    static class Radio extends Widget {
+    /** Ползунок высотой 20, как ванильный в настройках (GuiOptionSlider), с целым значением от min до max; подпись — label от значения, change — новое значение. Тянется, пока после клика по нему зажата кнопка мыши. Колёсико над ним (окно зовёт scroll) двигает его на wheelStep. */
+    static class Slider extends Widget {
 
-        boolean checked;
+        private final int min, max, wheelStep;
+        private final IntFunction<String> label;
+        private final IntConsumer change;
+        private int value;
+        private boolean dragging;
 
-        Radio(int id, int x, int y, int w, String text) {
-            super(id, x, y, w, 10, text);
+        Slider(int id, int x, int y, int w, int min, int max, int wheelStep, int value, IntFunction<String> label, IntConsumer change) {
+            super(id, x, y, w, 20, "");
+            this.min = min;
+            this.max = max;
+            this.wheelStep = wheelStep;
+            this.label = label;
+            this.change = change;
+            setInt(value);
+        }
+
+        /** Поставить значение без change (окно и так его знает). */
+        void setInt(int v) {
+            value = Math.max(min, Math.min(max, v));
+            displayString = label.apply(value);
+        }
+
+        /** dir > 0 — вправо. Выключенный ползунок не двигается. */
+        void scroll(int dir) {
+            if (enabled) change(value + dir * wheelStep);
+        }
+
+        boolean isDragging() {
+            return dragging;
+        }
+
+        private void change(int v) {
+            int old = value;
+            setInt(v);
+            if (value != old) change.accept(value);
+        }
+
+        @Override
+        public boolean mousePressed(Minecraft mc, int mouseX, int mouseY) {
+            if (!super.mousePressed(mc, mouseX, mouseY)) return false;
+            dragging = true;
+            follow(mouseX);
+            return true;
+        }
+
+        private void follow(int mouseX) {
+            double t = (mouseX - (xPosition + 4)) / (double) (width - 8);
+            change(min + (int) Math.round(Math.max(0, Math.min(1, t)) * (max - min)));
+        }
+
+        @Override
+        public void drawButton(Minecraft mc, int mouseX, int mouseY) {
+            if (dragging) {
+                if (visible && Mouse.isButtonDown(0)) {
+                    follow(mouseX);
+                } else {
+                    dragging = false;
+                }
+            }
+            super.drawButton(mc, mouseX, mouseY);
         }
 
         @Override
         void draw(Minecraft mc, boolean hovered) {
-            icon(xPosition, yPosition, checked ? 10 : 0, RADIO_V, 10, 10);
-            mc.fontRenderer.drawString(displayString, xPosition + 13, yPosition + 1, hovered ? HOVER : TEXT);
+            bind(BUTTONS);
+            // Подложка — как у выключенной кнопки, ручка 8x20 — края обычной кнопки.
+            int half = width / 2, knob = xPosition + (int) Math.round((value - min) / (double) (max - min) * (width - 8));
+            blit(xPosition, yPosition, 0, 46, half, 20);
+            blit(xPosition + half, yPosition, 200 - (width - half), 46, width - half, 20);
+            blit(knob, yPosition, 0, 66, 4, 20);
+            blit(knob + 4, yPosition, 196, 66, 4, 20);
+            int color = !enabled ? 0xA0A0A0 : hovered ? 0xFFFFA0 : 0xE0E0E0; // как у ванильных кнопок
+            drawCenteredString(mc.fontRenderer, displayString, xPosition + width / 2, yPosition + 6, color);
         }
     }
 
@@ -306,6 +374,22 @@ final class GuiWidgets {
             } else {
                 face(skin(signer, signerName), xPosition + 2, yPosition + 2, 16);
             }
+        }
+    }
+
+    /** Пометка NSFW 20x20: "18+" — серая, у помеченной картины — красная. */
+    static class Nsfw extends Small {
+
+        boolean marked;
+
+        Nsfw(int id, int x, int y) {
+            super(id, x, y, 20, 20, "", -1);
+        }
+
+        @Override
+        void draw(Minecraft mc, boolean hovered) {
+            super.draw(mc, hovered);
+            icon(xPosition + 2, yPosition + 2, marked ? NSFW_ON_U : NSFW_U, NSFW_V, 16, 16);
         }
     }
 

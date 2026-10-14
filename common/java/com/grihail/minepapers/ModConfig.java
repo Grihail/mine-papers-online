@@ -14,7 +14,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 
-/** Настройки мода: config/minepapers.json — один файл и формат для всех версий игры. Читается при запуске мода; нет файла — он создаётся с настройками по умолчанию и пояснениями (JSON читается с комментариями //). Действуют на сервере: клиент узнаёт нужное от сервера. */
+/** Настройки мода: config/minepapers.json — один файл и формат для всех версий игры. Читается при запуске мода; нет файла — он создаётся с настройками по умолчанию и пояснениями (JSON читается с комментариями //). Действуют на сервере (клиент узнаёт нужное от сервера), кроме hideNsfw — она только для своего клиента. */
 public final class ModConfig {
 
     private static final Logger LOG = LogManager.getLogger("minepapers");
@@ -23,7 +23,15 @@ public final class ModConfig {
     /** Стопка картин в руке меняет материалы целиком, по блоку на картину (см. picture.MaterialStack). false — материалы меняются только у одной картины в руке: так игроки не наделают много настроенных картин разом. */
     public static boolean stackMaterials = true;
 
+    /** Только на этом клиенте: картины с пометкой NSFW не показываются — ни картинка в мире, ни миниатюра на иконке, и их картинки не скачиваются. Остаётся пустой холст. Действует с запуска игры. */
+    public static boolean hideNsfw = false;
+
     private ModConfig() {}
+
+    /** Скрыть ли картинку картины с такой пометкой на этом клиенте. */
+    public static boolean hides(boolean nsfw) {
+        return nsfw && hideNsfw;
+    }
 
     /** @param configDir папка config игры или сервера */
     public static void load(File configDir) {
@@ -40,6 +48,9 @@ public final class ModConfig {
             if (!root.isJsonObject()) throw new IllegalStateException("not a JSON object");
             JsonObject json = root.getAsJsonObject();
             if (json.has("stackMaterials")) stackMaterials = json.get("stackMaterials").getAsBoolean();
+            if (json.has("hideNsfw")) hideNsfw = json.get("hideNsfw").getAsBoolean();
+            // Файл прежней версии без новых настроек — дописываем их со значениями по умолчанию.
+            if (!json.has("hideNsfw")) save(file);
         } catch (Exception e) {
             LOG.warn("Не удалось прочитать " + file + ", действуют настройки по умолчанию: " + e);
         }
@@ -50,7 +61,11 @@ public final class ModConfig {
         String text = "{\n"
             + "  // true: a stack of pictures held in hand changes its materials (frame, canvas, glow) all at once,\n"
             + "  // one block per picture. false: materials can be changed only for a single picture in hand.\n"
-            + "  \"stackMaterials\": " + stackMaterials + "\n"
+            + "  \"stackMaterials\": " + stackMaterials + ",\n"
+            + "\n"
+            + "  // Client only: true hides pictures marked as NSFW (18+). Instead of the picture you see an empty canvas,\n"
+            + "  // and its images are not downloaded. Takes effect after restarting the game.\n"
+            + "  \"hideNsfw\": " + hideNsfw + "\n"
             + "}\n";
         try {
             File dir = file.getParentFile();
