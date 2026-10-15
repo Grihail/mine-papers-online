@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
@@ -55,6 +56,11 @@ public final class PictureManager {
     private static final long STYLED_PIXELS = 16L * 1024 * 1024;
     static final int MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024;
     private static final String YANDEX_API = "https://cloud-api.yandex.net/v1/disk/public/resources";
+    /** Список папки Яндекс Диска — страницами: первая маленькая, чтобы картинка появилась сразу, остальные догружаются в фоне. */
+    private static final int YANDEX_FIRST_PAGE = 20, YANDEX_PAGE = 200;
+    /** Только нужные поля: без них Яндекс отдаёт к каждому файлу превью, размеры, EXIF и хэши, и большая папка грузится очень долго. */
+    private static final String YANDEX_FIELDS = "type,name,mime_type,_embedded.total,_embedded.items.type,_embedded.items.name,"
+        + "_embedded.items.path,_embedded.items.mime_type";
 
     /** .jfif/.jpe/.jif/.pjpeg/.pjp — это тоже JPEG (так их часто сохраняют браузеры). */
     private static final String[] IMAGE_EXTENSIONS = { ".png", ".jpg", ".jpeg", ".jfif", ".jpe", ".jif", ".pjpeg",
@@ -227,7 +233,8 @@ public final class PictureManager {
                 try {
                     List<Picture> list;
                     if (key.startsWith("yandex:")) {
-                        list = listYandex(key.substring("yandex:".length()));
+                        // Картинки показываются, как только пришла первая страница списка.
+                        list = listYandex(key.substring("yandex:".length()), found -> pictures = found);
                     } else if (key.startsWith("url:")) {
                         list = listUrl(key.substring("url:".length()));
                     } else if (key.startsWith("shared:")) {
@@ -735,30 +742,37 @@ public final class PictureManager {
 
     // ===================================================================== Яндекс Диск (публичный API, авторизация не нужна)
 
-    private static List<Picture> listYandex(String publicUrl) throws IOException {
-        JsonObject root = getJson(YANDEX_API + "?public_key=" + encode(publicUrl) + "&limit=1000&sort=name");
+    /** Картинки по публичной ссылке (папка или один файл). Папка читается страницами: после каждой страницы found получает весь найденный пока список (новую копию), так что картинки можно показывать, не дожидаясь конца большой папки. */
+    private static List<Picture> listYandex(String publicUrl, Consumer<List<Picture>> found) throws IOException {
         List<Picture> result = new ArrayList<Picture>();
+        int offset = 0, limit = YANDEX_FIRST_PAGE;
+        while (true) {
+            JsonObject root = getJson(YANDEX_API + "?public_key=" + encode(publicUrl) + "&limit=" + limit + "&offset=" + offset
+                + "&sort=name&fields=" + encode(YANDEX_FIELDS));
 
-        if ("file".equals(getString(root, "type"))) {
-            // Ссылка на один файл, а не на папку
-            if (isSupportedMime(root)) {
-                result.add(yandexPicture(publicUrl, null, getString(root, "name")));
+            if ("file".equals(getString(root, "type"))) {
+                // Ссылка на один файл, а не на папку
+                if (isSupportedMime(root)) {
+                    result.add(yandexPicture(publicUrl, null, getString(root, "name")));
+                }
+                return result;
             }
-            return result;
-        }
 
-        JsonObject embedded = root.getAsJsonObject("_embedded");
-        if (embedded == null) return result;
-        JsonArray items = embedded.getAsJsonArray("items");
-        if (items == null) return result;
-
-        for (JsonElement el : items) {
-            JsonObject item = el.getAsJsonObject();
-            if ("file".equals(getString(item, "type")) && isSupportedMime(item)) {
-                result.add(yandexPicture(publicUrl, getString(item, "path"), getString(item, "name")));
+            JsonObject embedded = root.getAsJsonObject("_embedded");
+            JsonArray items = embedded != null ? embedded.getAsJsonArray("items") : null;
+            if (items == null) return result;
+            for (JsonElement el : items) {
+                JsonObject item = el.getAsJsonObject();
+                if ("file".equals(getString(item, "type")) && isSupportedMime(item)) {
+                    result.add(yandexPicture(publicUrl, getString(item, "path"), getString(item, "name")));
+                }
             }
+            if (!result.isEmpty()) found.accept(new ArrayList<Picture>(result));
+            offset += items.size();
+            JsonElement total = embedded.get("total");
+            if (items.size() < limit || total != null && offset >= total.getAsInt()) return result;
+            limit = YANDEX_PAGE;
         }
-        return result;
     }
 
     private static boolean isSupportedMime(JsonObject item) {
