@@ -1,0 +1,4 @@
+accessWidener v2 named
+
+# Цвета предметов для текстуры рамки из предмета (в NeoForge — Minecraft.getItemColors()).
+accessible field net/minecraft/client/Minecraft itemColors Lnet/minecraft/client/color/item/ItemColors;

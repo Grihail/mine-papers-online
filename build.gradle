@@ -2,6 +2,7 @@ plugins {
     // Плагины сборки объявляются здесь, а применяются в подпроектах версий.
     id 'com.gtnewhorizons.retrofuturagradle' version '2.0.2' apply false
     id 'net.neoforged.moddev' version '2.0.148' apply false
+    id 'fabric-loom' version '1.15.5' apply false
 }
 
 /** Сравнение версий Minecraft по числам: "1.7.10" < "1.13" < "1.21.1". */
@@ -21,7 +22,8 @@ tasks.register('gameTest') {
     description = 'Runs the game tests of every version.'
 }
 
-// Общие настройки для всех подпроектов версий (папки <версия Minecraft>-<движок>/: 1.7.10-forge/, 1.21.1-neoforge/, ...).
+// Общие настройки для всех подпроектов версий (подпроект <версия Minecraft>-<движок> в папке <версия>/<движок>: 1.7.10/forge, 1.21.1/neoforge, ...;
+// код версии без движка — в <версия>/shared, см. settings.gradle).
 // Подпроект common/ — тот же общий код, но отдельно и только ради его тестов (см. common/build.gradle).
 // Общие файлы лежат в common/:
 //   java/      — исходники, одинаковые для всех версий (только Java 8 и без API Minecraft);
@@ -127,7 +129,7 @@ configure(subprojects.findAll { it.name != 'common' }) {
         filteringCharset = 'UTF-8'
         inputs.property 'version', project.version
         inputs.property 'mcversion', mcVersion
-        filesMatching(['mcmod.info', 'version.properties', 'META-INF/neoforge.mods.toml']) {
+        filesMatching(['mcmod.info', 'version.properties', 'META-INF/neoforge.mods.toml', 'fabric.mod.json']) {
             expand 'version': project.version, 'mcversion': mcVersion
         }
 

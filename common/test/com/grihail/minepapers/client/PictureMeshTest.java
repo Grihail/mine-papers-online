@@ -105,10 +105,24 @@ class PictureMeshTest {
         r.draw(s, null, 12, SKIN, SKIN);
         assertEquals(PictureMesh.ATLAS, (int) r.kinds.get(0));
         double[] first = r.vertices.get(0);
-        assertEquals(0x80 / 255f, first[5], 1e-6, "tint of the material");
+        assertEquals(0.8f * 0x80 / 255f, first[5], 1e-6, "tint of the material, shaded like a south block face");
         for (int light : r.lights) {
             assertEquals(7 << 20, light & 0xFFFF0000, "sky light is kept");
             assertEquals(12 << 4, light & 0xFFFF, "block light is raised to the glow");
+        }
+    }
+
+    /** Лицевая сторона затеняется как грань ванильного блока, смотрящая туда же: картина не ярче стены рядом. */
+    @Test
+    void frontIsShadedByWorldDirection() {
+        float[] expected = { 0.5f, 1f, 0.8f, 0.8f, 0.6f, 0.6f }; // вниз, вверх, север, юг, запад, восток
+        for (int facing = 0; facing < 6; facing++) {
+            PictureSettings s = new PictureSettings();
+            s.mode = PictureSettings.MODE_DECAL; // без холста: только лицевой прямоугольник-заглушка
+            s.facing = facing;
+            Recorder r = new Recorder();
+            r.draw(s, null, 0, SKIN, SKIN);
+            assertEquals(expected[facing] * 0x80 / 255f, r.vertices.get(0)[5], 1e-6, "facing " + facing);
         }
     }
 

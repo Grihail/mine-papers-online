@@ -41,6 +41,8 @@ public abstract class PictureMesh {
     }
 
     private int facing, rotation;
+    /** Затенение граней картины, как у граней ванильных блоков по стороне света (см. shade): лицевой и торцов вверх, вниз, влево, вправо в координатах стены. */
+    private float shadeFront, shadeUp, shadeDown, shadeLeft, shadeRight;
     /** Угол клетки рамки у поверхности и сама клетка рамки (запасной свет: угол может оказаться внутри блока — полублок, ковёр). */
     private double ox, oy, oz;
     private int fx, fy, fz;
@@ -81,6 +83,11 @@ public abstract class PictureMesh {
         fy = tile.y;
         fz = tile.z;
         this.glow = glow;
+        shadeFront = shade(0, 0, 1);
+        shadeUp = shade(0, 1, 0);
+        shadeDown = shade(0, -1, 0);
+        shadeLeft = shade(-1, 0, 0);
+        shadeRight = shade(1, 0, 0);
 
         double u0 = tile.getOffsetXBlocks(), v0 = tile.getOffsetYBlocks();
         double u1 = u0 + tile.getWidthBlocks(), v1 = v0 + tile.getHeightBlocks();
@@ -173,7 +180,7 @@ public abstract class PictureMesh {
     /** Картинка с плавным освещением, как у ванильных блоков: свет считается в каждой вершине сетки (среднее по соседним клеткам) и плавно перетекает по поверхности — без "ступенек" по блокам. */
     private void picture(double u0, double v0, double u1, double v1, double d) {
         lightCache.clear();
-        r = g = b = 1f;
+        r = g = b = shadeFront;
         for (int cu = (int) Math.floor(u0); cu < u1; cu++) {
             for (int cv = (int) Math.floor(v0); cv < v1; cv++) {
                 double a = Math.max(u0, cu), bu = Math.min(u1, cu + 1);
@@ -220,7 +227,7 @@ public abstract class PictureMesh {
         double half = Math.min(1, Math.min(u1 - u0, v1 - v0)) / 2;
         double cu = (u0 + u1) / 2, cv = (v0 + v1) / 2, d = base + 0.002;
         texture(MARK, null);
-        light(cu, cv, d + 0.05, 1f);
+        light(cu, cv, d + 0.05, shadeFront);
         vertex(cu - half, cv - half, d, 0, 1);
         vertex(cu + half, cv - half, d, 1, 1);
         vertex(cu + half, cv + half, d, 1, 0);
@@ -231,17 +238,17 @@ public abstract class PictureMesh {
     private void plateEdges(PictureManager.Variant shown, double u0, double v0, double u1, double v1) {
         // Середина крайнего пикселя текстуры, чтобы не захватить соседний.
         double hu = 0.5 / shown.width, hv = 0.5 / shown.height;
-        plateU(u0, u1, v1, hv, 0.05, 1.0f);
-        plateU(u0, u1, v0, 1 - hv, -0.05, 0.55f);
-        plateV(v0, v1, u0, hu, -0.05, 0.8f);
-        plateV(v0, v1, u1, 1 - hu, 0.05, 0.8f);
+        plateU(u0, u1, v1, hv, 0.05);
+        plateU(u0, u1, v0, 1 - hv, -0.05);
+        plateV(v0, v1, u0, hu, -0.05);
+        plateV(v0, v1, u1, 1 - hu, 0.05);
     }
 
     /** Горизонтальный торец пластины (плоскость v = const), по блокам — свет у каждого свой. */
-    private void plateU(double u0, double u1, double v, double tv, double dv, float shade) {
+    private void plateU(double u0, double u1, double v, double tv, double dv) {
         for (double s = u0; s < u1 - 1e-6; s = Math.floor(s) + 1) {
             double e = Math.min(Math.floor(s) + 1, u1);
-            light((s + e) / 2, v + dv, PX / 2, shade);
+            light((s + e) / 2, v + dv, PX / 2, dv > 0 ? shadeUp : shadeDown);
             double ta = (s - u0) / (u1 - u0), tb = (e - u0) / (u1 - u0);
             vertex(s, v, 0, ta, tv);
             vertex(e, v, 0, tb, tv);
@@ -251,10 +258,10 @@ public abstract class PictureMesh {
     }
 
     /** Вертикальный торец пластины (плоскость u = const). */
-    private void plateV(double v0, double v1, double u, double tu, double du, float shade) {
+    private void plateV(double v0, double v1, double u, double tu, double du) {
         for (double s = v0; s < v1 - 1e-6; s = Math.floor(s) + 1) {
             double e = Math.min(Math.floor(s) + 1, v1);
-            light(u + du, (s + e) / 2, PX / 2, shade);
+            light(u + du, (s + e) / 2, PX / 2, du > 0 ? shadeRight : shadeLeft);
             double ta = 1 - (s - v0) / (v1 - v0), tb = 1 - (e - v0) / (v1 - v0);
             vertex(u, s, 0, tu, ta);
             vertex(u, e, 0, tu, tb);
@@ -270,7 +277,7 @@ public abstract class PictureMesh {
                 double a = Math.max(u0, cu), bu = Math.min(u1, cu + 1);
                 double c = Math.max(v0, cv), e = Math.min(v1, cv + 1);
                 if (bu - a < 1e-6 || e - c < 1e-6) continue;
-                light((a + bu) / 2, (c + e) / 2, d + 0.05, 1f);
+                light((a + bu) / 2, (c + e) / 2, d + 0.05, shadeFront);
                 double ia = icon.u((a - cu) * 16), ib = icon.u((bu - cu) * 16);
                 double ic = icon.v((cv + 1 - c) * 16), ie = icon.v((cv + 1 - e) * 16);
                 vertex(a, c, d, ia, ic);
@@ -285,11 +292,11 @@ public abstract class PictureMesh {
     private void edges(Skin icon, double u0, double v0, double u1, double v1, double d0, double d1) {
         double rows = (d1 - d0) * 16;
         // верх и низ
-        alongU(icon, u0, u1, v1, d0, d1, 6, rows, 0.05, 1.0f);
-        alongU(icon, u0, u1, v0, d0, d1, 6, rows, -0.05, 0.55f);
+        alongU(icon, u0, u1, v1, d0, d1, 6, rows, 0.05);
+        alongU(icon, u0, u1, v0, d0, d1, 6, rows, -0.05);
         // лево и право
-        alongV(icon, v0, v1, u0, d0, d1, rows, true, true, -0.05, 0.8f);
-        alongV(icon, v0, v1, u1, d0, d1, rows, false, true, 0.05, 0.8f);
+        alongV(icon, v0, v1, u0, d0, d1, rows, true, true, -0.05);
+        alongV(icon, v0, v1, u1, d0, d1, rows, false, true, 0.05);
     }
 
     /** Багет: брусья шириной width заходят на холст и выступают над картинкой (base — лицевая плоскость холста). Лицевая сторона: по внешнему краю — кайма из краёв и углов текстуры рамки (не шире RIM), внутри неё — середина текстуры без шва (у боковых брусьев повёрнута, чтобы волокна шли вдоль бруса). */
@@ -323,17 +330,17 @@ public abstract class PictureMesh {
         double ib0 = u0 + bw, ib1 = u1 - bw, jb0 = v0 + bw, jb1 = v1 - bw;
         if (ib1 > ib0 && jb1 > jb0) {
             double rows = (top - base) * 16;
-            alongU(icon, ib0, ib1, jb1, base, top, 6, rows, -0.05, 0.55f);
-            alongU(icon, ib0, ib1, jb0, base, top, 6, rows, 0.05, 1.0f);
-            alongV(icon, jb0, jb1, ib0, base, top, rows, false, false, 0.05, 0.8f);
-            alongV(icon, jb0, jb1, ib1, base, top, rows, true, false, -0.05, 0.8f);
+            alongU(icon, ib0, ib1, jb1, base, top, 6, rows, -0.05);
+            alongU(icon, ib0, ib1, jb0, base, top, 6, rows, 0.05);
+            alongV(icon, jb0, jb1, ib0, base, top, rows, false, false, 0.05);
+            alongV(icon, jb0, jb1, ib1, base, top, rows, true, false, -0.05);
         }
     }
 
     /** Лицевой прямоугольник (плоскость d), текстура — пиксели (pu0, pv0)-(pu1, pv1) спрайта. */
     private void front(Skin icon, double u0, double v0, double u1, double v1, double d,
                        double pu0, double pv0, double pu1, double pv1) {
-        light((u0 + u1) / 2, (v0 + v1) / 2, d + 0.05, 1f);
+        light((u0 + u1) / 2, (v0 + v1) / 2, d + 0.05, shadeFront);
         double ia = icon.u(pu0), ib = icon.u(pu1);
         double ic = icon.v(pv1), ie = icon.v(pv0);
         vertex(u0, v0, d, ia, ic);
@@ -364,7 +371,7 @@ public abstract class PictureMesh {
             double c = Math.max(v0, e - TILE);
             for (double a = u0; a < u1 - 1e-6; ) {
                 double bu = Math.min(u1, a + TILE);
-                light((a + bu) / 2, (c + e) / 2, d + 0.05, 1f);
+                light((a + bu) / 2, (c + e) / 2, d + 0.05, shadeFront);
                 double x0 = icon.u(2), x1 = icon.u(2 + (e - c) * 16);
                 double y0 = icon.v(2), y1 = icon.v(2 + (bu - a) * 16);
                 vertex(a, c, d, x1, y0);
@@ -385,10 +392,10 @@ public abstract class PictureMesh {
 
     /** Горизонтальный торец (плоскость v = const) вдоль u, повтор текстуры по 12 пикселей. */
     private void alongU(Skin icon, double u0, double u1, double v, double d0, double d1,
-                        double row, double rows, double dv, float shade) {
+                        double row, double rows, double dv) {
         for (double s = u0; s < u1 - 1e-6; s += TILE) {
             double e = Math.min(s + TILE, u1);
-            light((s + e) / 2, v + dv, (d0 + d1) / 2, shade);
+            light((s + e) / 2, v + dv, (d0 + d1) / 2, dv > 0 ? shadeUp : shadeDown);
             double ia = icon.u(2), ib = icon.u(2 + (e - s) * 16);
             double ic = icon.v(row), ie = icon.v(row + rows);
             vertex(s, v, d0, ia, ic);
@@ -400,13 +407,13 @@ public abstract class PictureMesh {
 
     /** Вертикальный торец (плоскость u = const) вдоль v. Текстура стоит как на лицевой стороне — верхом вверх: у наружного торца (fromTop) верхний блок берёт её верх (у травы — зелёная кайма), ниже — и у внутренних целиком — повторяется середина, как у лицевых брусьев. Поперёк — cols столбцов у края текстуры (left — левого), чтобы угол продолжал лицевую сторону без шва. */
     private void alongV(Skin icon, double v0, double v1, double u, double d0, double d1,
-                        double cols, boolean left, boolean fromTop, double du, float shade) {
+                        double cols, boolean left, boolean fromTop, double du) {
         double outer = left ? 0 : 16, inner = left ? cols : 16 - cols; // у лица (d1) — крайний столбец
         boolean first = fromTop;
         for (double s = v1; s > v0 + 1e-6; first = false) {
             double e = Math.max(s - (first ? 1 : TILE), v0);
             double t0 = first ? 0 : 2, t1 = t0 + (s - e) * 16;
-            light(u + du, (s + e) / 2, (d0 + d1) / 2, shade);
+            light(u + du, (s + e) / 2, (d0 + d1) / 2, du > 0 ? shadeRight : shadeLeft);
             double ia = icon.u(inner), ib = icon.u(outer);
             double ic = icon.v(t0), ie = icon.v(t1);
             vertex(u, s, d0, ia, ic);
@@ -424,7 +431,14 @@ public abstract class PictureMesh {
         emit(p[0], p[1], p[2], tu, tv);
     }
 
-    /** Освещение клетки, в которой лежит точка (u, v, d), и затенение грани как у ванильных блоков. */
+    /** Затенение грани, которая смотрит по оси (nu, nv, nd) координат стены, — как у грани ванильного блока, смотрящей в ту же сторону света: вверх 1, север и юг 0.8, запад и восток 0.6, вниз 0.5. Иначе картина на стене была бы ярче соседних блоков. */
+    private float shade(int nu, int nv, int nd) {
+        double[] a = CanvasGeometry.toBlock(facing, rotation, 0, 0, 0), b = CanvasGeometry.toBlock(facing, rotation, nu, nv, nd);
+        double x = b[0] - a[0], y = b[1] - a[1];
+        return y > 0.5 ? 1f : y < -0.5 ? 0.5f : Math.abs(x) > 0.5 ? 0.6f : 0.8f;
+    }
+
+    /** Освещение клетки, в которой лежит точка (u, v, d), и затенение грани shade (см. shade). */
     private void light(double u, double v, double d, float shade) {
         double[] p = CanvasGeometry.toBlock(facing, rotation, u, v, d);
         int brightness = lightAt(floor(ox + p[0]), floor(oy + p[1]), floor(oz + p[2]));

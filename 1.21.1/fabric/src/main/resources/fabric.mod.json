@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "minepapers",
+  "version": "${version}",
+  "name": "Mine Papers Online",
+  "description": "Рамка для своих картин: локальные файлы из config/minepapers или слайдшоу из публичной папки Яндекс Диска.",
+  "authors": ["Grihail"],
+  "license": "LGPL-3.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.grihail.minepapers.fabric.MinePapersFabric"],
+    "client": ["com.grihail.minepapers.fabric.MinePapersFabricClient"]
+  },
+  "mixins": ["minepapers.mixins.json"],
+  "accessWidener": "minepapers.accesswidener",
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": ">=${mcversion} <1.21.2",
+    "java": ">=21"
+  }
+}

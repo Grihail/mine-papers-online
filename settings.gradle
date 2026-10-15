@@ -4,6 +4,10 @@ pluginManagement {
             name = 'GTNH Maven'
             url = 'https://nexus.gtnewhorizons.com/repository/public/'
         }
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
         gradlePluginPortal()
         mavenCentral()
     }
@@ -11,9 +15,17 @@ pluginManagement {
 
 rootProject.name = 'MinePapersOnline'
 
-// Каждая пара "версия Minecraft + движок" — отдельный подпроект в папке <версия>-<движок>.
+// Папка на каждую версию Minecraft, в ней — по подпроекту на движок: <версия>/<движок>, имя подпроекта — <версия>-<движок>.
+// Код версии без API движка (только ванильный Minecraft) лежит в <версия>/shared и собирается в каждом её движке.
 // Общие для всех версий файлы лежат в common/ (см. build.gradle).
-include '1.7.10-forge'
-include '1.21.1-neoforge'
+[
+    '1.7.10': ['forge'],
+    '1.21.1': ['neoforge', 'fabric'],
+].each { mc, loaders ->
+    loaders.each { loader ->
+        include "${mc}-${loader}"
+        project(":${mc}-${loader}").projectDir = file("${mc}/${loader}")
+    }
+}
 // Общий код без игры — только для его тестов (в jar версий он попадает исходниками).
 include 'common'

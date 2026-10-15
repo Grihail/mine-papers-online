@@ -10,6 +10,7 @@ The mod is built for several game versions from a single repository:
 | --- | --- | --- |
 | 1.7.10 | Forge 10.13.4.1614 | 8 |
 | 1.21.1 | NeoForge 21.1.259 | 21 |
+| 1.21.1 | Fabric Loader 0.16+, Fabric API | 21 |
 
 Author: Grihail. License: [LGPLv3](COPYING.LESSER). Changelog: [CHANGELOG.md](CHANGELOG.md).
 
@@ -174,12 +175,17 @@ $env:JAVA_HOME = 'C:\Program Files\Java\jdk-25'
 .\gradlew.bat build
 ```
 
+Or with one command from the repository root: `build.bat`. It sets JAVA_HOME itself (another JDK 25 path can be given in the `MINEPAPERS_JDK` variable) and builds all versions. `build.bat test` also runs the game tests of all versions; any other arguments go to `gradlew` as they are.
+
 Output files:
 
 ```
-1.7.10-forge/build/libs/MinePapersOnline-1.7.10-forge-<version>.jar
-1.21.1-neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<version>.jar
+1.7.10/forge/build/libs/MinePapersOnline-1.7.10-forge-<version>.jar
+1.21.1/neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<version>.jar
+1.21.1/fabric/build/libs/MinePapersOnline-1.21.1-fabric-<version>.jar
 ```
+
+On Fabric, Fabric API must be in the mods folder next to the mod.
 
 The mod version is set in `gradle.properties` (`mod_version`).
 
@@ -199,7 +205,13 @@ Run the game from the development environment:
 
 ```bat
 gradlew :1.21.1-neoforge:runClient
+gradlew :1.21.1-fabric:runClient
 ```
+
+### Tests
+
+- `gradlew :common:test` (part of `build`) - tests of the common code without the game (JUnit, `common/test`): settings and their limits, the config, geometry, the picture mesh, the settings window, picture exchange.
+- `gradlew gameTest` (or `build.bat test`) - game tests: the server of every version and loader starts by itself, runs the tests and exits with an error if any of them failed. A version's tests are shared by its loaders (`<version>/shared/src/gametest`); a loader only registers them (the loader's `src/gametest`).
 
 ## Repository layout
 
@@ -208,25 +220,29 @@ Mine Papers Online/
     build.gradle            shared settings for all versions
     settings.gradle         list of version subprojects
     gradle.properties       mod group, name and version
+    build.bat               builds all versions with one command
     common/                 everything shared by all versions
         java/               shared code (Java 8, no Minecraft API)
+        test/               its tests (JUnit)
         lang/               translations in JSON format
         resources/          textures and item table
         proguard/           ProGuard rules for the WebP libraries
-    1.7.10-forge/           Minecraft 1.7.10 + Forge version
-    1.21.1-neoforge/        Minecraft 1.21.1 + NeoForge version
+    1.7.10/forge/           Minecraft 1.7.10 + Forge version
+    1.21.1/shared/          1.21.1 code and resources without a loader (vanilla Minecraft only) and game tests
+    1.21.1/neoforge/        NeoForge loader for 1.21.1
+    1.21.1/fabric/          Fabric loader for 1.21.1
 ```
 
 ### Version subprojects
 
-Each "Minecraft version + loader" pair lives in its own folder named `<version>-<loader>`. The Minecraft version is taken from the first part of the folder name, so the name matters.
+Each "Minecraft version + loader" pair is a subproject `<version>-<loader>` in the folder `<version>/<loader>` (the list is in `settings.gradle`). The Minecraft version is taken from the first part of the subproject name, so the name matters. A version's code that does not depend on the loader (vanilla Minecraft only) lives in `<version>/shared` and is added to each of its loaders as an extra source and resource folder.
 
 For each subproject, the root `build.gradle`:
 
 - adds `common/java` as an extra source folder;
 - copies `common/resources` into the jar. For versions before 1.13 the `textures/block` and `textures/item` folders are renamed to `textures/blocks` and `textures/items`;
 - puts the translations from `common/lang` into `assets/minepapers/lang`. For versions before 1.13 they are converted to the `.lang` format (see [Translations](#translations));
-- fills in the mod version and Minecraft version in `mcmod.info`, `version.properties` and `META-INF/neoforge.mods.toml`;
+- fills in the mod version and Minecraft version in `mcmod.info`, `version.properties`, `META-INF/neoforge.mods.toml` and `fabric.mod.json`;
 - shrinks the WebP libraries with the `shrinkWebp` task and puts their classes into the jar (see [Common code and adapters](#common-code-and-adapters));
 - compiles the mod classes without local variable names (`-g:source,lines`): crash reports keep line numbers, and the jar is smaller.
 
@@ -254,14 +270,20 @@ Package `com.grihail.minepapers`. Only things that do not depend on the game ver
 | `server/ImageStore.java` | Server side of picture exchange: receiving, storing in the world folder, serving to players. |
 | `server/ServerHost.java` | Adapter: what the server code needs from the game version. |
 | `network/SharedImage.java` | Server picture format, SHA-1, packet chunk sizes. |
+| `client/PictureMesh.java` | The whole picture in the world: canvas, frame, molding, image, plate, smooth light, glow, NSFW mark, slide choice. The version only outputs vertices, gives the light of a cell and switches textures. |
+| `client/IconLayout.java` | Layout of the configured item icon: canvas, frame ring, visible part of the thumbnail. |
+| `client/FrameEditor.java` | The settings window without widgets: chosen values, toggles, config copy and paste, saving into the picture, status text. The version draws the widgets. |
+| `picture/PictureLights.java` | Light blocks of a glowing picture: which cells are taken and their update. The version places the blocks. |
+| `picture/BreakTimer.java` | Server check that the player broke the picture long enough. |
+| `picture/MapTag.java` | An in-memory settings tag, to compare settings without version classes. |
 
 ### Version folders
 
-Both versions are organized the same way. Packages inside `com.grihail.minepapers`:
+All versions are organized the same way. Packages inside `com.grihail.minepapers` (in 1.21.1 they are in `1.21.1/shared`, shared by NeoForge and Fabric):
 
 | Package or file | Contents |
 | --- | --- |
-| `MinePapers.java` | Main mod class: registers the item, entity, recipes, window and packets. Also holds the path to `config/minepapers`. |
+| `MinePapers.java` | Main mod class: registers the item, entity, recipes, window and packets. Also holds the path to `config/minepapers`. In 1.21.1 it has no loader code: it says what to register and how to create it, and the loader registers it. |
 | `CommonProxy.java`, `client/ClientProxy.java` | Code that works differently on client and server. |
 | `picture/PictureFrame.java` | Picture settings plus materials (items in the slots). |
 | `picture/NbtTag.java` | This version's NBT adapter for `PictureSettings`. |
@@ -282,7 +304,7 @@ Both versions are organized the same way. Packages inside `com.grihail.minepaper
 Version differences:
 
 - **1.7.10.** The picture item is the `ItemBlock` of the `BlockPictureFrame` block; the recipe and item are in the `block` package. The `block` package also has classes for old saves where pictures were blocks: `TileLegacyPicture` turns such a picture into an entity, `BlockPictureFiller` removes leftover parts. Light is placed with a custom invisible block `BlockPictureLight`. A custom multiline text field `GuiTextArea`, because 1.7.10 has none.
-- **1.21.1.** The item and recipe are in the `item` package. Settings are stored in the `minepapers:frame` item component. Light is placed with the vanilla `minecraft:light` block. Window tooltips use vanilla `Tooltip`. Client registration is in `client/MinePapersClient.java`, custom render types in `client/PictureRenderTypes.java`, packet registration in `network/Network.java`.
+- **1.21.1.** The item and recipe are in the `item` package. Settings are stored in the `minepapers:frame` item component. Light is placed with the vanilla `minecraft:light` block. Window tooltips use vanilla `Tooltip`. Custom render types are in `client/PictureRenderTypes.java`. The picture position and settings reach the client as vanilla entity data (`SynchedEntityData`), without loader spawn data. Everything that depends on the loader comes to the shared code through `Platform` (packets, a window with data for the client, the current server) and `client/ModClient` (client events). The loaders are thin wrappers: NeoForge - `neoforge/MinePapersNeoForge` and `MinePapersNeoForgeClient` (registration, packets, events); Fabric - `fabric/MinePapersFabric`, `MinePapersFabricClient` and two mixins for things Fabric API has no events for: mouse clicks before vanilla handling (`MinecraftMixin`) and returning materials on crafting (`ResultSlotMixin`).
 
 ## Common code and adapters
 
@@ -348,7 +370,7 @@ A new key is added to all four JSON files.
 | `textures/misc/nsfw.png` | Red "18+" mark on a hidden NSFW picture. |
 | `flattening.txt` | Table "old item name + metadata -> name in newer versions". Needed to paste a picture config from 1.7.10 into 1.21.1 and back. Built from the vanilla DataFixer. |
 
-Resources needed by only one version live in its `src/main/resources`. In 1.21.1 these are the item models, recipes, `neoforge.mods.toml` and the tag `data/sable/tags/entity_type/wall_entities.json`. The tag is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 these are `mcmod.info` and `version.properties` (the mod version for FML).
+Resources needed by only one version live in its folder. In 1.21.1 these are the item models, recipes and the tag (in `1.21.1/shared/src/main/resources`), plus the mod description for each loader: `neoforge.mods.toml`, and `fabric.mod.json` with the mixins and the access widener. The tag `data/sable/tags/entity_type/wall_entities.json` is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 these are `mcmod.info` and `version.properties` (the mod version for FML).
 
 ## Data and formats
 
@@ -461,12 +483,13 @@ In 1.7.10 packet handlers run on the network thread, so server packets queue a t
 
 ## Adding a new game version
 
-1. Create a `<Minecraft version>-<loader>` folder, for example `1.12.2-forge`, with its own `build.gradle`: plugin, Java version, loader version.
-2. Add it to `settings.gradle` with `include`.
+1. Create a `<Minecraft version>/<loader>` folder, for example `1.12.2/forge`, with its own `build.gradle`: plugin, Java version, loader version. If the version will have several loaders, put the loader-free code into `<version>/shared` right away, as 1.21.1 does.
+2. Add it to the version list in `settings.gradle`.
 3. If a new build plugin is needed, declare it in the root `build.gradle` with `apply false`.
 4. Port the version classes following the neighboring folders. Implement the adapters: `NbtTag`, `MinePapersClientHost`, `ServerImages` (as `ServerHost`). Make `PictureFrame` extend `PictureSettings` and `FrameGeometry` extend `CanvasGeometry`.
 5. Install the adapters at startup: `ClientHost.install(...)` on the client and `ServerImages.install()` when the mod starts.
-6. Translations, textures and the `.lang` format are picked up automatically from the version in the folder name.
+6. Translations, textures and the `.lang` format are picked up automatically from the version in the subproject name.
+7. Hook up the game tests: the version's shared tests and the task that runs the test server, added to the root project's `gameTest` (see `1.21.1/*/build.gradle`).
 
 If code is the same for two or more versions and does not use the game API, it moves to `common/java`. The copies in the version folders are then removed.
 
