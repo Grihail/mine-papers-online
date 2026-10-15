@@ -405,9 +405,13 @@ public final class PictureGameTests {
         grid.set(2, ItemStack.EMPTY);
         h.assertTrue(recipe.assemble(grid(grid), h.getLevel().registryAccess()).isEmpty(), "signed is not taken apart");
 
-        // Разбор подписанной разрешён настройкой: сброс до пустой картины.
+        // Разбор подписанной разрешён настройкой: сначала вынимаются материалы, затем сброс до пустой картины.
         com.grihail.minepapers.ModConfig.disassembleSigned = true;
         try {
+            ItemStack graffiti = recipe.assemble(grid(grid), h.getLevel().registryAccess());
+            h.assertTrue(ItemPictureFrame.settings(graffiti) != null && ItemPictureFrame.read(graffiti).border.stack().isEmpty(),
+                "allowed: materials are taken out of the signed picture");
+            grid.set(0, graffiti);
             ItemStack reset = recipe.assemble(grid(grid), h.getLevel().registryAccess());
             h.assertTrue(reset.is(MinePapers.FRAME.get()) && ItemPictureFrame.settings(reset) == null, "allowed: signed picture is reset");
         } finally {

@@ -8,6 +8,7 @@
 ### Добавлено
 
 - Версии для Minecraft 1.20.1: Forge и Fabric (на Fabric рядом с модом нужен Fabric API).
+- Версия для Minecraft 1.12.2 (Forge 14.23.5.2847 и новее).
 
 ### Изменено
 

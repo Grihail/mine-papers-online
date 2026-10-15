@@ -1,6 +1,5 @@
 package com.grihail.minepapers.picture;
 
-import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.server.ServerImages;
 
 import net.minecraft.entity.player.EntityPlayer;
@@ -9,7 +8,6 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.Slot;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 /** Окно настройки картины (сущности или стопки картин-предметов в руке, см. FrameHolder): инвентарь игрока и слоты материалов (рамка, холст, свечение). Предметы из слотов хранятся в самих картинах (PictureFrame.border, canvas, glow), по одному на картину; остальные настройки уходят на сервер пакетом PacketSaveFrame. */
@@ -69,15 +67,15 @@ public class ContainerPictureFrame extends Container {
         return MaterialStack.editable(stackMaterials, holder.count());
     }
 
-    /** Слоты материалов — со своей механикой (см. MaterialStack), её выполняет сервер и присылает окно целиком. Цифры меняют предмет под мышью с хотбаром мимо проверок слотов: настраиваемую картину-предмет так тоже не переложить. */
+    /** Слоты материалов — со своей механикой (см. MaterialSlots), её выполняет сервер и присылает окно целиком. Цифры меняют предмет под мышью с хотбаром мимо проверок слотов: настраиваемую картину-предмет так тоже не переложить. */
     @Override
     public ItemStack slotClick(int slotId, int button, int mode, EntityPlayer player) {
         if (mode == MODE_HOTBAR_SWAP && holder.isItem() && button == holder.slot()) return null;
         if (slotId >= 0 && slotId < inventorySlots.size() && isMaterialSlot(slotId)) {
             if (player instanceof EntityPlayerMP && holder.frame.mayEdit(player.getUniqueID()) && materialsEditable()) {
                 int index = slotId - FIRST_MATERIAL_SLOT;
-                if (mode == MODE_PICKUP) clickMaterial(index, button == 1, player);
-                if (mode == MODE_QUICK_MOVE) takeToInventory(index, player);
+                if (mode == MODE_PICKUP) new HolderMaterials(holder, player).click(index, button == 1);
+                if (mode == MODE_QUICK_MOVE) new HolderMaterials(holder, player).takeToInventory(index);
                 resend((EntityPlayerMP) player);
             }
             return null;
@@ -88,80 +86,6 @@ public class ContainerPictureFrame extends Container {
     /** Клиент изменения слотов материалов не предсказывает, а сервер после клика рассылает только то, что клиент якобы уже знает, — поэтому окно (вместе с предметом в руке мыши) шлём заново. */
     private void resend(EntityPlayerMP player) {
         player.sendContainerToPlayer(this);
-    }
-
-    /** Клик по слоту материала: пустой рукой — забрать блоки (картины остаются без материала), с блоками — положить или заменить. */
-    private void clickMaterial(int index, boolean right, EntityPlayer player) {
-        PictureFrame.Material m = holder.frame.materials()[index];
-        ItemStack current = m.stack;
-        ItemStack carried = player.inventory.getItemStack();
-        int pictures = holder.count();
-        if (carried == null) {
-            if (current == null) return;
-            player.inventory.setItemStack(change(index, null, MaterialStack.takeCount(pictures, right, current.getMaxStackSize()), player));
-            return;
-        }
-        if (!accepts(m, carried) || same(current, carried)) return;
-        int count = MaterialStack.putCount(pictures, carried.stackSize, right);
-        ItemStack old = change(index, carried, count, player);
-        carried.stackSize -= count;
-        if (carried.stackSize <= 0) {
-            player.inventory.setItemStack(old != null && old.stackSize <= old.getMaxStackSize() ? old : null);
-            if (old != null && old.stackSize > old.getMaxStackSize()) give(player, old);
-        } else {
-            give(player, old);
-        }
-    }
-
-    /** Shift+клик по слоту материала: все блоки — в инвентарь. */
-    private void takeToInventory(int index, EntityPlayer player) {
-        if (holder.frame.materials()[index].stack == null) return;
-        give(player, change(index, null, holder.count(), player));
-    }
-
-    /** У count картин материал index становится material (null — снять). Изменились не все картины стопки — изменённые отделяются от неё и уходят в инвентарь. Только на сервере. @return блоки прежнего материала, по одному с каждой изменённой картины (или null) */
-    private ItemStack change(int index, ItemStack material, int count, EntityPlayer player) {
-        ItemStack old = holder.frame.materials()[index].stack;
-        ItemStack held = holder.stack();
-        if (held == null) {
-            // Висящая картина — одна.
-            holder.frame.materials()[index].set(material);
-            holder.settingsChanged();
-        } else {
-            PictureFrame edited = FrameHolder.read(held);
-            edited.materials()[index].set(material);
-            if (count >= held.stackSize) {
-                FrameHolder.store(held, edited);
-            } else {
-                ItemStack split = held.copy();
-                split.stackSize = count;
-                FrameHolder.store(split, edited);
-                held.stackSize -= count;
-                give(player, split);
-            }
-            holder.reload();
-        }
-        if (old == null) return null;
-        ItemStack blocks = old.copy();
-        blocks.stackSize = count;
-        return blocks;
-    }
-
-    /** В инвентарь, а что не влезло — на землю. Пачками не больше стопки. */
-    private static void give(EntityPlayer player, ItemStack stack) {
-        while (stack != null && stack.stackSize > 0) {
-            ItemStack part = stack.splitStack(Math.min(stack.stackSize, stack.getMaxStackSize()));
-            if (!player.inventory.addItemStackToInventory(part)) player.dropPlayerItemWithRandomChoice(part, false);
-        }
-    }
-
-    private static boolean same(ItemStack a, ItemStack b) {
-        return a != null && b != null && a.isItemEqual(b) && ItemStack.areItemStackTagsEqual(a, b);
-    }
-
-    /** Саму рамку для картин класть нельзя (картина в картине), в слот свечения — только светящиеся блоки. */
-    private static boolean accepts(PictureFrame.Material m, ItemStack stack) {
-        return stack.getItem() != Item.getItemFromBlock(MinePapers.frame) && m.accepts(stack);
     }
 
     @Override
@@ -180,16 +104,10 @@ public class ContainerPictureFrame extends Container {
             return null;
         }
         ItemStack stack = slot.getStack();
-        PictureFrame.Material[] materials = holder.frame.materials();
-        for (int i = 0; i < materials.length; i++) {
-            if (materials[i].stack != null || !accepts(materials[i], stack)) continue;
-            int count = MaterialStack.putCount(holder.count(), stack.stackSize, false);
-            change(i, stack, count, player);
-            stack.stackSize -= count;
+        if (new HolderMaterials(holder, player).quickMove(stack)) {
             if (stack.stackSize <= 0) slot.putStack(null);
             slot.onSlotChanged();
             resend((EntityPlayerMP) player);
-            break;
         }
         return null;
     }

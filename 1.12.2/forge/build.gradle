@@ -1,0 +1,84 @@
+import java.time.Duration
+
+import com.gtnewhorizons.retrofuturagradle.minecraft.RunMinecraftTask
+import com.gtnewhorizons.retrofuturagradle.util.Distribution
+
+plugins {
+    id 'com.gtnewhorizons.retrofuturagradle'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+// Forge для среды разработки RetroFuturaGradle выбирает сам (14.23.5.2847); собранный мод работает и на поздних сборках 14.23.5.x.
+minecraft {
+    mcVersion = '1.12.2'
+    username = 'Developer'
+}
+
+// Игровые тесты (src/gametest) — отдельный мод minepapers_gametest: в jar мода не попадают, их запускает сервер runGameTestServer.
+sourceSets {
+    gametest {
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += main.runtimeClasspath + main.output
+    }
+}
+
+// Выделенный сервер с модом и тестами: тесты идут, когда сервер запустился, затем он выключается; упал хоть один — выход с ошибкой.
+// Мир — плоский, каждый раз новый (run/gametest).
+def runServer = tasks.named('runServer', RunMinecraftTask)
+def runGameTestServer = tasks.register('runGameTestServer', RunMinecraftTask, Distribution.DEDICATED_SERVER)
+runGameTestServer.configure {
+    setup(project)
+    group = 'verification'
+    description = 'Runs the dedicated server with the mod and its game tests.'
+    def base = runServer.get()
+    dependsOn base.dependsOn
+    dependsOn tasks.named('gametestClasses')
+    classpath(sourceSets.gametest.output)
+    classpath(base.classpath)
+    mainClass = base.mainClass
+    tweakClasses = base.tweakClasses
+    systemProperties(base.systemProperties)
+    def dir = file('run/gametest')
+    workingDir = dir
+    // Сервер, который завис и не дошёл до тестов, сборку не держит.
+    timeout = Duration.ofMinutes(10)
+    doFirst {
+        project.delete(new File(dir, 'world'))
+        dir.mkdirs()
+        new File(dir, 'eula.txt').text = 'eula=true\n'
+        new File(dir, 'server.properties').text = 'level-type=FLAT\nonline-mode=false\nspawn-protection=0\ngenerate-structures=false\nspawn-monsters=false\nspawn-animals=false\n'
+    }
+}
+
+// Клиент со снимками окна настройки (в gameTest не входит: нужен экран). Снимки — run/screenshots-client/screenshots/minepapers-tab*.png.
+def runClient = tasks.named('runClient', RunMinecraftTask)
+tasks.register('runClientScreenshots', RunMinecraftTask, Distribution.CLIENT).configure {
+    setup(project)
+    group = 'verification'
+    description = 'Runs the client, opens the picture window and saves screenshots of its tabs.'
+    def base = runClient.get()
+    dependsOn base.dependsOn
+    dependsOn tasks.named('gametestClasses')
+    classpath(sourceSets.gametest.output)
+    classpath(base.classpath)
+    mainClass = base.mainClass
+    tweakClasses = base.tweakClasses
+    systemProperties(base.systemProperties)
+    systemProperty 'minepapers.screenshots', 'true'
+    def dir = file('run/screenshots-client')
+    workingDir = dir
+    timeout = Duration.ofMinutes(10)
+    doFirst {
+        project.delete(new File(dir, 'saves'), new File(dir, 'screenshots'))
+        dir.mkdirs()
+    }
+}
+
+rootProject.tasks.named('gameTest') {
+    dependsOn runGameTestServer
+}

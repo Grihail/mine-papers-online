@@ -1,11 +1,10 @@
 package com.grihail.minepapers.network;
 
-import com.grihail.minepapers.MinePapers;
-import com.grihail.minepapers.ModConfig;
+import java.util.List;
+
 import com.grihail.minepapers.picture.FrameHolder;
-import com.grihail.minepapers.picture.MaterialStack;
+import com.grihail.minepapers.picture.HolderMaterials;
 import com.grihail.minepapers.picture.PictureConfig;
-import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
@@ -22,7 +21,7 @@ import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 
-/** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов. Сервер берёт их из инвентаря игрока, по одному на каждую картину стопки (прежние возвращает), в творческом режиме недостающие создаёт, а чего нет — перечисляет в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить; meta — в ключе + "Meta" (-1 — любые). */
+/** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов (кладёт MaterialSlots.paste), а чего не хватило — перечисляется в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить; meta — в ключе + "Meta" (-1 — любые). */
 public class PacketPasteMaterials implements IMessage {
 
     private int target;
@@ -56,94 +55,29 @@ public class PacketPasteMaterials implements IMessage {
     private static void apply(EntityPlayerMP player, PacketPasteMaterials msg) {
         FrameHolder holder = ServerImages.changeable(player, msg.target);
         if (holder == null || msg.materials == null) return;
-        // По блоку на каждую картину: у стопки картин-предметов — на всю стопку, если сервер это разрешает.
-        int count = holder.count();
-        if (!MaterialStack.editable(ModConfig.stackMaterials, count)) return;
-        PictureFrame.Material[] slots = holder.frame.materials();
-        IChatComponent missing = null;
-        for (int i = 0; i < slots.length && i < PictureConfig.MATERIALS.length; i++) {
+        boolean[] has = new boolean[PictureConfig.MATERIALS.length];
+        PictureConfig.Item[] items = new PictureConfig.Item[has.length];
+        for (int i = 0; i < has.length; i++) {
             String key = PictureConfig.MATERIALS[i];
-            if (!msg.materials.hasKey(key)) continue;
+            has[i] = msg.materials.hasKey(key);
             String id = msg.materials.getString(key);
-            int meta = msg.materials.getInteger(key + "Meta");
-            PictureFrame.Material m = slots[i];
-            if (id.isEmpty()) {
-                giveBack(player, m.stack, count);
-                m.set(null);
-                continue;
-            }
-            if (matches(m.stack, id, meta)) continue;
-            ItemStack taken = take(player, m, id, meta, count);
-            if (taken == null && player.capabilities.isCreativeMode) taken = create(m, id, meta);
-            if (taken == null) {
-                IChatComponent name = name(id, meta);
-                if (missing == null) {
-                    missing = name;
-                } else {
-                    missing.appendText(", ").appendSibling(name);
-                }
-                continue;
-            }
-            giveBack(player, m.stack, count);
-            m.set(taken);
+            items[i] = id.isEmpty() ? null : new PictureConfig.Item(id, msg.materials.getInteger(key + "Meta"));
         }
-        holder.settingsChanged();
-        if (missing != null) {
-            IChatComponent text = new ChatComponentTranslation("minepapers.chat.missing", missing);
-            text.getChatStyle().setColor(EnumChatFormatting.YELLOW);
-            player.addChatMessage(text);
-        }
-    }
-
-    private static boolean matches(ItemStack stack, String id, int meta) {
-        return stack != null && id.equals(Item.itemRegistry.getNameForObject(stack.getItem()))
-            && (meta < 0 || stack.getItemDamage() == meta);
-    }
-
-    /** count подходящих предметов из инвентаря игрока; возвращает один из них. Если столько нет — ничего не забирает и возвращает null. */
-    private static ItemStack take(EntityPlayerMP player, PictureFrame.Material m, String id, int meta, int count) {
-        ItemStack[] inv = player.inventory.mainInventory;
-        int found = 0;
-        for (ItemStack stack : inv) {
-            if (fits(stack, m, id, meta)) found += stack.stackSize;
-        }
-        if (found < count) return null;
-        ItemStack taken = null;
-        for (int s = 0; s < inv.length && count > 0; s++) {
-            if (!fits(inv[s], m, id, meta)) continue;
-            ItemStack part = player.inventory.decrStackSize(s, Math.min(count, inv[s].stackSize));
-            if (taken == null) {
-                taken = part.copy();
-                taken.stackSize = 1;
-            }
-            count -= part.stackSize;
-        }
+        List<PictureConfig.Item> missing = new HolderMaterials(holder, player).paste(has, items);
         player.openContainer.detectAndSendChanges();
-        return taken;
-    }
-
-    /** Картину в картину не кладут (и настраиваемую картину-предмет так не забрать). */
-    private static boolean fits(ItemStack stack, PictureFrame.Material m, String id, int meta) {
-        return matches(stack, id, meta) && m.accepts(stack) && stack.getItem() != Item.getItemFromBlock(MinePapers.frame);
-    }
-
-    /** В творческом режиме недостающий предмет берётся из ниоткуда, как из творческого инвентаря (null — нет такого или слот его не примет). */
-    private static ItemStack create(PictureFrame.Material m, String id, int meta) {
-        Item item = (Item) Item.itemRegistry.getObject(id);
-        if (item == null) return null;
-        ItemStack stack = new ItemStack(item, 1, Math.max(meta, 0));
-        return m.accepts(stack) ? stack : null;
-    }
-
-    /** count таких предметов — в инвентарь, а что не влезло — на землю. */
-    static void giveBack(EntityPlayerMP player, ItemStack stack, int count) {
-        if (stack == null) return;
-        while (count > 0) {
-            ItemStack part = stack.copy();
-            part.stackSize = Math.min(count, stack.getMaxStackSize());
-            count -= part.stackSize;
-            if (!player.inventory.addItemStackToInventory(part)) player.dropPlayerItemWithRandomChoice(part, false);
+        if (missing.isEmpty()) return;
+        IChatComponent names = null;
+        for (PictureConfig.Item item : missing) {
+            IChatComponent name = name(item.id, item.meta);
+            if (names == null) {
+                names = name;
+            } else {
+                names.appendText(", ").appendSibling(name);
+            }
         }
+        IChatComponent text = new ChatComponentTranslation("minepapers.chat.missing", names);
+        text.getChatStyle().setColor(EnumChatFormatting.YELLOW);
+        player.addChatMessage(text);
     }
 
     /** Название предмета — переводит клиент игрока. */

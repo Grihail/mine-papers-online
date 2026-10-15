@@ -1,11 +1,8 @@
 package com.grihail.minepapers.network;
 
-import java.util.UUID;
-
 import com.grihail.minepapers.MinePapers;
-import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.picture.FrameHolder;
-import com.grihail.minepapers.picture.MaterialStack;
+import com.grihail.minepapers.picture.HolderMaterials;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
@@ -13,9 +10,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 
-/** Клиент -> сервер: новые настройки картины target (PictureTarget: сущность или предмет в инвентаре). Приходит при закрытии окна: блоки материалов, которые выбранному виду не нужны (рамки без рамки, холста без холста), возвращаются игроку. */
+/** Клиент -> сервер: новые настройки картины target (PictureTarget: сущность или предмет в инвентаре). Приходит при закрытии окна; применяет MaterialSlots.save: блоки материалов, которые выбранному виду не нужны (рамки без рамки, холста без холста), возвращаются игроку. */
 public record PacketSaveFrame(int target, CompoundTag settings) implements ModPacket {
 
     public static final ResourceLocation ID = MinePapers.id("save_frame");
@@ -46,35 +42,11 @@ public record PacketSaveFrame(int target, CompoundTag settings) implements ModPa
         FrameHolder holder = ServerImages.changeable(player, msg.target);
         if (holder == null) return;
         PictureFrame frame = holder.frame;
-        String origin = frame.getOriginKey();
-        byte[] files = frame.files;
-        UUID owner = frame.owner;
-        String ownerName = frame.ownerName;
-        UUID signer = frame.signer;
-        String signerName = frame.signerName;
-        // Материалы рамки и холста — настоящие предметы, их меняют только слоты окна (ContainerPictureFrame).
-        CompoundTag materials = new CompoundTag();
-        frame.writeSettings(materials);
-        frame.readSettings(msg.settings);
-        for (PictureFrame.Material m : frame.materials()) m.read(materials);
-        frame.keepServerFields(origin, files, owner, ownerName, signer, signerName, player.getUUID(),
-            player.getGameProfile().getName());
-        // Подпись уникальна: стопку картин-предметов не подписывают (подпись размножилась бы).
-        if (signer == null && holder.count() > 1) {
-            frame.signer = null;
-            frame.signerName = "";
-        }
-        if (frame.mayEdit(player.getUUID()) && MaterialStack.editable(ModConfig.stackMaterials, holder.count())) {
-            if (!frame.usesBorder()) take(player, frame.border, holder.count());
-            if (!frame.usesCanvas()) take(player, frame.canvas, holder.count());
-        }
-        holder.settingsChanged();
-    }
-
-    /** Блоки материала, который виду не нужен, — игроку, по одному с каждой картины. */
-    private static void take(ServerPlayer player, PictureFrame.Material m, int count) {
-        if (m.stack().isEmpty()) return;
-        PacketPasteMaterials.giveBack(player, m.stack(), count);
-        m.set(ItemStack.EMPTY);
+        new HolderMaterials(holder, player).save(() -> {
+            CompoundTag materials = new CompoundTag();
+            frame.writeSettings(materials);
+            frame.readSettings(msg.settings);
+            for (PictureFrame.Material m : frame.materials()) m.read(materials);
+        }, player.getUUID(), player.getGameProfile().getName());
     }
 }

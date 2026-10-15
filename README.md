@@ -9,6 +9,7 @@ The mod is built for several game versions from a single repository:
 | Minecraft version | Loader | Java |
 | --- | --- | --- |
 | 1.7.10 | Forge 10.13.4.1614 | 8 |
+| 1.12.2 | Forge 14.23.5.2847 and newer | 8 |
 | 1.20.1 | Forge 47.4.28 | 17 |
 | 1.20.1 | Fabric Loader 0.16+, Fabric API | 17 |
 | 1.21.1 | NeoForge 21.1.259 | 21 |
@@ -165,7 +166,7 @@ The `config/minepapers.json` file is shared by all game versions. The mod create
 
 ## Building
 
-Gradle runs on JDK 25: the RetroFuturaGradle plugin for 1.7.10 is built for Java 25. Gradle finds Java 8 and Java 21 for the mod versions themselves through toolchains.
+Gradle runs on JDK 25: the RetroFuturaGradle plugin for 1.7.10 and 1.12.2 is built for Java 25. Gradle finds Java 8 and Java 21 for the mod versions themselves through toolchains.
 
 ```bat
 set JAVA_HOME=C:\Program Files\Java\jdk-25
@@ -185,6 +186,7 @@ Output files:
 
 ```
 1.7.10/forge/build/libs/MinePapersOnline-1.7.10-forge-<version>.jar
+1.12.2/forge/build/libs/MinePapersOnline-1.12.2-forge-<version>.jar
 modern/versions/1.20.1-forge/build/libs/MinePapersOnline-1.20.1-forge-<version>.jar
 modern/versions/1.20.1-fabric/build/libs/MinePapersOnline-1.20.1-fabric-<version>.jar
 modern/versions/1.21.1-neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<version>.jar
@@ -217,7 +219,8 @@ gradlew :modern:1.21.1-fabric:runClient
 ### Tests
 
 - `gradlew :common:test` (part of `build`) - tests of the common code without the game (JUnit, `common/test`): settings and their limits, the config, geometry, the picture mesh, the settings window, picture exchange.
-- `gradlew gameTest` (or `build.bat test`) - game tests: the server of every version and loader starts by itself, runs the tests and exits with an error if any of them failed. The tests of modern versions are shared (`modern/src/gametest`); a loader only registers them (the node's `src/gametest`).
+- `gradlew gameTest` (or `build.bat test`) - game tests: the server of every version and loader (except 1.7.10) starts by itself, runs the tests and exits with an error if any of them failed. The tests of modern versions are shared (`modern/src/gametest`); a loader only registers them (the node's `src/gametest`). 1.12.2 has no game test framework of its own: the same checks live in a separate test mod `1.12.2/forge/src/gametest` (not in the jar). The task `:1.12.2-forge:runGameTestServer` starts a dedicated server with a flat world (`run/gametest`); once the server has started, the mod runs the checks and shuts it down, with exit code 1 on failure.
+- `gradlew :1.12.2-forge:runClientScreenshots` - the 1.12.2 client creates a flat world by itself, opens the window of the picture in hand, saves a screenshot of every tab into `1.12.2/forge/run/screenshots-client/screenshots/` and exits. Not part of `gameTest`: it needs a screen.
 
 ## Repository layout
 
@@ -234,6 +237,7 @@ Mine Papers Online/
         resources/          textures and item table
         proguard/           ProGuard rules for the WebP libraries
     1.7.10/forge/           Minecraft 1.7.10 + Forge version
+    1.12.2/forge/           Minecraft 1.12.2 + Forge version; src/gametest - its game tests
     modern/                 modern versions (1.20+) - one Stonecutter tree
         src/                shared code and resources without a loader, with //? conditions for versions and loaders; game tests
         versions/<version>-<loader>/   node: loader code, its mod description, gradle.properties with versions
@@ -245,7 +249,7 @@ Mine Papers Online/
 
 Each "Minecraft version + loader" pair is a subproject `<version>-<loader>` (the list is in `settings.gradle`). The Minecraft version is taken from the first part of the subproject name, so the name matters.
 
-Old versions live one by one in the folder `<version>/<loader>` (1.7.10).
+Old versions live one by one in the folder `<version>/<loader>` (1.7.10, 1.12.2).
 
 Modern ones (1.20+, Mojang class names) are one [Stonecutter](https://stonecutter.kikugie.dev/) tree in `modern/`: subprojects `:modern:<version>-<loader>` in `modern/versions/`. All loader-free code (vanilla Minecraft only) lives once in `modern/src`; where versions or loaders differ, the code is marked with conditions in comments: `//? if >=1.20.5 {` ... `//?} else {` ... `//?}`, `//? if fabric {`. For each node Stonecutter turns the right branch on and the others off (comments them out). `modern/src` holds the active version's code uncommented (`stonecutter.gradle`; in git it is always `vcsVersion` from `settings.gradle`); the Stonecutter task "Set active project" makes another version active in the IDE. The loader code (entry point, registration, events, mixins) and its mod description live in the node's `src`, dependency versions in the node's `gradle.properties`, and the build is shared per loader: `modern/<loader>.gradle`. The condition constants are the loader names `fabric`, `neoforge`, `forge`.
 
@@ -270,6 +274,7 @@ Package `com.grihail.minepapers`. Only things that do not depend on the game ver
 | `picture/CanvasGeometry.java` | Picture geometry: "wall coordinate" axes, the frame cell corner, the canvas box in the world, light cells, pictures meeting in a corner. The version's `FrameGeometry` extends it. |
 | `ModConfig.java` | Mod settings from `config/minepapers.json`. |
 | `picture/MaterialStack.java` | Material slot for a stack of pictures: how many pictures a click changes and whether the stack may be changed. |
+| `picture/MaterialSlots.java` | Items of the configured picture on the server: clicks on material slots, Shift+click, pasting materials from a config, saving settings from the client (blocks the look does not need go back to the player). The item stack is a version class: the version provides the `HolderMaterials` adapter (whether a stack is empty, its count, a copy, whether it is the same item, the material slots, the player inventory). |
 | `picture/PictureTarget.java` | What the window configures, as a single number for packets: the picture entity id or the inventory slot of the picture item. |
 | `picture/PictureConfig.java` | Picture settings as JSON for copy and paste. Translation of item names between versions before and after 1.13. |
 | `picture/Links.java` | Finding links in the description. |
@@ -302,7 +307,8 @@ All versions are organized the same way. Packages inside `com.grihail.minepapers
 | `picture/FrameGeometry.java` | World checks: whether the canvas intersects blocks and other pictures. |
 | `picture/EntityPicture.java` | Picture entity: hitbox, light, breaking, saving, syncing to clients. |
 | `picture/FrameHolder.java` | The picture the window configures: an entity or an item in the inventory. Reading and writing the item's settings. |
-| `picture/ContainerPictureFrame.java` | Window container: player inventory and material slots. The slot with the item being configured is locked. Clicks on material slots are handled by the server: a stack of pictures changes as a whole, or the changed pictures are split off from it. |
+| `picture/ContainerPictureFrame.java` | Window container: player inventory and material slots. The slot with the item being configured is locked. Clicks on material slots are handled by the server (`MaterialSlots`): a stack of pictures changes as a whole, or the changed pictures are split off from it. |
+| `picture/HolderMaterials.java` | The `MaterialSlots` adapter on this version's item stacks. |
 | `client/GuiPictureFrame.java` | Picture settings window. |
 | `client/GuiWidgets.java` | Buttons, tabs, checkboxes and the lock of the window. Drawn with vanilla textures. |
 | `client/RenderPicture.java` | Rendering the picture in the world. |
@@ -316,6 +322,7 @@ All versions are organized the same way. Packages inside `com.grihail.minepapers
 Version differences:
 
 - **1.7.10.** The picture item is the `ItemBlock` of the `BlockPictureFrame` block; the recipe and item are in the `block` package. The `block` package also has classes for old saves where pictures were blocks: `TileLegacyPicture` turns such a picture into an entity, `BlockPictureFiller` removes leftover parts. Light is placed with a custom invisible block `BlockPictureLight`. A custom multiline text field `GuiTextArea`, because 1.7.10 has none.
+- **1.12.2.** The code is close to 1.7.10 (MCP names, item metadata, old OpenGL), but: the picture item is a plain `Item` in the `item` package (there is no picture block and no classes for old saves), registration goes through `RegistryEvent`, an empty stack is `ItemStack.EMPTY`, vertices go through `BufferBuilder`, OpenGL state through `GlStateManager`. Light is a custom invisible block `BlockPictureLight` with its strength in the `level` state. Item settings are in NBT under the `MinePapersFrame` key, as in 1.7.10. The configured picture icon is drawn by a `TileEntityItemStackRenderer` (`RenderPictureItem`): `ClientProxy` gives configured pictures their own model `RenderPictureItem.Model` with a built-in renderer, which also tells where the item is drawn (inventory or world). The default frame and canvas textures are added to the block atlas (`FrameSkin.Events`). The `GuiTextArea` field is the same as in 1.7.10. The resources have a `pack.mcmeta` with format 3: without it Forge 1.12.2 treats the mod as an old-format resource pack and looks for translations named `en_US.lang` instead of `en_us.lang`. RetroFuturaGradle uses Forge 14.23.5.2847 for the development environment; the mod runs on it and on all later 1.12.2 builds.
 - **1.21.1.** The item and recipe are in the `item` package. Settings are stored in the `minepapers:frame` item component. Light is placed with the vanilla `minecraft:light` block. Window tooltips use vanilla `Tooltip`. Custom render types are in `client/PictureRenderTypes.java`. The picture position and settings reach the client as vanilla entity data (`SynchedEntityData`), without loader spawn data. Everything that depends on the loader comes to the shared code through `Platform` (packets, a window with data for the client, the current server) and `client/ModClient` (client events). The loaders are thin wrappers: NeoForge - `neoforge/MinePapersNeoForge` and `MinePapersNeoForgeClient` (registration, packets, events); Fabric - `fabric/MinePapersFabric`, `MinePapersFabricClient` and two mixins for things Fabric API has no events for: mouse clicks before vanilla handling (`MinecraftMixin`) and returning materials on crafting (`ResultSlotMixin`).
 - **1.20.1** (the same `modern/` tree, differences marked with `//?` conditions). Item settings are in its NBT under the `MinePapersFrame` key, as in 1.7.10 (there are no item components before 1.20.5). Packets are the same `ModPacket`s carried by the loader's channel: Forge `SimpleChannel`, Fabric packets by `ResourceLocation` with the handler moved to the main thread. The window is drawn with the old GUI textures (`widgets.png`, `tabs.png`, `beacon.png`): there are no GUI sprites before 1.20.2. Data folders are plural (`recipes`, `structures`, `tags/entity_types`); the build renames them, resources stay in the 1.21 layout. The Forge node has a `pack.mcmeta` in its resources: without it Forge 1.20.1 does not load the mod's data.
 
@@ -329,7 +336,7 @@ The common code does not know Minecraft classes. Everything version-specific com
 - the User-Agent for internet requests;
 - this version's base map colors (for the map palette; their number differs between versions);
 - the "connected to a server" and "server running in this client" flags;
-- uploading a frame to video memory and freeing it. Each version has its own texture handle: in 1.7.10 it is an OpenGL texture id, in 1.21.1 a `ResourceLocation`. The common code keeps it as an `Object` and passes it back to the version's renderer;
+- uploading a frame to video memory and freeing it. Each version has its own texture handle: in 1.7.10 and 1.12.2 it is an OpenGL texture id, in 1.21.1 a `ResourceLocation`. The common code keeps it as an `Object` and passes it back to the version's renderer;
 - sending the three client packets for picture exchange.
 
 `ClientHost.install` also registers the TwelveMonkeys WebP reader in ImageIO, because ImageIO cannot read WebP by itself. The full TwelveMonkeys libraries weigh ~500 KB, so the `shrinkWebp` task in the root `build.gradle` runs them through ProGuard with the rules from `common/proguard/webp.pro`. ProGuard keeps only the WebP reader and what it needs (~90 KB), gives the classes short names and moves them into the `com.grihail.minepapers.lib` package, so they cannot clash with a full TwelveMonkeys copy from another mod. The resulting classes go into the jar together with the resources, the same way in both versions. The mod itself is not compiled against TwelveMonkeys: `ClientHost` creates the reader by the name `com.grihail.minepapers.lib.WebPImageReaderSpi`, set in `common/proguard/webp.map`. The table of old and new names (to read a stack trace from a crash report) is the subproject's `build/webp/mapping.txt`.
@@ -343,7 +350,7 @@ The common code does not know Minecraft classes. Everything version-specific com
 
 The player and dimension are passed to `ImageStore` as `Object`. The common code only stores them and hands them back to the version. For a picture item, the UUID of the player whose inventory holds it is passed instead of the dimension.
 
-**PictureSettings.Tag.** A wrapper over the version's NBT tag (`NbtTag`). Numbers are read and written as int: both versions can read any numeric tag as int. UUID is stored as a string in 1.7.10 and as an int array in 1.21.1.
+**PictureSettings.Tag.** A wrapper over the version's NBT tag (`NbtTag`). Numbers are read and written as int: both versions can read any numeric tag as int. UUID is stored as a string in 1.7.10 and 1.12.2 and as an int array in 1.21.1.
 
 **Inheritance.** `PictureFrame extends PictureSettings` and `FrameGeometry extends CanvasGeometry`. So version code writes `PictureFrame.FIT_COVER` or `FrameGeometry.normal(frame)`, even though the constants and methods live in the common code.
 
@@ -363,9 +370,9 @@ At build time the translations are converted to each version's format:
 
 The `.lang` format is produced by the `convertLang` task in the root `build.gradle`: `key=value` lines, a line break inside a value is written as `\n`.
 
-A line break in JSON is a plain `\n`. Version 1.21.1 wraps such lines by itself. Version 1.7.10 gets a literal `\n` in `.lang` and splits the line on it in the window code.
+A line break in JSON is a plain `\n`. Version 1.21.1 wraps such lines by itself. Versions 1.7.10 and 1.12.2 get a literal `\n` in `.lang` and split the line on it in the window code.
 
-Item and entity names in 1.7.10 use the same keys as in 1.21.1 (`item.minepapers.picture_frame`, `entity.minepapers.picture`). For this, 1.7.10 overrides the methods that return names.
+Item and entity names in 1.7.10 and 1.12.2 use the same keys as in 1.21.1 (`item.minepapers.picture_frame`, `entity.minepapers.picture`). For this, they override the methods that return names.
 
 A new key is added to all four JSON files.
 
@@ -383,7 +390,7 @@ A new key is added to all four JSON files.
 | `textures/misc/nsfw.png` | Red "18+" mark on a hidden NSFW picture. |
 | `flattening.txt` | Table "old item name + metadata -> name in newer versions". Needed to paste a picture config from 1.7.10 into 1.21.1 and back. Built from the vanilla DataFixer. |
 
-Resources needed by only one version live in its folder. In 1.21.1 these are the item models, recipes and the tag (in `modern/src/main/resources`), plus the mod description for each loader: `neoforge.mods.toml`, and `fabric.mod.json` with the mixins and the access widener. The tag `data/sable/tags/entity_type/wall_entities.json` is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 these are `mcmod.info` and `version.properties` (the mod version for FML).
+Resources needed by only one version live in its folder. In 1.21.1 these are the item models, recipes and the tag (in `modern/src/main/resources`), plus the mod description for each loader: `neoforge.mods.toml`, and `fabric.mod.json` with the mixins and the access widener. The tag `data/sable/tags/entity_type/wall_entities.json` is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 these are `mcmod.info` and `version.properties` (the mod version for FML), in 1.12.2 the same plus the item models (`models/item`).
 
 ## Data and formats
 
@@ -413,12 +420,12 @@ The same for all versions (`PictureSettings`):
 | `Fit`, `PPB`, `Mode` | Fit, pixels per block, look. The look is a combination of frame and canvas: 0-3 are the old looks (panel, frame, graffiti, plate), 4-7 are new combinations (see `PictureSettings.LOOK_FRAME`). |
 | `Files` | Pictures on the server: consecutive 20-byte SHA-1 hashes. |
 
-Materials are written by the version: `Border`, `Canvas`, `Glow` (item id for the texture) and `BorderItem`, `CanvasItem`, `GlowItem` (the item itself). 1.7.10 also has `BorderMeta`, `CanvasMeta`, `GlowMeta`.
+Materials are written by the version: `Border`, `Canvas`, `Glow` (item id for the texture) and `BorderItem`, `CanvasItem`, `GlowItem` (the item itself). 1.7.10 and 1.12.2 also have `BorderMeta`, `CanvasMeta`, `GlowMeta`.
 
 Where settings are stored:
 
 - **Entity.** The picture position is right in its NBT, settings in `Settings`, the cells of placed light in `Lights`.
-- **Item in 1.7.10.** Item NBT, key `MinePapersFrame`.
+- **Item in 1.7.10, 1.12.2 and 1.20.1.** Item NBT, key `MinePapersFrame`.
 - **Item in 1.21.1.** Component `minepapers:frame`.
 
 ### Config for copying
@@ -492,7 +499,7 @@ A picture file on the server starts with a 12-byte header: `MPI1`, then the orig
 
 The rate is limited so as not to flood the connection. The client sends 2 chunks per tick. The server sends up to 3 chunks per tick to one player and up to 24 chunks per tick in total.
 
-In 1.7.10 packet handlers run on the network thread, so server packets queue a task with `ServerImages.schedule`, and it runs on the server thread. In 1.21.1 handlers already run on the right thread.
+In 1.7.10 and 1.12.2 packet handlers run on the network thread, so server packets queue a task with `ServerImages.schedule`, and it runs on the server thread. In 1.21.1 handlers already run on the right thread.
 
 ## Adding a new game version
 
@@ -503,7 +510,7 @@ In 1.7.10 packet handlers run on the network thread, so server packets queue a t
 4. Port the version classes following the neighboring folders. Implement the adapters: `NbtTag`, `MinePapersClientHost`, `ServerImages` (as `ServerHost`). Make `PictureFrame` extend `PictureSettings` and `FrameGeometry` extend `CanvasGeometry`.
 5. Install the adapters at startup: `ClientHost.install(...)` on the client and `ServerImages.install()` when the mod starts.
 6. Translations, textures and the `.lang` format are picked up automatically from the version in the subproject name.
-7. Hook up the game tests: the version's shared tests and the task that runs the test server, added to the root project's `gameTest` (see `modern/*.gradle`).
+7. Hook up the game tests: the version's shared tests and the task that runs the test server, added to the root project's `gameTest` (see `modern/*.gradle`). If the version has no game test framework, use a test mod that runs the checks when a dedicated server starts (see `1.12.2/forge`).
 
 If code is the same for two or more versions and does not use the game API, it moves to `common/java`. The copies in the version folders are then removed.
 

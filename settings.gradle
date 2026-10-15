@@ -28,6 +28,7 @@ rootProject.name = 'MinePapersOnline'
 // Старые версии — каждая отдельно, в папке <версия>/<движок>.
 [
     '1.7.10': ['forge'],
+    '1.12.2': ['forge'],
 ].each { mc, loaders ->
     loaders.each { loader ->
         include "${mc}-${loader}"

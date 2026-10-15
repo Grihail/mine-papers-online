@@ -1,6 +1,6 @@
 plugins {
     // Плагины сборки объявляются здесь, а применяются в подпроектах версий.
-    id 'com.gtnewhorizons.retrofuturagradle' version '2.0.2' apply false
+    id 'com.gtnewhorizons.retrofuturagradle' version '2.0.6' apply false
     id 'net.neoforged.moddev' version '2.0.148' apply false
     id 'net.neoforged.moddev.legacyforge' version '2.0.148' apply false
     id 'fabric-loom' version '1.15.5' apply false
