@@ -242,15 +242,29 @@ public final class PictureConfig {
         }
     }
 
-    /** Названия предметов "после уплощения" — в версии 1.13 и новее. */
+    /** Названия предметов "после уплощения" — в версии 1.13 и новее (и в версиях по годам: 26.1...). */
     public static boolean isFlattened(String version) {
-        return Integer.parseInt(version.split("\\.")[1]) >= 13;
+        String[] parts = version.split("\\.");
+        return Integer.parseInt(parts[0]) > 1 || parts.length > 1 && Integer.parseInt(parts[1]) >= 13;
+    }
+
+    /** В конфиге есть хоть один материал (тогда их кладёт в слоты сервер, см. PacketPasteMaterials). */
+    public boolean anyMaterial() {
+        for (boolean has : hasMaterial) {
+            if (has) return true;
+        }
+        return false;
     }
 
     /** Предмет материала под эту версию игры (flattened — она 1.13 или новее). Конфиг из другой эпохи переводим по таблице; если версия конфига не указана (написан руками) — сначала имя как есть, не нашлось (exists) — по таблице. */
     public Item translate(Item item, boolean flattened, Predicate<String> exists) {
         if (item == null) return null;
-        Boolean from = minecraft != null ? isFlattened(minecraft) : null;
+        Boolean from;
+        try {
+            from = minecraft != null ? isFlattened(minecraft) : null;
+        } catch (NumberFormatException e) {
+            from = null; // версия записана руками и непонятно
+        }
         if (from != null && from == flattened || from == null && exists.test(item.id)) return item;
         loadFlattening();
         if (flattened) {

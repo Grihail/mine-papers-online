@@ -50,7 +50,11 @@ public record PacketPasteMaterials(int target, CompoundTag materials) implements
     }
 
     public static void handle(PacketPasteMaterials msg, IPayloadContext ctx) {
-        ServerPlayer player = (ServerPlayer) ctx.player();
+        apply((ServerPlayer) ctx.player(), msg);
+    }
+
+    /** Применить пакет от игрока player (в серверном потоке). */
+    public static void apply(ServerPlayer player, PacketPasteMaterials msg) {
         FrameHolder holder = ServerImages.changeable(player, msg.target);
         if (holder == null) return;
         // По блоку на каждую картину: у стопки картин-предметов — на всю стопку, если сервер это разрешает.

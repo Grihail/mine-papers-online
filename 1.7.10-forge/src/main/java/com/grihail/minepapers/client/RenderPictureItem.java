@@ -6,7 +6,6 @@ import java.util.List;
 import org.lwjgl.opengl.GL11;
 
 import com.grihail.minepapers.MinePapers;
-import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.block.BlockPictureFrame;
 import com.grihail.minepapers.picture.PictureFrame;
 
@@ -24,9 +23,7 @@ import net.minecraftforge.client.IItemRenderer;
 /** Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель. Ненастроенные рамки рисуются обычной иконкой, без этого класса. */
 public class RenderPictureItem implements IItemRenderer {
 
-    private static final int ICON = 16;
-    /** Ширина рамки на иконке в пикселях. */
-    private static final int RING = 2;
+    private static final int ICON = IconLayout.ICON, RING = IconLayout.RING;
     private static final float THICKNESS = 1f / 16f;
     private static final ResourceLocation GLINT = new ResourceLocation("textures/misc/enchanted_item_glint.png");
     /** Шахматка под картинкой без холста в инвентаре: прозрачный фон картинки виден как сетка, и картина не теряется в слоте. Клетка — пиксель иконки. */
@@ -54,23 +51,11 @@ public class RenderPictureItem implements IItemRenderer {
     public void renderItem(ItemRenderType type, ItemStack stack, Object... data) {
         PictureFrame s = new PictureFrame();
         s.readSettings(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG));
-
-        // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (если она есть).
-        int ring = s.getFrameShape() != PictureFrame.FRAME_NONE ? RING : 0;
-        boolean canvasBlock = s.getCanvasKind() == PictureFrame.CANVAS_BLOCK;
-        int inner = ICON - 2 * ring;
-        double w = s.getWidthBlocks(), h = s.getHeightBlocks();
-        int iw = w >= h ? inner : Math.max(1, (int) Math.round(inner * w / h));
-        int ih = h >= w ? inner : Math.max(1, (int) Math.round(inner * h / w));
-        int x0 = (ICON - iw - 2 * ring) / 2, y0 = (ICON - ih - 2 * ring) / 2;
-        int x1 = x0 + iw + 2 * ring, y1 = y0 + ih + 2 * ring;
-        int cx0 = x0 + ring, cy0 = y0 + ring, cx1 = x1 - ring, cy1 = y1 - ring;
-
-        // Картина NSFW, скрытая настройкой hideNsfw: картинка не загружается, на заглушке — значок "18+" (см. ниже).
-        boolean hidden = ModConfig.hides(s.nsfw);
-        String key = hidden ? null : s.getSourceKey();
-        PictureManager.Variant thumb = key == null ? null
-            : PictureManager.thumbnail(key, ImageStylizer.Layout.icon(s, inner));
+        IconLayout l = new IconLayout(s);
+        boolean canvasBlock = l.canvasBlock;
+        int ring = l.ring, iw = l.iw, ih = l.ih, x0 = l.x0, y0 = l.y0, x1 = l.x1, y1 = l.y1;
+        int cx0 = l.cx0, cy0 = l.cy0, cx1 = l.cx1, cy1 = l.cy1;
+        PictureManager.Variant thumb = l.thumbnail();
 
         flat = type == ItemRenderType.INVENTORY;
         t = Tessellator.instance;
@@ -123,24 +108,15 @@ public class RenderPictureItem implements IItemRenderer {
                 t.draw();
             }
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, (Integer) thumb.getTexture());
-            // Настоящая рамка в мире заходит на холст: на иконке её кольцо и есть эта часть, внутри — только то, что видно из-под неё.
-            double ov = s.getFrameShape() == PictureFrame.FRAME_MOLDING ? Math.min(s.getMoldingBlocks(), Math.min(w, h) / 2) : 0;
-            if (w - 2 * ov < 1e-6 || h - 2 * ov < 1e-6) ov = 0;
-            double ww = w - 2 * ov, wh = h - 2 * ov;
-            double px0 = Math.max(thumb.x0, ov), px1 = Math.min(thumb.x1, w - ov);
-            double py0 = Math.max(thumb.y0, ov), py1 = Math.min(thumb.y1, h - ov);
-            if (px1 - px0 > 1e-6 && py1 - py0 > 1e-6) {
-                double a = cx0 + (px0 - ov) / ww * iw, b = cx0 + (px1 - ov) / ww * iw;
-                double c = cy0 + (h - ov - py1) / wh * ih, d = cy0 + (h - ov - py0) / wh * ih;
-                double tu0 = (px0 - thumb.x0) / (thumb.x1 - thumb.x0), tu1 = (px1 - thumb.x0) / (thumb.x1 - thumb.x0);
-                double tv0 = (thumb.y1 - py1) / (thumb.y1 - thumb.y0), tv1 = (thumb.y1 - py0) / (thumb.y1 - thumb.y0);
+            double[] p = l.picture(thumb);
+            if (p != null) {
                 if (ring == 0 && !canvasBlock && !flat) {
-                    extruded(a, c, b, d, 0, 0, 1, 1, thumb.width, thumb.height);
-                    surface(a, c, b, d, 0);
+                    extruded(p[0], p[1], p[2], p[3], 0, 0, 1, 1, thumb.width, thumb.height);
+                    surface(p[0], p[1], p[2], p[3], 0);
                 } else {
                     t.startDrawingQuads();
                     t.setColorOpaque_F(1f, 1f, 1f);
-                    for (int face = 0; face < faces(); face++) rect(face, a, c, b, d, tu0, tv0, tu1, tv1, 1);
+                    for (int face = 0; face < faces(); face++) rect(face, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], 1);
                     t.draw();
                 }
             }
@@ -169,15 +145,14 @@ public class RenderPictureItem implements IItemRenderer {
         }
 
         // 3. Скрытая картина NSFW: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
-        if (hidden) {
-            int size = Math.min(cx1 - cx0, cy1 - cy0);
-            double mx = (cx0 + cx1 - size) / 2.0, my = (cy0 + cy1 - size) / 2.0;
+        if (l.hidden) {
+            double[] m = l.nsfwMark();
             mc.getTextureManager().bindTexture(NSFW_MARK);
             GL11.glEnable(GL11.GL_BLEND);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             t.startDrawingQuads();
             t.setColorRGBA_F(1f, 1f, 1f, 1f);
-            for (int face = 0; face < faces(); face++) rect(face, mx, my, mx + size, my + size, 0, 0, 1, 1, 2);
+            for (int face = 0; face < faces(); face++) rect(face, m[0], m[1], m[2], m[3], 0, 0, 1, 1, 2);
             t.draw();
             if (!blend) GL11.glDisable(GL11.GL_BLEND);
         }

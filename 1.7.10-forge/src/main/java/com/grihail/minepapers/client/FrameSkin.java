@@ -14,18 +14,30 @@ import net.minecraft.util.IIcon;
 import net.minecraft.util.ResourceLocation;
 
 /** Текстура рамки или холста: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы), у остальных предметов — их иконка. Не нашли предмет или иконку — обычная рамка. */
-public final class FrameSkin {
+public final class FrameSkin extends PictureMesh.Skin {
 
     public final IIcon icon;
     public final ResourceLocation atlas;
-    public final float r, g, b;
 
     private FrameSkin(IIcon icon, ResourceLocation atlas, int color) {
+        super(color);
         this.icon = icon;
         this.atlas = atlas;
-        this.r = (color >> 16 & 0xFF) / 255f;
-        this.g = (color >> 8 & 0xFF) / 255f;
-        this.b = (color & 0xFF) / 255f;
+    }
+
+    @Override
+    public Object atlas() {
+        return atlas;
+    }
+
+    @Override
+    public double u(double px) {
+        return icon.getInterpolatedU(px);
+    }
+
+    @Override
+    public double v(double px) {
+        return icon.getInterpolatedV(px);
     }
 
     public static FrameSkin standard() {

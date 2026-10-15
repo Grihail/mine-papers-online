@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.grihail.minepapers.MinePapers;
-import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -25,9 +24,7 @@ import net.minecraft.world.item.ItemStack;
 /** Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель. Ненастроенные рамки рисуются обычной моделью предмета (см. models/item/picture_frame.json). Рисует в кубе 0..1, как модели предметов item/generated: пластинка между z = 7.5/16 и 8.5/16. */
 public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
 
-    private static final int ICON = 16;
-    /** Ширина рамки на иконке в пикселях. */
-    private static final int RING = 2;
+    private static final int ICON = IconLayout.ICON, RING = IconLayout.RING;
     private static final float THICKNESS = 1f / 16f;
     private static final float FRONT = 0.5f + THICKNESS / 2, BACK = 0.5f - THICKNESS / 2;
     /** Шахматка под картинкой без холста в инвентаре: прозрачный фон картинки виден как сетка, и картина не теряется в слоте. Клетка — пиксель иконки. */
@@ -52,24 +49,10 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         if (settings == null) return;
         PictureFrame s = new PictureFrame();
         s.readSettings(settings);
-
-        // Холст вписывается в иконку с сохранением пропорций, рамка — вокруг него (если она есть).
-        boolean plate = s.getCanvasKind() == PictureFrame.CANVAS_PICTURE;
-        boolean canvasBlock = s.getCanvasKind() == PictureFrame.CANVAS_BLOCK;
-        int ring = s.getFrameShape() != PictureFrame.FRAME_NONE ? RING : 0;
-        int inner = ICON - 2 * ring;
-        double w = s.getWidthBlocks(), h = s.getHeightBlocks();
-        int iw = w >= h ? inner : Math.max(1, (int) Math.round(inner * w / h));
-        int ih = h >= w ? inner : Math.max(1, (int) Math.round(inner * h / w));
-        int x0 = (ICON - iw - 2 * ring) / 2, y0 = (ICON - ih - 2 * ring) / 2;
-        int x1 = x0 + iw + 2 * ring, y1 = y0 + ih + 2 * ring;
-        int cx0 = x0 + ring, cy0 = y0 + ring, cx1 = x1 - ring, cy1 = y1 - ring;
-
-        // Картина NSFW, скрытая настройкой hideNsfw: картинка не загружается, на заглушке — значок "18+" (см. ниже).
-        boolean hidden = ModConfig.hides(s.nsfw);
-        String key = hidden ? null : s.getSourceKey();
-        PictureManager.Variant thumb = key == null ? null
-            : PictureManager.thumbnail(key, ImageStylizer.Layout.icon(s, inner));
+        IconLayout l = new IconLayout(s);
+        boolean plate = l.plate, canvasBlock = l.canvasBlock;
+        int ring = l.ring, x0 = l.x0, y0 = l.y0, x1 = l.x1, y1 = l.y1, cx0 = l.cx0, cy0 = l.cy0, cx1 = l.cx1, cy1 = l.cy1;
+        PictureManager.Variant thumb = l.thumbnail();
 
         flat = context == ItemDisplayContext.GUI;
         pose = poseStack.last();
@@ -106,24 +89,15 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 rect(0, cx0, cy0, cx1, cy1, cx0 / (double) ICON, cy0 / (double) ICON, cx1 / (double) ICON, cy1 / (double) ICON, 0);
             }
             out = buffers.getBuffer(RenderType.entityTranslucent((ResourceLocation) thumb.getTexture()));
-            // Настоящая рамка в мире заходит на холст: на иконке её кольцо и есть эта часть, внутри — только то, что видно из-под неё.
-            double ov = s.getFrameShape() == PictureFrame.FRAME_MOLDING ? Math.min(s.getMoldingBlocks(), Math.min(w, h) / 2) : 0;
-            if (w - 2 * ov < 1e-6 || h - 2 * ov < 1e-6) ov = 0;
-            double ww = w - 2 * ov, wh = h - 2 * ov;
-            double px0 = Math.max(thumb.x0, ov), px1 = Math.min(thumb.x1, w - ov);
-            double py0 = Math.max(thumb.y0, ov), py1 = Math.min(thumb.y1, h - ov);
-            if (px1 - px0 > 1e-6 && py1 - py0 > 1e-6) {
-                double a = cx0 + (px0 - ov) / ww * iw, b = cx0 + (px1 - ov) / ww * iw;
-                double c = cy0 + (h - ov - py1) / wh * ih, d = cy0 + (h - ov - py0) / wh * ih;
-                double tu0 = (px0 - thumb.x0) / (thumb.x1 - thumb.x0), tu1 = (px1 - thumb.x0) / (thumb.x1 - thumb.x0);
-                double tv0 = (thumb.y1 - py1) / (thumb.y1 - thumb.y0), tv1 = (thumb.y1 - py0) / (thumb.y1 - thumb.y0);
+            double[] p = l.picture(thumb);
+            if (p != null) {
                 if (ring == 0 && !canvasBlock && !flat && thumb.pixels != null) {
                     int[] px = thumb.pixels;
                     int tw = thumb.width;
-                    extruded(a, c, b, d, 0, 0, 1, 1, thumb.width, thumb.height,
+                    extruded(p[0], p[1], p[2], p[3], 0, 0, 1, 1, thumb.width, thumb.height,
                         (x, y) -> plate || (px[y * tw + x] >>> 24) != 0);
                 } else {
-                    for (int face = 0; face < faces(); face++) rect(face, a, c, b, d, tu0, tv0, tu1, tv1, 1);
+                    for (int face = 0; face < faces(); face++) rect(face, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], 1);
                 }
             }
         } else {
@@ -145,12 +119,11 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
             }
         }
         // 3. Скрытая картина NSFW: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
-        if (hidden) {
-            int size = Math.min(cx1 - cx0, cy1 - cy0);
-            double mx = (cx0 + cx1 - size) / 2.0, my = (cy0 + cy1 - size) / 2.0;
+        if (l.hidden) {
+            double[] m = l.nsfwMark();
             out = buffers.getBuffer(RenderType.entityCutoutNoCull(NSFW_MARK));
             color(1f, 1f, 1f);
-            for (int face = 0; face < faces(); face++) rect(face, mx, my, mx + size, my + size, 0, 0, 1, 1, 2);
+            for (int face = 0; face < faces(); face++) rect(face, m[0], m[1], m[2], m[3], 0, 0, 1, 1, 2);
         }
         if (stack.hasFoil()) glint(buffers);
         out = null;

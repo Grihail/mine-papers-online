@@ -1,8 +1,5 @@
 package com.grihail.minepapers.picture;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.network.PacketBreakPicture;
@@ -78,64 +75,37 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
             CompoundTag tag = new CompoundTag();
             frame.writeSettings(tag);
             entityData.set(SETTINGS, tag);
-            lightsDirty = true; // блоки ставим в tick: при загрузке из сохранения мир ещё не готов
+            lights.markDirty();
         }
     }
 
     // ---------- Свет ----------
 
-    /** Где картина поставила ванильные блоки света (смещения от клетки рамки, см. FrameGeometry.lightCells). Только на сервере. Обычные блоки, а не свет сущности: их освещение считает сам мир — и движущиеся конструкции других модов переносят и освещают их как любые блоки. */
-    private final List<int[]> lights = new ArrayList<int[]>();
-    private boolean lightsDirty;
-
-    /** Светящаяся картина ставит перед холстом minecraft:light силы своего материала свечения; ненужные убирает. Чужие блоки не трогает: занятая клетка просто остаётся без света. */
-    private void updateLights() {
-        lightsDirty = false;
-        int glow = frame.glowLevel();
-        List<int[]> wanted = glow > 0 ? FrameGeometry.lightCells(frame) : new ArrayList<int[]>();
-        for (int[] c : lights) {
-            if (!contains(wanted, c)) removeLight(c);
+    /** Светящаяся картина ставит перед холстом ванильные minecraft:light силы своего материала свечения (см. PictureLights). Чужие блоки не трогает: занятая клетка просто остаётся без света. */
+    private final PictureLights lights = new PictureLights() {
+        @Override
+        protected boolean place(int x, int y, int z, int glow) {
+            BlockPos pos = new BlockPos(x, y, z);
+            BlockState state = level().getBlockState(pos);
+            BlockState light = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, glow);
+            if (state.is(Blocks.LIGHT)) {
+                if (state.getValue(LightBlock.LEVEL) != glow) level().setBlock(pos, light, Block.UPDATE_ALL);
+                return true;
+            }
+            return state.isAir() && level().setBlock(pos, light, Block.UPDATE_ALL);
         }
-        lights.clear();
-        for (int[] c : wanted) {
-            if (placeLight(c, glow)) lights.add(c);
+
+        @Override
+        protected void remove(int x, int y, int z) {
+            BlockPos pos = new BlockPos(x, y, z);
+            if (level().getBlockState(pos).is(Blocks.LIGHT)) level().removeBlock(pos, false);
         }
-    }
-
-    private BlockPos lightPos(int[] c) {
-        return new BlockPos(frame.x + c[0], frame.y + c[1], frame.z + c[2]);
-    }
-
-    private boolean placeLight(int[] c, int glow) {
-        BlockPos pos = lightPos(c);
-        BlockState state = level().getBlockState(pos);
-        BlockState light = Blocks.LIGHT.defaultBlockState().setValue(LightBlock.LEVEL, glow);
-        if (state.is(Blocks.LIGHT)) {
-            if (state.getValue(LightBlock.LEVEL) != glow) level().setBlock(pos, light, Block.UPDATE_ALL);
-            return true;
-        }
-        return state.isAir() && level().setBlock(pos, light, Block.UPDATE_ALL);
-    }
-
-    private void removeLight(int[] c) {
-        BlockPos pos = lightPos(c);
-        if (level().getBlockState(pos).is(Blocks.LIGHT)) level().removeBlock(pos, false);
-    }
-
-    private static boolean contains(List<int[]> cells, int[] cell) {
-        for (int[] c : cells) {
-            if (c[0] == cell[0] && c[1] == cell[1] && c[2] == cell[2]) return true;
-        }
-        return false;
-    }
+    };
 
     /** Картину сломали или убрали — убираем и её свет. Выгрузка чанка и переход в другое измерение сюда не относятся. */
     @Override
     public void remove(RemovalReason reason) {
-        if (!level().isClientSide && reason.shouldDestroy()) {
-            for (int[] c : lights) removeLight(c);
-            lights.clear();
-        }
+        if (!level().isClientSide && reason.shouldDestroy()) lights.clear(frame);
         super.remove(reason);
     }
 
@@ -178,7 +148,7 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
     /** Картина не движется, не горит и не падает; сервер только обновляет свет после смены настроек. */
     @Override
     public void tick() {
-        if (lightsDirty && !level().isClientSide) updateLights();
+        if (!level().isClientSide) lights.tick(frame, frame.glowLevel());
     }
 
     @Override
@@ -264,9 +234,7 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
     protected void readAdditionalSaveData(CompoundTag tag) {
         frame.readPlacement(tag);
         frame.readSettings(tag.getCompound("Settings"));
-        lights.clear();
-        int[] flat = tag.getIntArray("Lights");
-        for (int i = 0; i + 2 < flat.length; i += 3) lights.add(new int[] { flat[i], flat[i + 1], flat[i + 2] });
+        lights.load(tag.getIntArray("Lights"));
         settingsChanged();
     }
 
@@ -276,9 +244,7 @@ public class EntityPicture extends Entity implements IEntityWithComplexSpawn {
         CompoundTag settings = new CompoundTag();
         frame.writeSettings(settings);
         tag.put("Settings", settings);
-        int[] flat = new int[lights.size() * 3];
-        for (int i = 0; i < lights.size(); i++) System.arraycopy(lights.get(i), 0, flat, i * 3, 3);
-        tag.putIntArray("Lights", flat);
+        tag.putIntArray("Lights", lights.save());
     }
 
     @Override

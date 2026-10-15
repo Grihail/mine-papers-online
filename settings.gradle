@@ -15,3 +15,5 @@ rootProject.name = 'MinePapersOnline'
 // Общие для всех версий файлы лежат в common/ (см. build.gradle).
 include '1.7.10-forge'
 include '1.21.1-neoforge'
+// Общий код без игры — только для его тестов (в jar версий он попадает исходниками).
+include 'common'

@@ -20,8 +20,8 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Текстура рамки или холста: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы), у остальных предметов — их иконка. Не нашли предмет или текстуру — обычная рамка. */
-public final class FrameSkin {
+/** Текстура рамки или холста: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы), у остальных предметов — их иконка. Не нашли предмет или текстуру — обычная рамка. Все спрайты — из атласа блоков. */
+public final class FrameSkin extends PictureMesh.Skin {
 
     public static final ResourceLocation BORDER = MinePapers.id("block/frame_border");
     public static final ResourceLocation CANVAS = MinePapers.id("block/frame_canvas");
@@ -32,13 +32,25 @@ public final class FrameSkin {
     private static final Map<String, FrameSkin> CACHE = new HashMap<String, FrameSkin>();
 
     public final TextureAtlasSprite sprite;
-    public final float r, g, b;
 
     private FrameSkin(TextureAtlasSprite sprite, int color) {
+        super(color);
         this.sprite = sprite;
-        this.r = (color >> 16 & 0xFF) / 255f;
-        this.g = (color >> 8 & 0xFF) / 255f;
-        this.b = (color & 0xFF) / 255f;
+    }
+
+    @Override
+    public Object atlas() {
+        return InventoryMenu.BLOCK_ATLAS;
+    }
+
+    @Override
+    public double u(double px) {
+        return sprite.getU((float) (px / 16));
+    }
+
+    @Override
+    public double v(double px) {
+        return sprite.getV((float) (px / 16));
     }
 
     public static TextureAtlasSprite sprite(ResourceLocation id) {

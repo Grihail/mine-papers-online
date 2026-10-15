@@ -15,13 +15,21 @@ def compareVersions = { String a, String b ->
     0
 }
 
-// Общие настройки для всех подпроектов (папки <версия Minecraft>-<движок>/: 1.7.10-forge/, 1.21.1-neoforge/, ...).
+/** Игровые тесты всех версий, где они есть (build.bat test). Подпроекты версий добавляют к нему свои. */
+tasks.register('gameTest') {
+    group = 'verification'
+    description = 'Runs the game tests of every version.'
+}
+
+// Общие настройки для всех подпроектов версий (папки <версия Minecraft>-<движок>/: 1.7.10-forge/, 1.21.1-neoforge/, ...).
+// Подпроект common/ — тот же общий код, но отдельно и только ради его тестов (см. common/build.gradle).
 // Общие файлы лежат в common/:
 //   java/      — исходники, одинаковые для всех версий (только Java 8 и без API Minecraft);
+//   test/      — их тесты без игры (JUnit);
 //   resources/ — ресурсы в раскладке 1.13+ (textures/block, textures/item), до 1.13 папки переименовываются в blocks/items;
 //   lang/      — словари в формате 1.13+ (en_us.json); ключи одинаковы для всех версий.
 //                До 1.13 при сборке они превращаются в .lang: в 1.11–1.12.2 — en_us.lang, до 1.11 — en_US.lang.
-subprojects {
+configure(subprojects.findAll { it.name != 'common' }) {
     apply plugin: 'java'
 
     // Версия Minecraft — первая часть имени подпроекта: 1.21.1-neoforge -> 1.21.1
@@ -49,8 +57,7 @@ subprojects {
         proguard 'com.guardsquare:proguard-base:7.6.1'
     }
 
-    // ProGuard оставляет от библиотек WebP только читатель WebP и то, что ему нужно (~500 КБ -> ~90 КБ), и переносит классы
-    // в пакет com.grihail.minepapers.lib. Правила - в common/proguard/webp.pro, таблица имён (для разбора стека) - в build/webp/mapping.txt.
+    // ProGuard оставляет от библиотек WebP только читатель WebP и то, что ему нужно (~500 КБ -> ~90 КБ), и переносит классы в пакет com.grihail.minepapers.lib. Правила - в common/proguard/webp.pro, таблица имён (для разбора стека) - в build/webp/mapping.txt.
     def webpJar = layout.buildDirectory.file('webp/webp.jar')
     def shrinkWebp = tasks.register('shrinkWebp', JavaExec) {
         def libs = configurations.webp

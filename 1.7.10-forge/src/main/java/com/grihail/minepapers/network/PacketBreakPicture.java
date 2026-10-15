@@ -1,9 +1,6 @@
 package com.grihail.minepapers.network;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
+import com.grihail.minepapers.picture.BreakTimer;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.server.ServerImages;
 
@@ -17,9 +14,6 @@ import net.minecraft.entity.player.EntityPlayerMP;
 public class PacketBreakPicture implements IMessage {
 
     public static final byte START = 0, FINISH = 1;
-
-    /** Игрок -> {id картины, тик начала}. Только серверный поток. */
-    private static final Map<UUID, long[]> STARTED = new HashMap<UUID, long[]>();
 
     private int entityId;
     private byte action;
@@ -47,19 +41,16 @@ public class PacketBreakPicture implements IMessage {
         EntityPicture picture = ServerImages.pictureById(player.worldObj, msg.entityId);
         long now = player.worldObj.getTotalWorldTime();
         if (msg.action == START) {
-            STARTED.put(player.getUniqueID(), new long[] { msg.entityId, now });
+            BreakTimer.start(player.getUniqueID(), msg.entityId, now);
             return;
         }
-        long[] started = STARTED.remove(player.getUniqueID());
-        if (picture == null || !ServerImages.canEdit(player, picture)) return;
-        if (player.capabilities.isCreativeMode) {
-            picture.breakPicture(false);
+        boolean creative = player.capabilities.isCreativeMode;
+        if (picture == null || !ServerImages.canEdit(player, picture) || creative) {
+            BreakTimer.cancel(player.getUniqueID());
+            if (picture != null && creative && ServerImages.canEdit(player, picture)) picture.breakPicture(false);
             return;
         }
-        if (started == null || started[0] != msg.entityId) return;
-        // Небольшой запас на задержки сети: клиент считает по своим тикам.
-        int required = (int) Math.ceil(1 / Math.max(picture.breakRate(player), 1e-4f));
-        if (now - started[1] >= required * 0.7 - 2) picture.breakPicture(true);
+        if (BreakTimer.finish(player.getUniqueID(), msg.entityId, now, picture.breakRate(player))) picture.breakPicture(true);
     }
 
     public static class Handler implements IMessageHandler<PacketBreakPicture, IMessage> {

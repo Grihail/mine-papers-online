@@ -1,10 +1,7 @@
 package com.grihail.minepapers.network;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.picture.BreakTimer;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.server.ServerImages;
 
@@ -26,31 +23,28 @@ public record PacketBreakPicture(int entityId, byte action) implements CustomPac
         ByteBufCodecs.BYTE, PacketBreakPicture::action,
         PacketBreakPicture::new);
 
-    /** Игрок -> {id картины, тик начала}. Только серверный поток. */
-    private static final Map<UUID, long[]> STARTED = new HashMap<UUID, long[]>();
-
     @Override
     public Type<PacketBreakPicture> type() {
         return TYPE;
     }
 
     public static void handle(PacketBreakPicture msg, IPayloadContext ctx) {
-        ServerPlayer player = (ServerPlayer) ctx.player();
+        apply((ServerPlayer) ctx.player(), msg);
+    }
+
+    /** Применить пакет от игрока player (в серверном потоке). */
+    public static void apply(ServerPlayer player, PacketBreakPicture msg) {
         EntityPicture picture = ServerImages.pictureById(player.level(), msg.entityId);
         long now = player.level().getGameTime();
         if (msg.action == START) {
-            STARTED.put(player.getUUID(), new long[] { msg.entityId, now });
+            BreakTimer.start(player.getUUID(), msg.entityId, now);
             return;
         }
-        long[] started = STARTED.remove(player.getUUID());
-        if (picture == null || !ServerImages.canEdit(player, picture)) return;
-        if (player.isCreative()) {
-            picture.breakPicture(false);
+        if (picture == null || !ServerImages.canEdit(player, picture) || player.isCreative()) {
+            BreakTimer.cancel(player.getUUID());
+            if (picture != null && player.isCreative() && ServerImages.canEdit(player, picture)) picture.breakPicture(false);
             return;
         }
-        if (started == null || started[0] != msg.entityId) return;
-        // Небольшой запас на задержки сети: клиент считает по своим тикам.
-        int required = (int) Math.ceil(1 / Math.max(picture.breakRate(player), 1e-4f));
-        if (now - started[1] >= required * 0.7 - 2) picture.breakPicture(true);
+        if (BreakTimer.finish(player.getUUID(), msg.entityId, now, picture.breakRate(player))) picture.breakPicture(true);
     }
 }

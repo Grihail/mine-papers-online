@@ -39,7 +39,11 @@ public record PacketSaveFrame(int target, CompoundTag settings) implements Custo
     }
 
     public static void handle(PacketSaveFrame msg, IPayloadContext ctx) {
-        ServerPlayer player = (ServerPlayer) ctx.player();
+        apply((ServerPlayer) ctx.player(), msg);
+    }
+
+    /** Применить пакет от игрока player (в серверном потоке). */
+    public static void apply(ServerPlayer player, PacketSaveFrame msg) {
         FrameHolder holder = ServerImages.changeable(player, msg.target);
         if (holder == null) return;
         PictureFrame frame = holder.frame;

@@ -1,8 +1,5 @@
 package com.grihail.minepapers.picture;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.block.BlockPictureFrame;
 import com.grihail.minepapers.network.PacketBreakPicture;
@@ -70,68 +67,41 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
             frame.writeSettings(tag);
             stack.setTagCompound(tag);
             dataWatcher.updateObject(WATCH_SETTINGS, stack);
-            lightsDirty = true; // блоки ставим в onUpdate: при загрузке из сохранения мир ещё не готов
+            lights.markDirty();
         }
     }
 
     // ---------- Свет ----------
 
-    /** Где картина поставила свет (смещения от клетки рамки, см. FrameGeometry.lightCells). Только на сервере. */
-    private final List<int[]> lights = new ArrayList<int[]>();
-    private boolean lightsDirty;
-
-    /** Светящаяся картина ставит перед холстом блоки света силы своего материала свечения; ненужные убирает. Чужие блоки не трогает: занятая клетка просто остаётся без света. */
-    private void updateLights() {
-        lightsDirty = false;
-        int level = frame.glowLevel();
-        List<int[]> wanted = level > 0 ? FrameGeometry.lightCells(frame) : new ArrayList<int[]>();
-        for (int[] c : lights) {
-            if (!contains(wanted, c)) removeLight(c);
+    /** Светящаяся картина ставит перед холстом блоки света мода силы своего материала свечения (см. PictureLights). Чужие блоки не трогает: занятая клетка просто остаётся без света. */
+    private final PictureLights lights = new PictureLights() {
+        @Override
+        protected boolean place(int x, int y, int z, int level) {
+            if (y < 0 || y >= worldObj.getHeight()) return false;
+            Block block = worldObj.getBlock(x, y, z);
+            if (block == MinePapers.light) {
+                if (worldObj.getBlockMetadata(x, y, z) != level) worldObj.setBlock(x, y, z, MinePapers.light, level, 3);
+                return true;
+            }
+            if (!worldObj.isAirBlock(x, y, z)) return false;
+            return worldObj.setBlock(x, y, z, MinePapers.light, level, 3);
         }
-        lights.clear();
-        for (int[] c : wanted) {
-            if (placeLight(c, level)) lights.add(c);
+
+        @Override
+        protected void remove(int x, int y, int z) {
+            if (worldObj.getBlock(x, y, z) == MinePapers.light) worldObj.setBlockToAir(x, y, z);
         }
-    }
-
-    private boolean placeLight(int[] c, int level) {
-        int x = frame.x + c[0], y = frame.y + c[1], z = frame.z + c[2];
-        if (y < 0 || y >= worldObj.getHeight()) return false;
-        Block block = worldObj.getBlock(x, y, z);
-        if (block == MinePapers.light) {
-            if (worldObj.getBlockMetadata(x, y, z) != level) worldObj.setBlock(x, y, z, MinePapers.light, level, 3);
-            return true;
-        }
-        if (!worldObj.isAirBlock(x, y, z)) return false;
-        return worldObj.setBlock(x, y, z, MinePapers.light, level, 3);
-    }
-
-    private void removeLight(int[] c) {
-        int x = frame.x + c[0], y = frame.y + c[1], z = frame.z + c[2];
-        if (worldObj.getBlock(x, y, z) == MinePapers.light) worldObj.setBlockToAir(x, y, z);
-    }
-
-    private void clearLights() {
-        for (int[] c : lights) removeLight(c);
-        lights.clear();
-    }
-
-    private static boolean contains(List<int[]> cells, int[] cell) {
-        for (int[] c : cells) {
-            if (c[0] == cell[0] && c[1] == cell[1] && c[2] == cell[2]) return true;
-        }
-        return false;
-    }
+    };
 
     /** Этот блок света поставила эта картина (иначе он лишний и исчезает, см. BlockPictureLight). */
     public boolean ownsLight(int x, int y, int z) {
-        return !isDead && contains(lights, new int[] { x - frame.x, y - frame.y, z - frame.z });
+        return !isDead && lights.owns(frame, x, y, z);
     }
 
     /** Картину убрали — убираем и её свет. Выгрузка чанка сюда не приходит: свет остаётся вместе с картиной. */
     @Override
     public void setDead() {
-        if (worldObj != null && !worldObj.isRemote && !isDead) clearLights();
+        if (worldObj != null && !worldObj.isRemote && !isDead) lights.clear(frame);
         super.setDead();
     }
 
@@ -161,7 +131,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
     @Override
     public void onUpdate() {
         if (!worldObj.isRemote) {
-            if (lightsDirty) updateLights();
+            lights.tick(frame, frame.glowLevel());
             return;
         }
         ItemStack stack = dataWatcher.getWatchableObjectItemStack(WATCH_SETTINGS);
@@ -258,9 +228,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
     protected void readEntityFromNBT(NBTTagCompound tag) {
         frame.readPlacement(tag);
         frame.readSettings(tag.getCompoundTag("Settings"));
-        lights.clear();
-        int[] flat = tag.getIntArray("Lights");
-        for (int i = 0; i + 2 < flat.length; i += 3) lights.add(new int[] { flat[i], flat[i + 1], flat[i + 2] });
+        lights.load(tag.getIntArray("Lights"));
         settingsChanged();
     }
 
@@ -270,9 +238,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         NBTTagCompound settings = new NBTTagCompound();
         frame.writeSettings(settings);
         tag.setTag("Settings", settings);
-        int[] flat = new int[lights.size() * 3];
-        for (int i = 0; i < lights.size(); i++) System.arraycopy(lights.get(i), 0, flat, i * 3, 3);
-        tag.setIntArray("Lights", flat);
+        tag.setIntArray("Lights", lights.save());
     }
 
     @Override
