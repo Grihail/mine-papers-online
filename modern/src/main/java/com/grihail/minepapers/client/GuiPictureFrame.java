@@ -90,8 +90,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     /** Вкладка размера — ряды по одной настройке: подпись, одно или два поля, галочка "px". Верх полей рядов по порядку ROW_*; между отступом и масштабом — разделитель на SEPARATOR_Y: выше — область картинки на холсте, ниже — сама картинка в ней. */
     private static final int ROW_SIZE = 17, ROW_OFFSET = 33, ROW_PAD = 49, SEPARATOR_Y = 66, ROW_ZOOM = 70, ROW_IMAGE = 86;
-    private static final String[] ROW_LABELS = { "minepapers.gui.size", "minepapers.gui.offset", "minepapers.gui.padding",
-        "minepapers.gui.zoom", "minepapers.gui.image" };
+    private static final String[] ROW_LABELS = SIZE_ROW_LABELS;
     private static final int[] ROW_Y = { ROW_SIZE, ROW_OFFSET, ROW_PAD, ROW_ZOOM, ROW_IMAGE };
     /** Левый край первого поля и ширина поля в рядах (от ширины подписей на текущем языке). */
     private int rowFieldX, rowFieldW;
@@ -234,19 +233,23 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         rowFieldX = 8 + labelW + 4;
         rowFieldW = (checkX - 4 - rowFieldX - 10) / 2;
         int fx = x + rowFieldX, fx2 = fx + rowFieldW + 10;
-        field(F_WIDTH, fx, y + ROW_SIZE, rowFieldW, 10).setTooltip(tip("minepapers.gui.width"));
-        field(F_HEIGHT, fx2, y + ROW_SIZE, rowFieldW, 10).setTooltip(tip("minepapers.gui.height"));
+        field(F_WIDTH, fx, y + ROW_SIZE, rowFieldW, 10);
+        field(F_HEIGHT, fx2, y + ROW_SIZE, rowFieldW, 10);
         cbSizePx = pixels(x + checkX, y + ROW_SIZE + 2, ed::toggleSizePx);
-        field(F_OFF_X, fx, y + ROW_OFFSET, rowFieldW, 10).setTooltip(tip("minepapers.gui.shift.x"));
-        field(F_OFF_Y, fx2, y + ROW_OFFSET, rowFieldW, 10).setTooltip(tip("minepapers.gui.shift.y"));
+        field(F_OFF_X, fx, y + ROW_OFFSET, rowFieldW, 10);
+        field(F_OFF_Y, fx2, y + ROW_OFFSET, rowFieldW, 10);
         cbPosPx = pixels(x + checkX, y + ROW_OFFSET + 2, ed::togglePosPx);
-        field(F_PAD, fx, y + ROW_PAD, rowFieldW, 10).setTooltip(tip("minepapers.gui.padding.tip"));
+        field(F_PAD, fx, y + ROW_PAD, rowFieldW, 10);
         cbPadPx = pixels(x + checkX, y + ROW_PAD + 2, ed::togglePadPx);
-        field(F_ZOOM, fx, y + ROW_ZOOM, rowFieldW, 10).setTooltip(tip("minepapers.gui.zoom.tip"));
+        field(F_ZOOM, fx, y + ROW_ZOOM, rowFieldW, 10);
         cbZoomPx = pixels(x + checkX, y + ROW_ZOOM + 2, ed::toggleZoomPx);
-        field(F_IMAGE_X, fx, y + ROW_IMAGE, rowFieldW, 10).setTooltip(tip("minepapers.gui.image.x"));
-        field(F_IMAGE_Y, fx2, y + ROW_IMAGE, rowFieldW, 10).setTooltip(tip("minepapers.gui.image.y"));
+        field(F_IMAGE_X, fx, y + ROW_IMAGE, rowFieldW, 10);
+        field(F_IMAGE_Y, fx2, y + ROW_IMAGE, rowFieldW, 10);
         cbImagePx = pixels(x + checkX, y + ROW_IMAGE + 2, ed::toggleImagePx);
+        for (int f = 0; f < FIELD_COUNT; f++) {
+            String arrows = FrameEditor.fieldArrows(f);
+            if (arrows != null) fields[f].setTooltip(Tooltip.create(Component.literal(arrows)));
+        }
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
             int value = i;
             // Внизу вкладки, над инвентарём
@@ -778,6 +781,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         *///?}
         super.render(g, mouseX, mouseY, partialTick);
         renderTooltip(g, mouseX, mouseY);
+        if (!readOnly && ed.tab == TAB_SIZE) sizeLabelTooltip(g, mouseX, mouseY);
         Style link = linkAt(mouseX, mouseY);
         if (link != null) g.renderComponentHoverEffect(font, link, mouseX, mouseY);
     }
@@ -821,6 +825,20 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     }
 
     /** Ванильная подсказка виджета. */
+    /** Подсказка подписи ряда на вкладке размера: как работает параметр. */
+    private void sizeLabelTooltip(GuiGraphics g, int mouseX, int mouseY) {
+        int mx = mouseX - leftPos, my = mouseY - topPos;
+        for (int i = 0; i < ROW_LABELS.length; i++) {
+            if (mx >= 8 && mx < 8 + font.width(I18n.get(ROW_LABELS[i])) && my >= ROW_Y[i] + 2 && my < ROW_Y[i] + 12) {
+                List<Component> lines = new ArrayList<Component>();
+                lines.add(Component.translatable(ROW_LABELS[i]));
+                for (String s : I18n.get(ROW_LABELS[i] + ".tip").split("\n")) lines.add(Component.literal(s).withStyle(ChatFormatting.GRAY));
+                g.renderComponentTooltip(font, lines, mouseX, mouseY);
+                return;
+            }
+        }
+    }
+
     private static Tooltip tip(String key) {
         return Tooltip.create(Component.translatable(key));
     }

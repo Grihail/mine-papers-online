@@ -99,8 +99,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
     /** Вкладка размера — ряды по одной настройке: подпись, одно или два поля, галочка "px". Верх полей рядов по порядку ROW_*; между отступом и масштабом — разделитель на SEPARATOR_Y: выше — область картинки на холсте, ниже — сама картинка в ней. */
     private static final int ROW_SIZE = 18, ROW_OFFSET = 34, ROW_PAD = 50, SEPARATOR_Y = 67, ROW_ZOOM = 72, ROW_IMAGE = 88;
-    private static final String[] ROW_LABELS = { "minepapers.gui.size", "minepapers.gui.offset", "minepapers.gui.padding",
-        "minepapers.gui.zoom", "minepapers.gui.image" };
+    private static final String[] ROW_LABELS = SIZE_ROW_LABELS;
     private static final int[] ROW_Y = { ROW_SIZE, ROW_OFFSET, ROW_PAD, ROW_ZOOM, ROW_IMAGE };
     /** Левый край первого поля и ширина поля в рядах (от ширины подписей на текущем языке). */
     private int rowFieldX, rowFieldW;
@@ -974,22 +973,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             tooltip("minepapers.gui.mapPalette.tip", mouseX, mouseY);
         } else if (cbSizePx.hovered() || cbPosPx.hovered() || cbPadPx.hovered() || cbZoomPx.hovered() || cbImagePx.hovered()) {
             tooltip("minepapers.gui.pixels.tip", mouseX, mouseY);
-        } else if (ed.tab == TAB_SIZE && over(F_WIDTH, mouseX, mouseY)) {
-            tooltip("minepapers.gui.width", mouseX, mouseY);
-        } else if (ed.tab == TAB_SIZE && over(F_HEIGHT, mouseX, mouseY)) {
-            tooltip("minepapers.gui.height", mouseX, mouseY);
-        } else if (ed.tab == TAB_SIZE && over(F_OFF_X, mouseX, mouseY)) {
-            tooltip("minepapers.gui.shift.x", mouseX, mouseY);
-        } else if (ed.tab == TAB_SIZE && over(F_OFF_Y, mouseX, mouseY)) {
-            tooltip("minepapers.gui.shift.y", mouseX, mouseY);
-        } else if (ed.tab == TAB_SIZE && over(F_PAD, mouseX, mouseY)) {
-            tooltip("minepapers.gui.padding.tip", mouseX, mouseY);
-        } else if (ed.tab == TAB_SIZE && over(F_ZOOM, mouseX, mouseY)) {
-            tooltip("minepapers.gui.zoom.tip", mouseX, mouseY);
-        } else if (ed.tab == TAB_SIZE && over(F_IMAGE_X, mouseX, mouseY)) {
-            tooltip("minepapers.gui.image.x", mouseX, mouseY);
-        } else if (ed.tab == TAB_SIZE && over(F_IMAGE_Y, mouseX, mouseY)) {
-            tooltip("minepapers.gui.image.y", mouseX, mouseY);
+        } else if (ed.tab == TAB_SIZE && sizeTooltip(mouseX, mouseY)) {
+            return;
         } else if (btnReload.hovered()) {
             tooltip("minepapers.gui.reload", mouseX, mouseY);
         }
@@ -1006,6 +991,26 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         lines.add(I18n.format(titleKey));
         for (String s : I18n.format(tipKey).split("\\\\n")) lines.add("§7" + s);
         drawHoveringText(lines, x, y, fontRenderer);
+    }
+
+    /** Вкладка размера: над числовым полем — стрелки его направления, над подписью ряда — как работает параметр. @return подсказка показана */
+    private boolean sizeTooltip(int mouseX, int mouseY) {
+        for (int f = 0; f < FIELD_COUNT; f++) {
+            String arrows = FrameEditor.fieldArrows(f);
+            if (arrows != null && over(f, mouseX, mouseY)) {
+                drawHoveringText(Arrays.asList(arrows), mouseX, mouseY, fontRenderer);
+                return true;
+            }
+        }
+        int mx = mouseX - guiLeft, my = mouseY - guiTop;
+        for (int i = 0; i < ROW_LABELS.length; i++) {
+            String label = I18n.format(ROW_LABELS[i]);
+            if (mx >= 8 && mx < 8 + fontRenderer.getStringWidth(label) && my >= ROW_Y[i] + 1 && my < ROW_Y[i] + 11) {
+                titledTooltip(ROW_LABELS[i], ROW_LABELS[i] + ".tip", mouseX, mouseY);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void tooltip(String key, int x, int y, Object... args) {

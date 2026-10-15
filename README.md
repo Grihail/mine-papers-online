@@ -522,7 +522,7 @@ If code is the same for two or more versions and does not use the game API, it m
 
 ## Project rules
 
-- All player-visible text (translations, window labels, tooltips, chat) uses plain punctuation: `-` instead of an em dash, `x` instead of the multiplication sign, plain quotes, `...` instead of a single ellipsis character. Japanese and Chinese translations may use the native punctuation of those languages.
+- All player-visible text (translations, window labels, tooltips, chat) uses plain punctuation: `-` instead of an em dash, `x` instead of the multiplication sign, plain quotes, `...` instead of a single ellipsis character. The only exception are the direction arrows (↔ ↕ ◀ ▶ ▲ ▼) in the tooltips of the size tab number fields. Japanese and Chinese translations may use the native punctuation of those languages.
 - Code comments are written in Russian.
 - Vanilla mechanics are used wherever possible: light blocks, wood sounds, drop rules, widget tooltips, vanilla window textures.
 - The code does not guard in advance against every possible error. Limits stay where they define game rules (canvas size, position, resolution) or protect the server from foreign clients (the server accepts only the files it asked for, and no more than 16 MB). Other errors are fixed when they show up.

@@ -138,6 +138,23 @@ public abstract class FrameEditor {
         }
     }
 
+    /** Подсказка числового поля вкладки размера — только стрелки направления (null — у поля её нет): ширина и высота, сдвиги вправо и вверх, отступ внутрь, масштаб наружу. */
+    public static String fieldArrows(int field) {
+        switch (field) {
+            case F_WIDTH: return "\u2194";
+            case F_HEIGHT: return "\u2195";
+            case F_OFF_X: case F_IMAGE_X: return "\u25C0 \u25B6";
+            case F_OFF_Y: case F_IMAGE_Y: return "\u25B2 \u25BC";
+            case F_PAD: return "\u25B6 \u25C0";
+            case F_ZOOM: return "\u25C0 \u25B6";
+            default: return null;
+        }
+    }
+
+    /** Ряды вкладки размера сверху вниз: подпись и короткое пояснение, как работает параметр (подсказка подписи). */
+    public static final String[] SIZE_ROW_LABELS = { "minepapers.gui.size", "minepapers.gui.offset", "minepapers.gui.padding",
+        "minepapers.gui.zoom", "minepapers.gui.image" };
+
     public static int fieldTab(int field) {
         return FIELD_TAB[field];
     }
