@@ -47,6 +47,9 @@ public final class PictureConfig {
     public Boolean paddingPixels;
     public Float zoom;
     public Boolean zoomPixels;
+    /** Сдвиг картинки внутри области вписывания. */
+    public Float imageRight, imageUp;
+    public Boolean imagePixels;
     public Integer fit, look, frame, canvas, style, pixelsPerBlock;
     /** Что светится (GLOW_PARTS). */
     public Integer glowPart;
@@ -109,6 +112,12 @@ public final class PictureConfig {
         if (zoom != null) zoomObject.addProperty("size", number(zoom));
         if (zoomPixels != null) zoomObject.addProperty("pixels", zoomPixels);
         root.add("zoom", zoomObject);
+
+        JsonObject image = new JsonObject();
+        if (imageRight != null) image.addProperty("right", number(imageRight));
+        if (imageUp != null) image.addProperty("up", number(imageUp));
+        if (imagePixels != null) image.addProperty("pixels", imagePixels);
+        root.add("image", image);
 
         if (fit != null) root.addProperty("fit", name(FITS, fit));
         if (glowPart != null) root.addProperty("glowPart", name(GLOW_PARTS, glowPart));
@@ -189,6 +198,12 @@ public final class PictureConfig {
             if (zoomObject != null) {
                 c.zoom = decimal(zoomObject, "size");
                 c.zoomPixels = bool(zoomObject, "pixels");
+            }
+            JsonObject image = object(root, "image");
+            if (image != null) {
+                c.imageRight = decimal(image, "right");
+                c.imageUp = decimal(image, "up");
+                c.imagePixels = bool(image, "pixels");
             }
             c.fit = value(root, "fit", FITS);
             c.glowPart = value(root, "glowPart", GLOW_PARTS);

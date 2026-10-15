@@ -48,6 +48,7 @@ public final class Numbers {
         OFFSET = new Field(true, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY),
         PADDING = new Field(true, 0, PictureSettings.MAX_SIZE_BLOCKS / 2),
         ZOOM = new Field(true, -PictureSettings.MAX_SIZE_BLOCKS / 2, PictureSettings.MAX_SIZE_BLOCKS / 2),
+        IMAGE = new Field(true, -PictureSettings.MAX_SIZE_BLOCKS, PictureSettings.MAX_SIZE_BLOCKS),
         MOLDING = new Field(false, 0, PictureSettings.MAX_MOLDING);
 
     /** Числовое поле: дробное ли оно, бывает ли меньше нуля, и пределы, в которых его меняют стрелки и колёсико. */

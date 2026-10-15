@@ -15,9 +15,10 @@ public abstract class FrameEditor {
 
     /** Поля ввода по порядку: версия хранит их в массиве и переносит набранное, когда пересоздаёт виджеты. Путь и ссылки свои у каждого источника, видно только поле выбранного (pathField). */
     public static final int F_PATH = 0, F_URL = 1, F_FOLDER = 2, F_IMAGE = 3, F_INTERVAL = 4, F_WIDTH = 5, F_HEIGHT = 6,
-        F_OFF_X = 7, F_OFF_Y = 8, F_PAD = 9, F_ZOOM = 10, F_MOLDING = 11, F_TITLE = 12, F_DESC = 13, FIELD_COUNT = 14;
+        F_OFF_X = 7, F_OFF_Y = 8, F_PAD = 9, F_ZOOM = 10, F_IMAGE_X = 11, F_IMAGE_Y = 12, F_MOLDING = 13, F_TITLE = 14, F_DESC = 15,
+        FIELD_COUNT = 16;
     private static final int[] FIELD_TAB = { TAB_SOURCE, TAB_SOURCE, TAB_SOURCE, TAB_SOURCE, TAB_SOURCE, TAB_SIZE, TAB_SIZE,
-        TAB_SIZE, TAB_SIZE, TAB_SIZE, TAB_SIZE, TAB_FRAME, TAB_INFO, TAB_INFO };
+        TAB_SIZE, TAB_SIZE, TAB_SIZE, TAB_SIZE, TAB_SIZE, TAB_SIZE, TAB_FRAME, TAB_INFO, TAB_INFO };
 
     /** Последняя открытая вкладка — с неё окно откроется в следующий раз. */
     private static int lastTab = TAB_SOURCE;
@@ -39,8 +40,8 @@ public abstract class FrameEditor {
     /** Резкие пиксели и палитра карт (галочки), число цветов, сила и вид дизеринга, пикселей на блок — вкладка "Стиль". */
     public boolean sharp, mapPalette;
     public int colors, dither, ditherMode, ppb;
-    /** Галочки "px": размер, сдвиг, отступ и масштаб в пикселях. */
-    public boolean sizePx, posPx, padPx, zoomPx;
+    /** Галочки "px": размер, смещение холста, отступ, масштаб и сдвиг картинки в пикселях. */
+    public boolean sizePx, posPx, padPx, zoomPx, imagePx;
     /** Замок закрыт (картина заприватится при закрытии окна). */
     public boolean locked;
     /** Подписать картину при закрытии окна (подпись ставит сервер, и только на картину без привата). */
@@ -72,6 +73,7 @@ public abstract class FrameEditor {
         posPx = tile.offsetInPixels;
         padPx = tile.paddingInPixels;
         zoomPx = tile.zoomInPixels;
+        imagePx = tile.imageInPixels;
         locked = tile.isLocked();
         nsfw = tile.nsfw;
     }
@@ -114,6 +116,8 @@ public abstract class FrameEditor {
             case F_OFF_Y: return Numbers.fmt(tile.offsetY);
             case F_PAD: return Numbers.fmt(tile.padding);
             case F_ZOOM: return Numbers.fmt(tile.zoom);
+            case F_IMAGE_X: return Numbers.fmt(tile.imageX);
+            case F_IMAGE_Y: return Numbers.fmt(tile.imageY);
             case F_MOLDING: return tile.getFrameShape() == PictureSettings.FRAME_MOLDING ? String.valueOf(tile.moldingWidth) : "0";
             case F_TITLE: return tile.title;
             default: return tile.description;
@@ -128,6 +132,7 @@ public abstract class FrameEditor {
             case F_OFF_X: case F_OFF_Y: return Numbers.OFFSET;
             case F_PAD: return Numbers.PADDING;
             case F_ZOOM: return Numbers.ZOOM;
+            case F_IMAGE_X: case F_IMAGE_Y: return Numbers.IMAGE;
             case F_MOLDING: return Numbers.MOLDING;
             default: return null;
         }
@@ -159,7 +164,8 @@ public abstract class FrameEditor {
 
     /** Шаг числа стрелкой или колёсиком (dir — 1 или -1): размер, отступ и масштаб — в единицах, выбранных галочкой "px". */
     public void step(int field, int dir) {
-        boolean px = field == F_WIDTH || field == F_HEIGHT ? sizePx : field == F_PAD ? padPx : field == F_ZOOM && zoomPx;
+        boolean px = field == F_WIDTH || field == F_HEIGHT ? sizePx : field == F_PAD ? padPx : field == F_ZOOM ? zoomPx
+            : (field == F_IMAGE_X || field == F_IMAGE_Y) && imagePx;
         setText(field, number(field).step(text(field), dir, px ? 16f : 1f));
         if (field == F_MOLDING) moldingChanged();
     }
@@ -192,6 +198,12 @@ public abstract class FrameEditor {
     public void toggleZoomPx() {
         zoomPx = !zoomPx;
         convert(F_ZOOM, zoomPx);
+    }
+
+    public void toggleImagePx() {
+        imagePx = !imagePx;
+        convert(F_IMAGE_X, imagePx);
+        convert(F_IMAGE_Y, imagePx);
     }
 
     private void convert(int field, boolean toPixels) {
@@ -349,6 +361,9 @@ public abstract class FrameEditor {
         c.paddingPixels = padPx;
         c.zoom = Numbers.parse(text(F_ZOOM));
         c.zoomPixels = zoomPx;
+        c.imageRight = Numbers.parse(text(F_IMAGE_X));
+        c.imageUp = Numbers.parse(text(F_IMAGE_Y));
+        c.imagePixels = imagePx;
         c.fit = fitMode;
         c.glowPart = glowPart;
         c.look = PictureSettings.classicLook(look());
@@ -393,6 +408,9 @@ public abstract class FrameEditor {
         if (c.padding != null) setText(F_PAD, Numbers.fmt(c.padding));
         if (c.zoomPixels != null) zoomPx = c.zoomPixels;
         if (c.zoom != null) setText(F_ZOOM, Numbers.fmt(c.zoom));
+        if (c.imagePixels != null) imagePx = c.imagePixels;
+        if (c.imageRight != null) setText(F_IMAGE_X, Numbers.fmt(c.imageRight));
+        if (c.imageUp != null) setText(F_IMAGE_Y, Numbers.fmt(c.imageUp));
         if (c.fit != null) fitMode = c.fit;
         if (c.glowPart != null) glowPart = c.glowPart;
         if (c.look != null) {
@@ -462,6 +480,9 @@ public abstract class FrameEditor {
         tile.padding = Numbers.orDefault(Numbers.parse(text(F_PAD)), tile.padding);
         tile.zoomInPixels = zoomPx;
         tile.zoom = Numbers.orDefault(Numbers.parse(text(F_ZOOM)), tile.zoom);
+        tile.imageInPixels = imagePx;
+        tile.imageX = Numbers.orDefault(Numbers.parse(text(F_IMAGE_X)), tile.imageX);
+        tile.imageY = Numbers.orDefault(Numbers.parse(text(F_IMAGE_Y)), tile.imageY);
         tile.fitMode = fitMode;
         tile.glowPart = glowPart;
         tile.sharpPixels = sharp;

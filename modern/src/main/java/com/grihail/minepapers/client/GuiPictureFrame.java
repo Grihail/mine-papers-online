@@ -86,7 +86,15 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Вкладка, на которой лежит виджет (у самих вкладок записи нет — они видны всегда). */
     private final Map<AbstractWidget, Integer> widgetTab = new HashMap<AbstractWidget, Integer>();
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
-    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbSharp, cbMapPalette;
+    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbImagePx, cbSharp, cbMapPalette;
+
+    /** Вкладка размера — ряды по одной настройке: подпись, одно или два поля, галочка "px". Верх полей рядов по порядку ROW_*; между отступом и масштабом — разделитель на SEPARATOR_Y: выше — область картинки на холсте, ниже — сама картинка в ней. */
+    private static final int ROW_SIZE = 17, ROW_OFFSET = 33, ROW_PAD = 49, SEPARATOR_Y = 66, ROW_ZOOM = 70, ROW_IMAGE = 86;
+    private static final String[] ROW_LABELS = { "minepapers.gui.size", "minepapers.gui.offset", "minepapers.gui.padding",
+        "minepapers.gui.zoom", "minepapers.gui.image" };
+    private static final int[] ROW_Y = { ROW_SIZE, ROW_OFFSET, ROW_PAD, ROW_ZOOM, ROW_IMAGE };
+    /** Левый край первого поля и ширина поля в рядах (от ширины подписей на текущем языке). */
+    private int rowFieldX, rowFieldW;
 
     /** Поля ввода по номерам FrameEditor.F_*: путь, ссылки и описание — многострочные (текст переносится), остальные — обычные. */
     private final AbstractWidget[] fields = new AbstractWidget[FIELD_COUNT];
@@ -219,18 +227,26 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             GuiWidgets.ICON_RELOAD_U, ed::reload);
         btnReload.setTooltip(tip("minepapers.gui.reload"));
 
-        // Размер и позиция
-        field(F_WIDTH, x + 8, y + 18, 42, 10).setTooltip(tip("minepapers.gui.width"));
-        field(F_HEIGHT, x + 62, y + 18, 42, 10).setTooltip(tip("minepapers.gui.height"));
-        cbSizePx = pixels(x + 112, y + 20, ed::toggleSizePx);
-        field(F_OFF_X, x + 8, y + 48, 42, 10).setTooltip(tip("minepapers.gui.shift.x"));
-        field(F_OFF_Y, x + 62, y + 48, 42, 10).setTooltip(tip("minepapers.gui.shift.y"));
-        cbPosPx = pixels(x + 112, y + 50, ed::togglePosPx);
-        // Отступ и масштаб — в одном ряду, у каждого своя галочка "px".
-        field(F_PAD, x + 8, y + 78, 42, 10).setTooltip(tip("minepapers.gui.padding.tip"));
-        field(F_ZOOM, x + 84, y + 78, 42, 10).setTooltip(tip("minepapers.gui.zoom.tip"));
-        cbPadPx = pixels(x + 54, y + 80, ed::togglePadPx);
-        cbZoomPx = pixels(x + 130, y + 80, ed::toggleZoomPx);
+        // Размер, смещение и отступ холста, масштаб и сдвиг картинки — по ряду на каждый: подписи слева, поля и галочки "px" — столбцами.
+        int labelW = 0;
+        for (String key : ROW_LABELS) labelW = Math.max(labelW, font.width(I18n.get(key)));
+        int checkX = WIDTH - 8 - (13 + font.width(I18n.get("minepapers.gui.pixels")));
+        rowFieldX = 8 + labelW + 4;
+        rowFieldW = (checkX - 4 - rowFieldX - 10) / 2;
+        int fx = x + rowFieldX, fx2 = fx + rowFieldW + 10;
+        field(F_WIDTH, fx, y + ROW_SIZE, rowFieldW, 10).setTooltip(tip("minepapers.gui.width"));
+        field(F_HEIGHT, fx2, y + ROW_SIZE, rowFieldW, 10).setTooltip(tip("minepapers.gui.height"));
+        cbSizePx = pixels(x + checkX, y + ROW_SIZE + 2, ed::toggleSizePx);
+        field(F_OFF_X, fx, y + ROW_OFFSET, rowFieldW, 10).setTooltip(tip("minepapers.gui.shift.x"));
+        field(F_OFF_Y, fx2, y + ROW_OFFSET, rowFieldW, 10).setTooltip(tip("minepapers.gui.shift.y"));
+        cbPosPx = pixels(x + checkX, y + ROW_OFFSET + 2, ed::togglePosPx);
+        field(F_PAD, fx, y + ROW_PAD, rowFieldW, 10).setTooltip(tip("minepapers.gui.padding.tip"));
+        cbPadPx = pixels(x + checkX, y + ROW_PAD + 2, ed::togglePadPx);
+        field(F_ZOOM, fx, y + ROW_ZOOM, rowFieldW, 10).setTooltip(tip("minepapers.gui.zoom.tip"));
+        cbZoomPx = pixels(x + checkX, y + ROW_ZOOM + 2, ed::toggleZoomPx);
+        field(F_IMAGE_X, fx, y + ROW_IMAGE, rowFieldW, 10).setTooltip(tip("minepapers.gui.image.x"));
+        field(F_IMAGE_Y, fx2, y + ROW_IMAGE, rowFieldW, 10).setTooltip(tip("minepapers.gui.image.y"));
+        cbImagePx = pixels(x + checkX, y + ROW_IMAGE + 2, ed::toggleImagePx);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
             int value = i;
             // Внизу вкладки, над инвентарём
@@ -271,7 +287,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         slPpb = add(new GuiWidgets.Slider(x + 8, y + 116, 160, PictureFrame.MIN_PPB, PictureFrame.MAX_PPB, PictureFrame::ppbWheel, ed.ppb,
             v -> Component.translatable("minepapers.gui.ppb", v), v -> ed.ppb = v), TAB_STYLE);
         slPpb.setTooltip(tip("minepapers.gui.ppb.tip"));
-        for (GuiWidgets.Check c : new GuiWidgets.Check[] { cbSizePx, cbPosPx, cbPadPx, cbZoomPx }) c.setTooltip(tip("minepapers.gui.pixels.tip"));
+        for (GuiWidgets.Check c : new GuiWidgets.Check[] { cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbImagePx }) c.setTooltip(tip("minepapers.gui.pixels.tip"));
 
         // Рамка: справа от слотов рамки и холста — их вид. У рамки кнопки "нет" и "обшивка", за ними — ширина багета.
         int lookY = y + ContainerPictureFrame.MATERIAL_Y - 3;
@@ -517,6 +533,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         cbPosPx.checked = ed.posPx;
         cbPadPx.checked = ed.padPx;
         cbZoomPx.checked = ed.zoomPx;
+        cbImagePx.checked = ed.imagePx;
         // Слоты материалов есть всегда (их содержимое синхронизирует сервер), но видны и кликаются только на своей вкладке.
         menu.showMaterials(!readOnly && ed.tab == TAB_FRAME);
     }
@@ -705,11 +722,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 break;
             }
             case TAB_SIZE:
-                text(g, I18n.get("minepapers.gui.size"), 8, 6);
-                text(g, "x", 53, 21);
-                text(g, I18n.get("minepapers.gui.offset"), 8, 36);
-                text(g, I18n.get("minepapers.gui.padding"), 8, 66);
-                text(g, I18n.get("minepapers.gui.zoom"), 84, 66);
+                text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
+                for (int i = 0; i < ROW_LABELS.length; i++) text(g, I18n.get(ROW_LABELS[i]), 8, ROW_Y[i] + 3);
+                text(g, "x", rowFieldX + rowFieldW + 3, ROW_SIZE + 3);
+                g.fill(8, SEPARATOR_Y, WIDTH - 8, SEPARATOR_Y + 1, 0xFF8B8B8B);
                 text(g, I18n.get("minepapers.gui.fit"), 8, 116);
                 break;
             case TAB_STYLE:

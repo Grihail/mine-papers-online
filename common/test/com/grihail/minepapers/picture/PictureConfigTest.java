@@ -26,6 +26,9 @@ class PictureConfigTest {
         c.paddingPixels = true;
         c.zoom = -2f;
         c.zoomPixels = true;
+        c.imageRight = 3f;
+        c.imageUp = -1.5f;
+        c.imagePixels = false;
         c.fit = PictureSettings.FIT_SCALE_DOWN;
         c.glowPart = PictureSettings.GLOW_FRAME;
         c.look = PictureSettings.MODE_REALISTIC;
@@ -50,6 +53,8 @@ class PictureConfigTest {
         assertEquals(2.5f, d.width);
         assertEquals(PictureSettings.DITHER_ORDERED, (int) d.ditherMode);
         assertEquals(PictureSettings.GLOW_FRAME, (int) d.glowPart);
+        assertEquals(-1.5f, d.imageUp);
+        assertFalse(d.imagePixels);
         assertTrue(json.contains("\"glowPart\": \"frame\""));
         assertTrue(d.hasMaterial[0]);
         assertFalse(d.hasMaterial[1]);

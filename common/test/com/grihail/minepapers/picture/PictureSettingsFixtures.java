@@ -25,6 +25,9 @@ public final class PictureSettingsFixtures {
         s.offsetY = 0.5f;
         s.padding = 2;
         s.zoom = -1;
+        s.imageX = 3;
+        s.imageY = -2.5f;
+        s.imageInPixels = true;
         s.title = "Title";
         s.description = "Line 1\nLine 2";
         s.owner = ALICE;

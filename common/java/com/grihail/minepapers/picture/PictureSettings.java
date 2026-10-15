@@ -120,6 +120,11 @@ public class PictureSettings {
     public float zoom = 0f;
     public boolean zoomInPixels = true;
 
+    /** Сдвиг картинки внутри области вписывания (её задают размер, смещение и отступ — за неё картинка не выходит): вправо и вверх. В блоках или в пикселях. */
+    public float imageX = 0f;
+    public float imageY = 0f;
+    public boolean imageInPixels = true;
+
     /** Заголовок и описание картины (вкладка "Описание"), видны в подсказке предмета. */
     public String title = "";
     public String description = "";
@@ -279,6 +284,15 @@ public class PictureSettings {
         return Math.max(0, Math.min(p, max));
     }
 
+    /** Сдвиг картинки в блоках (см. imageX). */
+    public float getImageXBlocks() {
+        return imageInPixels ? imageX / 16f : imageX;
+    }
+
+    public float getImageYBlocks() {
+        return imageInPixels ? imageY / 16f : imageY;
+    }
+
     /** Масштаб в блоках (см. zoom); уменьшить картинку можно только так, чтобы от неё остался хотя бы пиксель — как и с отступом. */
     public float getZoomBlocks() {
         float z = zoomInPixels ? zoom / 16f : zoom;
@@ -426,6 +440,9 @@ public class PictureSettings {
         tag.putInt("PadPx", paddingInPixels ? 1 : 0);
         tag.putFloat("Zoom", zoom);
         tag.putInt("ZoomPx", zoomInPixels ? 1 : 0);
+        tag.putFloat("IX", imageX);
+        tag.putFloat("IY", imageY);
+        tag.putInt("ImagePx", imageInPixels ? 1 : 0);
         if (!title.isEmpty()) tag.putString("Title", title);
         if (!description.isEmpty()) tag.putString("Desc", description);
         if (owner != null) {
@@ -491,6 +508,10 @@ public class PictureSettings {
         padding = clamp(pad, 0, padLimit);
         float zoomLimit = MAX_SIZE_BLOCKS / 2 * (zoomInPixels ? 16f : 1f);
         zoom = clamp(zoom, -zoomLimit, zoomLimit);
+        imageInPixels = !tag.contains("ImagePx") || tag.getInt("ImagePx") != 0;
+        float imageLimit = MAX_SIZE_BLOCKS * (imageInPixels ? 16f : 1f);
+        imageX = clamp(tag.getFloat("IX"), -imageLimit, imageLimit);
+        imageY = clamp(tag.getFloat("IY"), -imageLimit, imageLimit);
 
         title = tag.getString("Title").replace("\r", "").replace("\n", " ");
         description = tag.getString("Desc").replace("\r", "");

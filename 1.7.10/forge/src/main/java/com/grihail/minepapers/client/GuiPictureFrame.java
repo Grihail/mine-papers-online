@@ -48,7 +48,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** id кнопок: вкладки — 0..4, группы переключателей — начало группы + значение. */
     private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_FRAME = 30, ID_CANVAS = 35, ID_STYLE = 40, ID_DITHER_MODE = 45,
         ID_PREV = 50, ID_NEXT = 51, ID_FOLDER = 52, ID_RELOAD = 53, ID_SIZE_PX = 54, ID_POS_PX = 55,
-        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63, ID_ZOOM_PX = 64,
+        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63, ID_ZOOM_PX = 64, ID_IMAGE_PX = 65,
         ID_GLOW = 70;
 
     /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
@@ -92,7 +92,15 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Вкладка, на которой лежит кнопка (у самих вкладок записи нет — они видны всегда). */
     private final Map<GuiButton, Integer> buttonTab = new HashMap<GuiButton, Integer>();
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
-    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbSharp, cbMapPalette;
+    private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbImagePx, cbSharp, cbMapPalette;
+
+    /** Вкладка размера — ряды по одной настройке: подпись, одно или два поля, галочка "px". Верх полей рядов по порядку ROW_*; между отступом и масштабом — разделитель на SEPARATOR_Y: выше — область картинки на холсте, ниже — сама картинка в ней. */
+    private static final int ROW_SIZE = 18, ROW_OFFSET = 34, ROW_PAD = 50, SEPARATOR_Y = 67, ROW_ZOOM = 72, ROW_IMAGE = 88;
+    private static final String[] ROW_LABELS = { "minepapers.gui.size", "minepapers.gui.offset", "minepapers.gui.padding",
+        "minepapers.gui.zoom", "minepapers.gui.image" };
+    private static final int[] ROW_Y = { ROW_SIZE, ROW_OFFSET, ROW_PAD, ROW_ZOOM, ROW_IMAGE };
+    /** Левый край первого поля и ширина поля в рядах (от ширины подписей на текущем языке). */
+    private int rowFieldX, rowFieldW;
 
     /** Поля ввода по номерам FrameEditor.F_* и их место {x, y, ширина, высота} — для подсказок и выделения мышью. */
     private final GuiTextField[] fields = new GuiTextField[FIELD_COUNT];
@@ -205,18 +213,26 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         field(F_INTERVAL, x + 129, y + 117, 38, 6);
         btnReload = small(TAB_SOURCE, ID_RELOAD, x + 154, y + 131, 14, 14, "", GuiWidgets.ICON_RELOAD_U);
 
-        // Размер и позиция
-        field(F_WIDTH, x + 9, y + 19, 40, 10);
-        field(F_HEIGHT, x + 63, y + 19, 40, 10);
-        cbSizePx = check(TAB_SIZE, ID_SIZE_PX, x + 112, y + 20);
-        field(F_OFF_X, x + 9, y + 49, 40, 10);
-        field(F_OFF_Y, x + 63, y + 49, 40, 10);
-        cbPosPx = check(TAB_SIZE, ID_POS_PX, x + 112, y + 50);
-        // Отступ и масштаб — в одном ряду, у каждого своя галочка "px".
-        field(F_PAD, x + 9, y + 79, 40, 10);
-        cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + 54, y + 80);
-        field(F_ZOOM, x + 85, y + 79, 40, 10);
-        cbZoomPx = check(TAB_SIZE, ID_ZOOM_PX, x + 130, y + 80);
+        // Размер, смещение и отступ холста, масштаб и сдвиг картинки — по ряду на каждый: подписи слева, поля и галочки "px" — столбцами.
+        int labelW = 0;
+        for (String key : ROW_LABELS) labelW = Math.max(labelW, fontRendererObj.getStringWidth(I18n.format(key)));
+        int checkX = WIDTH - 8 - (13 + fontRendererObj.getStringWidth(I18n.format("minepapers.gui.pixels")));
+        rowFieldX = 8 + labelW + 5;
+        rowFieldW = (checkX - 6 - rowFieldX - 8) / 2;
+        int fx = x + rowFieldX, fx2 = fx + rowFieldW + 8;
+        field(F_WIDTH, fx, y + ROW_SIZE, rowFieldW, 10);
+        field(F_HEIGHT, fx2, y + ROW_SIZE, rowFieldW, 10);
+        cbSizePx = check(TAB_SIZE, ID_SIZE_PX, x + checkX, y + ROW_SIZE + 1);
+        field(F_OFF_X, fx, y + ROW_OFFSET, rowFieldW, 10);
+        field(F_OFF_Y, fx2, y + ROW_OFFSET, rowFieldW, 10);
+        cbPosPx = check(TAB_SIZE, ID_POS_PX, x + checkX, y + ROW_OFFSET + 1);
+        field(F_PAD, fx, y + ROW_PAD, rowFieldW, 10);
+        cbPadPx = check(TAB_SIZE, ID_PAD_PX, x + checkX, y + ROW_PAD + 1);
+        field(F_ZOOM, fx, y + ROW_ZOOM, rowFieldW, 10);
+        cbZoomPx = check(TAB_SIZE, ID_ZOOM_PX, x + checkX, y + ROW_ZOOM + 1);
+        field(F_IMAGE_X, fx, y + ROW_IMAGE, rowFieldW, 10);
+        field(F_IMAGE_Y, fx2, y + ROW_IMAGE, rowFieldW, 10);
+        cbImagePx = check(TAB_SIZE, ID_IMAGE_PX, x + checkX, y + ROW_IMAGE + 1);
         for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
             // Внизу вкладки, над инвентарём
             fitButtons.add(add(new GuiWidgets.Toggle(ID_FIT + i, x + 8 + i * 22, y + 128, i * 16, GuiWidgets.FIT_ICON_V),
@@ -347,6 +363,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         cbPosPx.checked = ed.posPx;
         cbPadPx.checked = ed.padPx;
         cbZoomPx.checked = ed.zoomPx;
+        cbImagePx.checked = ed.imagePx;
         for (int f = 0; f < FIELD_COUNT; f++) {
             if (!ed.fieldShown(f)) fields[f].setFocused(false);
         }
@@ -414,6 +431,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                     break;
                 case ID_ZOOM_PX:
                     ed.toggleZoomPx();
+                    break;
+                case ID_IMAGE_PX:
+                    ed.toggleImagePx();
                     break;
             }
         }
@@ -708,11 +728,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                 break;
             }
             case TAB_SIZE:
-                text(I18n.format("minepapers.gui.size"), 8, 6, GuiWidgets.TEXT);
-                text("x", 53, 21, GuiWidgets.TEXT);
-                text(I18n.format("minepapers.gui.offset"), 8, 36, GuiWidgets.TEXT);
-                text(I18n.format("minepapers.gui.padding"), 8, 66, GuiWidgets.TEXT);
-                text(I18n.format("minepapers.gui.zoom"), 84, 66, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.tab." + tab), 8, 6, GuiWidgets.TEXT);
+                for (int i = 0; i < ROW_LABELS.length; i++) text(I18n.format(ROW_LABELS[i]), 8, ROW_Y[i] + 2, GuiWidgets.TEXT);
+                text("x", rowFieldX + rowFieldW + 2, ROW_SIZE + 2, GuiWidgets.TEXT);
+                drawRect(8, SEPARATOR_Y, WIDTH - 8, SEPARATOR_Y + 1, 0xFF8B8B8B);
                 text(I18n.format("minepapers.gui.fit"), 8, 117, GuiWidgets.TEXT);
                 break;
             case TAB_STYLE:
@@ -950,7 +969,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             tooltip("minepapers.gui.sharp.tip", mouseX, mouseY);
         } else if (cbMapPalette.hovered()) {
             tooltip("minepapers.gui.mapPalette.tip", mouseX, mouseY);
-        } else if (cbSizePx.hovered() || cbPosPx.hovered() || cbPadPx.hovered() || cbZoomPx.hovered()) {
+        } else if (cbSizePx.hovered() || cbPosPx.hovered() || cbPadPx.hovered() || cbZoomPx.hovered() || cbImagePx.hovered()) {
             tooltip("minepapers.gui.pixels.tip", mouseX, mouseY);
         } else if (ed.tab == TAB_SIZE && over(F_WIDTH, mouseX, mouseY)) {
             tooltip("minepapers.gui.width", mouseX, mouseY);
@@ -964,6 +983,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             tooltip("minepapers.gui.padding.tip", mouseX, mouseY);
         } else if (ed.tab == TAB_SIZE && over(F_ZOOM, mouseX, mouseY)) {
             tooltip("minepapers.gui.zoom.tip", mouseX, mouseY);
+        } else if (ed.tab == TAB_SIZE && over(F_IMAGE_X, mouseX, mouseY)) {
+            tooltip("minepapers.gui.image.x", mouseX, mouseY);
+        } else if (ed.tab == TAB_SIZE && over(F_IMAGE_Y, mouseX, mouseY)) {
+            tooltip("minepapers.gui.image.y", mouseX, mouseY);
         } else if (btnReload.hovered()) {
             tooltip("minepapers.gui.reload", mouseX, mouseY);
         }

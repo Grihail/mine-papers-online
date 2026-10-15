@@ -63,6 +63,7 @@ If the source has several pictures, the frame shows them as a slideshow with the
 - Canvas offset to the right and up from the clicked cell. The canvas always covers that cell by at least one pixel.
 - Padding of the image from the canvas edges, on all sides (0 or more).
 - Zoom: makes the image bigger (positive) or smaller (negative) by the given amount on each side. What goes past the padding is cropped. Padding and zoom have their own "px" checkboxes.
+- Image: moves the image right and up inside its area (size, offset and padding set the area; what goes past it is cropped). Own "px" checkbox.
 - Fitting the image into the canvas works like CSS `object-fit`, always from the center: fill, contain, cover, none, scale-down.
 
 ### Look and style
@@ -411,6 +412,7 @@ The same for all versions (`PictureSettings`):
 | `OX`, `OY`, `PosPx` | Canvas offset and the "in pixels" flag. |
 | `Pad`, `PadPx` | Image padding and the "in pixels" flag. |
 | `Zoom`, `ZoomPx` | Image zoom (positive - bigger, negative - smaller) and the "in pixels" flag. |
+| `IX`, `IY`, `ImagePx` | Image shift inside its area, right and up, and the "in pixels" flag. |
 | `Title`, `Desc` | Title and description. |
 | `Owner`, `OwnerName` | Owner of a private picture and their nickname. |
 | `Signer`, `SignerName` | Who signed the picture and their nickname. Set only by the server, cannot be removed. |
@@ -446,6 +448,7 @@ Example JSON that the copy button puts on the clipboard:
   "offset": { "right": 0, "up": 0, "pixels": false },
   "padding": { "size": 0, "pixels": true },
   "zoom": { "size": 0, "pixels": true },
+  "image": { "right": 0, "up": 0, "pixels": true },
   "fit": "cover",
   "glowPart": "picture",
   "look": "panel",

@@ -27,6 +27,8 @@ public final class ImageStylizer {
         final double canvasW, canvasH;
         /** Внутренний отступ картинки от краёв холста и масштаб (больше нуля — крупнее), в блоках. */
         final double padding, zoom;
+        /** Сдвиг картинки внутри области вписывания, в блоках: вправо и вверх. */
+        final double imageX, imageY;
         /** ppb — пикселей текстуры на блок; naturalPpb — для режимов none / scale-down (у картины в мире они равны). */
         final double ppb, naturalPpb;
         /** Число цветов (ступеней у каждого канала; 0 — палитра карт), сила дизеринга в процентах и его вид (PictureSettings.DITHER_*). */
@@ -40,6 +42,8 @@ public final class ImageStylizer {
             this.canvasH = canvasH;
             this.padding = padding;
             this.zoom = tile.getZoomBlocks();
+            this.imageX = tile.getImageXBlocks();
+            this.imageY = tile.getImageYBlocks();
             this.fit = fit;
             this.ppb = ppb;
             this.naturalPpb = naturalPpb;
@@ -50,6 +54,7 @@ public final class ImageStylizer {
             // Ключ собирается каждый кадр для каждой картины и иконки — без String.format, дроби с точностью до 1/10000.
             this.key = new StringBuilder(64).append(tenThousandths(canvasW)).append('|').append(tenThousandths(canvasH))
                 .append('|').append(tenThousandths(padding)).append('|').append(tenThousandths(zoom))
+                .append('|').append(tenThousandths(imageX)).append('|').append(tenThousandths(imageY))
                 .append('|').append(fit).append('|').append(tenThousandths(ppb))
                 .append('|').append(tenThousandths(naturalPpb)).append('|').append(colors).append('|').append(dither)
                 .append('|').append(ditherMode).append('|').append(sharp ? 1 : 0).toString();
@@ -130,9 +135,9 @@ public final class ImageStylizer {
             }
         }
 
-        // 2. Картинка центрирована на холсте, всё, что вылезает за область вписывания (и за отступ, если масштаб раздвинул её дальше), обрезается.
+        // 2. Картинка центрирована на холсте и сдвинута на imageX, imageY; всё, что вылезает за область вписывания (и за отступ, если масштаб раздвинул её дальше), обрезается.
         double cut = Math.max(0, zoom);
-        double rx0 = (canvasW - dw) / 2, ry0 = (canvasH - dh) / 2;
+        double rx0 = (canvasW - dw) / 2 + l.imageX, ry0 = (canvasH - dh) / 2 + l.imageY;
         double vx0 = Math.max(cut, rx0), vx1 = Math.min(canvasW - cut, rx0 + dw);
         double vy0 = Math.max(cut, ry0), vy1 = Math.min(canvasH - cut, ry0 + dh);
         if (vx1 - vx0 < 1e-6 || vy1 - vy0 < 1e-6) {
