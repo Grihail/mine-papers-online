@@ -39,6 +39,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.grihail.minepapers.network.SharedImage;
+import com.grihail.minepapers.picture.PictureSettings;
 
 /** Загрузка и кэширование картинок на клиенте; текстуры в видеопамять загружает версия (ClientHost). Все публичные методы вызываются только из клиентского (рендер) потока; скачивание, декодирование и стилизация идут в фоновых потоках. */
 public final class PictureManager {
@@ -145,6 +146,22 @@ public final class PictureManager {
                 it.remove();
             }
         }
+    }
+
+    /** Картины не дальше стольких блоков от игрока (от края холста) не выгружаются, даже если их не видно (см. keepAlive). */
+    public static final double KEEP_ALIVE_DISTANCE = 48;
+
+    /** Расстояние от игрока до центра картины, на котором она ещё держится в памяти (см. KEEP_ALIVE_DISTANCE). */
+    public static double keepAliveRange(PictureSettings tile) {
+        return KEEP_ALIVE_DISTANCE + Math.max(tile.getWidthBlocks(), tile.getHeightBlocks()) / 2;
+    }
+
+    /** Картина рядом с игроком (зовёт тик сущности на клиенте, он идёт и когда картина не в кадре): её показанная текстура и список источника не выгружаются. Иначе отвернулся на полминуты — и при повороте назад на месте картины пустой холст, пока она грузится заново. */
+    public static void keepAlive(PictureSettings tile) {
+        if (tile.clientRenderState instanceof Variant) ((Variant) tile.clientRenderState).touch();
+        String key = tile.getSourceKey();
+        Source source = key != null ? SOURCES.get(key) : null;
+        if (source != null) source.lastUsed = System.currentTimeMillis();
     }
 
     /** Периодически вызывается из клиентского тика: выгружает давно не используемые текстуры. */

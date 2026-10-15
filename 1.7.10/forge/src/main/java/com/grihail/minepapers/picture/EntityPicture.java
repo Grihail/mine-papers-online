@@ -2,6 +2,7 @@ package com.grihail.minepapers.picture;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.block.BlockPictureFrame;
+import com.grihail.minepapers.client.PictureManager;
 import com.grihail.minepapers.network.PacketBreakPicture;
 import com.grihail.minepapers.network.PacketOpenFrame;
 
@@ -134,6 +135,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
             lights.tick(frame, frame.glowLevel());
             return;
         }
+        if (worldObj.getClosestPlayerToEntity(this, PictureManager.keepAliveRange(frame)) != null) PictureManager.keepAlive(frame);
         ItemStack stack = dataWatcher.getWatchableObjectItemStack(WATCH_SETTINGS);
         if (stack != shownSettings) {
             shownSettings = stack;

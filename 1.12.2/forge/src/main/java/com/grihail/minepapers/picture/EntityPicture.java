@@ -2,6 +2,7 @@ package com.grihail.minepapers.picture;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.block.BlockPictureLight;
+import com.grihail.minepapers.client.PictureManager;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.network.PacketBreakPicture;
 import com.grihail.minepapers.network.PacketOpenFrame;
@@ -153,10 +154,14 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         refresh();
     }
 
-    /** Картина не движется и не горит; сервер обновляет свет после смены настроек. */
+    /** Картина не движется и не горит; сервер обновляет свет после смены настроек, клиент держит в памяти картину рядом с игроком (PictureManager.keepAlive). */
     @Override
     public void onUpdate() {
-        if (!world.isRemote) lights.tick(frame, frame.glowLevel());
+        if (!world.isRemote) {
+            lights.tick(frame, frame.glowLevel());
+        } else if (world.getClosestPlayerToEntity(this, PictureManager.keepAliveRange(frame)) != null) {
+            PictureManager.keepAlive(frame);
+        }
     }
 
     @Override
