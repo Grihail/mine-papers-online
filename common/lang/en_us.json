@@ -30,7 +30,7 @@
   "minepapers.gui.frameShape.1": "Edges",
   "minepapers.gui.frameShape.2": "Molding",
   "minepapers.gui.frameShape.0.tip": "The picture has no frame.\nThe frame block returns to you when the window closes.",
-  "minepapers.gui.frameShape.1.tip": "The frame covers only the canvas edges,\nthe whole picture stays open.\nWithout a canvas, turns on the block canvas.",
+  "minepapers.gui.frameShape.1.tip": "The frame covers only the canvas edges,\nthe whole picture stays open.",
   "minepapers.gui.frameShape.2.tip": "Frame width in pixels: a real frame covers\nthe edge of the picture and sticks out above it.\n0 - no molding.",
   "minepapers.gui.canvasKind.0": "No canvas",
   "minepapers.gui.canvasKind.1": "Block canvas",

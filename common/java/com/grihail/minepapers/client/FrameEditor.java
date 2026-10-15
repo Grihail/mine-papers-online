@@ -201,16 +201,14 @@ public abstract class FrameEditor {
         return PictureSettings.look(frameShape, canvasKind);
     }
 
-    /** "Нет" или "обшивка" — багета больше нет. Обшивать без холста нечего, поэтому с ней включается холст из блока. */
+    /** "Нет" или "обшивка" — багета больше нет. */
     public void chooseFrame(int value) {
         frameShape = value;
-        if (value == PictureSettings.FRAME_EDGES && canvasKind == PictureSettings.CANVAS_NONE) canvasKind = PictureSettings.CANVAS_BLOCK;
         setText(F_MOLDING, "0");
     }
 
     public void chooseCanvas(int value) {
         canvasKind = value;
-        frameShape = PictureSettings.frameShapeOf(look()); // без холста обшивки нет
     }
 
     /** Ширина багета больше нуля — рамка становится багетом, ноль — рамки нет (если был багет). */
@@ -398,7 +396,6 @@ public abstract class FrameEditor {
         }
         if (c.frame != null) frameShape = c.frame;
         if (c.canvas != null) canvasKind = c.canvas;
-        frameShape = PictureSettings.frameShapeOf(look());
         // Багет без ширины (конфиг прежних версий) — обычной ширины.
         setText(F_MOLDING, frameShape != PictureSettings.FRAME_MOLDING ? "0" : String.valueOf(
             c.moldingWidth != null && c.moldingWidth > 0 ? c.moldingWidth : PictureSettings.DEFAULT_MOLDING));

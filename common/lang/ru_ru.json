@@ -30,7 +30,7 @@
   "minepapers.gui.frameShape.1": "Обшивка",
   "minepapers.gui.frameShape.2": "Багет",
   "minepapers.gui.frameShape.0.tip": "Картина без рамки.\nБлок рамки вернётся к вам при закрытии окна.",
-  "minepapers.gui.frameShape.1.tip": "Рамка обшивает только торцы холста,\nкартинка открыта целиком.\nБез холста включает холст из блока.",
+  "minepapers.gui.frameShape.1.tip": "Рамка обшивает только торцы холста,\nкартинка открыта целиком.",
   "minepapers.gui.frameShape.2.tip": "Ширина рамки в пикселях: настоящая рамка\nзаходит на края картинки и выступает над ней.\n0 - без багета.",
   "minepapers.gui.canvasKind.0": "Без холста",
   "minepapers.gui.canvasKind.1": "Холст из блока",

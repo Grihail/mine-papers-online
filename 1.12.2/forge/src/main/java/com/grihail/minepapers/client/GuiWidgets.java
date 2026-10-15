@@ -36,10 +36,11 @@ final class GuiWidgets {
     private static final ResourceLocation BUTTONS = new ResourceLocation("textures/gui/widgets.png");
     private static final ResourceLocation BEACON = new ResourceLocation("textures/gui/container/beacon.png");
 
-    /** Иконки вписывания и источников 16x16 — в ряд с (0, 32) и (0, 48), по порядку PictureFrame.FIT_* и SOURCE_*; с (0, 64) — обшивка рамки, за ней холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
+    /** Иконки вписывания и источников 16x16 — в ряд с (0, 32) и (0, 48), по порядку PictureFrame.FIT_* и SOURCE_*; с (0, 64) — обшивка рамки, за ней холсты (из блока, сама картинка). "Нет" у обоих — крест (NONE_ICON_U, NONE_ICON_V). Глаз 10x10 в (196, 0) и (206, 0) в текстуре остался, но не используется. */
     /** Копировать, вставить, открытый и закрытый замок 10x10 — в ряду иконок (v = 0). */
-    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186,
-        ICON_EYE_OPEN_U = 196, ICON_EYE_CLOSED_U = 206;
+    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186;
+    /** Крест 16x16 — кнопка "нет" у рамки и холста. */
+    static final int NONE_ICON_U = 144, NONE_ICON_V = 64;
     /** Перо 16x16 (контур ванильного пера) — на кнопке подписи. */
     static final int PEN_U = 64, PEN_V = 64;
     /** "18+" 16x16 — на кнопке пометки NSFW: серая и красная (картина помечена). */
@@ -191,28 +192,6 @@ final class GuiWidgets {
             blit(x + 10, y + 10, u + 12, 231, 10, 10);
             icon(x + 2, y + 2, iconU, iconV, 16, 16);
             if (!enabled) drawRect(x + 2, y + 2, x + 18, y + 18, 0xA0303030);
-        }
-    }
-
-    /** Переключатель "выключить": глаз 10x10 без кнопки. Выбран — глаз закрыт и ярок; нет — открыт и бледен (под курсором — ярче). */
-    static class Eye extends Toggle {
-
-        static final int WIDTH = 12;
-
-        Eye(int id, int x, int y) {
-            super(id, x, y, WIDTH, 20, -1, 0);
-        }
-
-        @Override
-        void draw(Minecraft mc, boolean hovered) {
-            // GuiWidgets.ICONS, а не просто ICONS: у ванильного Gui (предка кнопки) есть своё поле ICONS — icons.png.
-            bind(GuiWidgets.ICONS);
-            GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-            GlStateManager.color(1f, 1f, 1f, checked ? 1f : hovered ? 0.7f : 0.35f);
-            blit(x + (width - 10) / 2, y + (height - 10) / 2, checked ? ICON_EYE_CLOSED_U : ICON_EYE_OPEN_U, 0, 10, 10);
-            GlStateManager.color(1f, 1f, 1f, 1f);
-            GlStateManager.disableBlend();
         }
     }
 

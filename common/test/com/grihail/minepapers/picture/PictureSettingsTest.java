@@ -144,9 +144,6 @@ class PictureSettingsTest {
         for (int look = 0; look < PictureSettings.LOOK_COUNT; look++) {
             assertEquals(look, PictureSettings.look(PictureSettings.frameShapeOf(look), PictureSettings.canvasKindOf(look)));
         }
-        // Обшивки без холста не бывает.
-        assertEquals(PictureSettings.FRAME_NONE, PictureSettings.frameShapeOf(
-            PictureSettings.look(PictureSettings.FRAME_EDGES, PictureSettings.CANVAS_NONE)));
     }
 
     @Test

@@ -57,8 +57,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private static final int WIDTH = 176,
         HEIGHT = ContainerPictureFrame.INVENTORY_Y - GuiWidgets.INVENTORY_PART_SLOTS_Y + GuiWidgets.INVENTORY_PART_HEIGHT;
 
-    /** Левый край кнопок вида рамки и холста (глаз и две кнопки в ряд, до правого края панели). */
-    private static final int LOOK_X = WIDTH - 8 - GuiWidgets.Eye.WIDTH - 2 - 42;
+    /** Левый край кнопок вида рамки и холста (три кнопки в ряд, до правого края панели). */
+    private static final int LOOK_X = WIDTH - 8 - 64;
 
     /** Картина-сущность или картина-предмет в руке. */
     private final FrameHolder holder;
@@ -240,7 +240,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         // Рамка: справа от слотов рамки и холста — их вид. У рамки кнопки "нет" и "обшивка", за ними — ширина багета (поле рисует рамку на пиксель шире себя — как кнопка).
         int lookY = y + ContainerPictureFrame.MATERIAL_Y - 2;
         lookButtons(frameButtons, ID_FRAME, PictureFrame.FRAME_MOLDING, 0, x, lookY);
-        field(F_MOLDING, x + LOOK_X + GuiWidgets.Eye.WIDTH + 2 + 22 + 1, lookY + 4, 18, 3);
+        field(F_MOLDING, x + LOOK_X + 2 * 22 + 1, lookY + 4, 18, 3);
         lookButtons(canvasButtons, ID_CANVAS, PictureFrame.CANVAS_COUNT, 1, x, lookY + ContainerPictureFrame.MATERIAL_STEP);
 
         // Описание
@@ -260,11 +260,11 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         return button;
     }
 
-    /** Ряд кнопок вида: первый — глаз "нет" (значение 0), за ним кнопки с иконками из ряда LOOK_ICON_V, начиная с иконки firstIcon. */
+    /** Ряд кнопок вида: первая — крест "нет" (значение 0), за ним кнопки с иконками из ряда LOOK_ICON_V, начиная с иконки firstIcon. */
     private void lookButtons(List<GuiWidgets.Toggle> list, int firstId, int count, int firstIcon, int x, int y) {
-        list.add(add(new GuiWidgets.Eye(firstId, x + LOOK_X - 4, y), TAB_FRAME)); // чуть в стороне от кнопок
+        list.add(add(new GuiWidgets.Toggle(firstId, x + LOOK_X, y, GuiWidgets.NONE_ICON_U, GuiWidgets.NONE_ICON_V), TAB_FRAME));
         for (int i = 1; i < count; i++) {
-            list.add(add(new GuiWidgets.Toggle(firstId + i, x + LOOK_X + GuiWidgets.Eye.WIDTH + 2 + (i - 1) * 22, y,
+            list.add(add(new GuiWidgets.Toggle(firstId + i, x + LOOK_X + i * 22, y,
                 (firstIcon + i - 1) * 16, GuiWidgets.LOOK_ICON_V), TAB_FRAME));
         }
     }

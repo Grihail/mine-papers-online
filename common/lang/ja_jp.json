@@ -30,7 +30,7 @@
   "minepapers.gui.frameShape.1": "側面のみ",
   "minepapers.gui.frameShape.2": "額縁",
   "minepapers.gui.frameShape.0.tip": "フレームのない絵です。\nフレームのブロックはウィンドウを閉じると戻ります。",
-  "minepapers.gui.frameShape.1.tip": "フレームがキャンバスの側面だけを覆い、\n絵はすべて見えます。\nキャンバスがなければブロックのキャンバスがオンになります。",
+  "minepapers.gui.frameShape.1.tip": "フレームがキャンバスの側面だけを覆い、\n絵はすべて見えます。",
   "minepapers.gui.frameShape.2.tip": "額縁の幅をピクセルで指定：本物の額縁が\n絵の端を覆い、手前に張り出します。\n0 - 額縁なし。",
   "minepapers.gui.canvasKind.0": "キャンバスなし",
   "minepapers.gui.canvasKind.1": "ブロックのキャンバス",

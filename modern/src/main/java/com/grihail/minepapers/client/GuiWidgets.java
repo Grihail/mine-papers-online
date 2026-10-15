@@ -44,11 +44,12 @@ import net.minecraft.client.resources.PlayerSkin;
 /** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры и спрайты (сундук, вкладки творческого режима, кнопки, кнопки маяка), поэтому окно выглядит как родное и меняется вместе с ресурспаком. До 1.20.2 спрайтов интерфейса нет — то же берётся из прежних текстур (widgets.png, tabs.png, beacon.png). Из своей текстуры textures/gui/picture_frame.png — только иконки. */
 final class GuiWidgets {
 
-    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), галочки 10x10 с (20, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48), с (0, 64) — обшивка рамки, за ней холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
+    /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), галочки 10x10 с (20, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48), с (0, 64) — обшивка рамки, за ней холсты (из блока, сама картинка). "Нет" у обоих — крест (NONE_ICON_U, NONE_ICON_V). Глаз 10x10 в (196, 0) и (206, 0) в текстуре остался, но не используется. */
     static final ResourceLocation ICONS = MinePapers.id("textures/gui/picture_frame.png");
     /** Копировать, вставить и открытый замок 10x10 — в ряду иконок (v = 0). */
-    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186,
-        ICON_EYE_OPEN_U = 196, ICON_EYE_CLOSED_U = 206;
+    static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186;
+    /** Крест 16x16 — кнопка "нет" у рамки и холста. */
+    static final int NONE_ICON_U = 144, NONE_ICON_V = 64;
     /** Перо 16x16 (контур ванильного пера) — на кнопке подписи. */
     static final int PEN_U = 64, PEN_V = 64;
     /** "18+" 16x16 — на кнопке пометки NSFW: серая и красная (картина помечена). */
@@ -230,25 +231,6 @@ final class GuiWidgets {
             beaconButton(g, getX(), getY(), active, checked, isHovered());
             icon(g, getX() + 3, getY() + 3, iconU, iconV, 16, 16);
             if (!active) g.fill(getX() + 3, getY() + 3, getX() + 19, getY() + 19, 0xA0303030);
-        }
-    }
-
-    /** Переключатель "выключить": глаз 10x10 без кнопки. Выбран — глаз закрыт и ярок; нет — открыт и бледен (под курсором — ярче). */
-    static class Eye extends Toggle {
-
-        static final int WIDTH = 12;
-
-        Eye(int x, int y, int h, Component name, Runnable action) {
-            super(x, y, WIDTH, h, 0, -1, 0, name, action);
-        }
-
-        @Override
-        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            RenderSystem.enableBlend();
-            g.setColor(1f, 1f, 1f, checked ? 1f : isHovered() ? 0.7f : 0.35f);
-            g.blit(ICONS, getX() + (width - 10) / 2, getY() + (height - 10) / 2, checked ? ICON_EYE_CLOSED_U : ICON_EYE_OPEN_U, 0, 10, 10);
-            g.setColor(1f, 1f, 1f, 1f);
-            RenderSystem.disableBlend();
         }
     }
 

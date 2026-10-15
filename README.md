@@ -67,7 +67,7 @@ If the source has several pictures, the frame shows them as a slideshow with the
 
 ### Look and style
 
-The frame and the canvas are chosen separately on the "Frame" tab, with the buttons to the right of their slots. The first button in each row is an eye: it turns the frame or canvas off. In the frame row, the field after the buttons is the molding width in pixels.
+The frame and the canvas are chosen separately on the "Frame" tab, with the buttons to the right of their slots. The first button in each row, with a cross, turns the frame or canvas off. In the frame row, the field after the buttons is the molding width in pixels.
 
 | Frame | Looks like |
 | --- | --- |
@@ -417,7 +417,7 @@ The same for all versions (`PictureSettings`):
 | `Nsfw` | NSFW (18+) mark, 1 - marked. |
 | `Molding` | Molding width in pixels. |
 | `Sharp`, `MapPalette`, `Colors`, `Dither`, `DitherMode` | Sharp pixels (1 - no semi-transparency), map palette (1 - instead of the number of colors), number of colors (2-25), dither strength in percent and its kind (0 diffusion, 1 grid). Pictures from older versions have `Style` instead (0 original colors, 1-3 map palette without, with and with soft dithering); it is converted on load into the same look. |
-| `Fit`, `PPB`, `Mode` | Fit, pixels per block, look. The look is a combination of frame and canvas: 0-3 are the old looks (panel, frame, graffiti, plate), 4-7 are new combinations (see `PictureSettings.LOOK_FRAME`). |
+| `Fit`, `PPB`, `Mode` | Fit, pixels per block, look. The look is a combination of frame and canvas: 0-3 are the old looks (panel, frame, graffiti, plate), 4-8 are new combinations (see `PictureSettings.LOOK_FRAME`). |
 | `Files` | Pictures on the server: consecutive 20-byte SHA-1 hashes. |
 
 Materials are written by the version: `Border`, `Canvas`, `Glow` (item id for the texture) and `BorderItem`, `CanvasItem`, `GlowItem` (the item itself). 1.7.10 and 1.12.2 also have `BorderMeta`, `CanvasMeta`, `GlowMeta`.

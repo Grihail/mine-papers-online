@@ -30,7 +30,7 @@
   "minepapers.gui.frameShape.1": "包边",
   "minepapers.gui.frameShape.2": "画框",
   "minepapers.gui.frameShape.0.tip": "画作没有边框。\n关闭窗口时边框方块会还给你。",
-  "minepapers.gui.frameShape.1.tip": "边框只包住画布的侧边，\n整幅图片都露在外面。\n没有画布时会启用方块画布。",
+  "minepapers.gui.frameShape.1.tip": "边框只包住画布的侧边，\n整幅图片都露在外面。",
   "minepapers.gui.frameShape.2.tip": "画框宽度（像素）：真正的画框覆盖图片边缘\n并凸出于画面。\n0 - 无画框。",
   "minepapers.gui.canvasKind.0": "无画布",
   "minepapers.gui.canvasKind.1": "方块画布",

@@ -42,20 +42,20 @@ public class PictureSettings {
     public static final int MODE_REALISTIC = 1; // настоящая рамка: заходит на картину и выступает над ней
     public static final int MODE_DECAL = 2;     // граффити: без рамки, вплотную к стене
     public static final int MODE_PLATE = 3;     // пластина: сама картинка толщиной в пиксель, торцы — её крайние пиксели
-    public static final int LOOK_COUNT = 8;
+    public static final int LOOK_COUNT = 9;
 
     /** Рамка: нет, обшивка торцов холста, багет (заходит на картину и выступает над ней). */
     public static final int FRAME_NONE = 0, FRAME_EDGES = 1, FRAME_MOLDING = 2;
     /** Холст: нет (картинка прямо на стене), из блока материала, сама картинка толщиной в пиксель. */
     public static final int CANVAS_NONE = 0, CANVAS_BLOCK = 1, CANVAS_PICTURE = 2, CANVAS_COUNT = 3;
-    /** Рамка и холст каждого вида (по номеру вида). Обшивки без холста нет: обшивать нечего. */
+    /** Рамка и холст каждого вида (по номеру вида). */
     private static final int[] LOOK_FRAME = { FRAME_EDGES, FRAME_MOLDING, FRAME_NONE, FRAME_NONE,
-        FRAME_NONE, FRAME_MOLDING, FRAME_EDGES, FRAME_MOLDING };
+        FRAME_NONE, FRAME_MOLDING, FRAME_EDGES, FRAME_MOLDING, FRAME_EDGES };
     private static final int[] LOOK_CANVAS = { CANVAS_BLOCK, CANVAS_BLOCK, CANVAS_NONE, CANVAS_PICTURE,
-        CANVAS_BLOCK, CANVAS_NONE, CANVAS_PICTURE, CANVAS_PICTURE };
+        CANVAS_BLOCK, CANVAS_NONE, CANVAS_PICTURE, CANVAS_PICTURE, CANVAS_NONE };
     /** Ближайший вид прежних версий (для конфига, который вставят в версию без новых видов). */
     private static final int[] LOOK_CLASSIC = { MODE_PANEL, MODE_REALISTIC, MODE_DECAL, MODE_PLATE,
-        MODE_PANEL, MODE_REALISTIC, MODE_PANEL, MODE_REALISTIC };
+        MODE_PANEL, MODE_REALISTIC, MODE_PANEL, MODE_REALISTIC, MODE_DECAL };
 
     public static final float PIXEL = 1f / 16f;
     public static final float MIN_SIZE_BLOCKS = PIXEL;
@@ -290,7 +290,7 @@ public class PictureSettings {
     /** Толщина картины от стены (и её хитбокса). */
     public float getDepth() {
         if (getFrameShape() == FRAME_MOLDING) return 2 * PIXEL;
-        return getCanvasKind() == CANVAS_NONE ? PIXEL / 2 : PIXEL;
+        return getCanvasKind() == CANVAS_NONE && getFrameShape() == FRAME_NONE ? PIXEL / 2 : PIXEL;
     }
 
     /** Ширина брусьев багета в блоках. */
@@ -306,9 +306,8 @@ public class PictureSettings {
         return LOOK_CANVAS[mode];
     }
 
-    /** Вид из рамки и холста; обшивка без холста — без рамки. */
+    /** Вид из рамки и холста. */
     public static int look(int frameShape, int canvasKind) {
-        if (canvasKind == CANVAS_NONE && frameShape == FRAME_EDGES) frameShape = FRAME_NONE;
         for (int i = 0; i < LOOK_COUNT; i++) {
             if (LOOK_FRAME[i] == frameShape && LOOK_CANVAS[i] == canvasKind) return i;
         }

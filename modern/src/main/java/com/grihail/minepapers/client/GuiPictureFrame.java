@@ -55,8 +55,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private static final int WIDTH = 176,
         HEIGHT = ContainerPictureFrame.INVENTORY_Y - GuiWidgets.INVENTORY_PART_SLOTS_Y + GuiWidgets.INVENTORY_PART_HEIGHT;
 
-    /** Левый край кнопок вида рамки и холста (глаз и две кнопки в ряд, до правого края панели). */
-    private static final int LOOK_X = WIDTH - 8 - GuiWidgets.Eye.WIDTH - 2 - 46;
+    /** Левый край кнопок вида рамки и холста (три кнопки в ряд, до правого края панели). */
+    private static final int LOOK_X = WIDTH - 8 - 70;
 
     /** Картина-сущность или картина-предмет в руке. */
     private final FrameHolder holder;
@@ -273,7 +273,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         // Рамка: справа от слотов рамки и холста — их вид. У рамки кнопки "нет" и "обшивка", за ними — ширина багета.
         int lookY = y + ContainerPictureFrame.MATERIAL_Y - 3;
         lookButtons(frameButtons, "minepapers.gui.frameShape.", PictureFrame.FRAME_MOLDING, 0, x, lookY, ed::chooseFrame);
-        EditBox molding = field(F_MOLDING, x + LOOK_X + GuiWidgets.Eye.WIDTH + 2 + 24, lookY + 4, 22, 3);
+        EditBox molding = field(F_MOLDING, x + LOOK_X + 2 * 24, lookY + 4, 22, 3);
         molding.setResponder(value -> {
             ed.moldingChanged();
             updateWidgets();
@@ -292,7 +292,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         updateWidgets();
     }
 
-    /** Ряд кнопок вида: первый — глаз "нет" (значение 0), за ним кнопки с иконками из ряда LOOK_ICON_V, начиная с иконки firstIcon. */
+    /** Ряд кнопок вида: первая — крест "нет" (значение 0), за ним кнопки с иконками из ряда LOOK_ICON_V, начиная с иконки firstIcon. */
     private void lookButtons(List<GuiWidgets.Toggle> list, String key, int count, int firstIcon, int x, int y, IntConsumer choose) {
         for (int i = 0; i < count; i++) {
             int value = i;
@@ -301,9 +301,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 updateWidgets();
             };
             Component name = Component.translatable(key + i);
-            list.add(add(i == 0 ? new GuiWidgets.Eye(x + LOOK_X - 4, y, 22, name, action) // чуть в стороне от кнопок
-                : new GuiWidgets.Toggle(x + LOOK_X + GuiWidgets.Eye.WIDTH + 2 + (i - 1) * 24, y, i, (firstIcon + i - 1) * 16,
-                    GuiWidgets.LOOK_ICON_V, name, action), TAB_FRAME));
+            list.add(add(i == 0 ? new GuiWidgets.Toggle(x + LOOK_X, y, i, GuiWidgets.NONE_ICON_U, GuiWidgets.NONE_ICON_V, name, action)
+                : new GuiWidgets.Toggle(x + LOOK_X + i * 24, y, i, (firstIcon + i - 1) * 16, GuiWidgets.LOOK_ICON_V, name, action), TAB_FRAME));
             list.get(i).setTooltip(tip(key + i, key + i + ".tip"));
         }
     }
