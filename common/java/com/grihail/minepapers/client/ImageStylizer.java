@@ -31,7 +31,7 @@ public final class ImageStylizer {
         final double ppb, naturalPpb;
         /** Число цветов (ступеней у каждого канала; 0 — палитра карт), сила дизеринга в процентах и его вид (PictureSettings.DITHER_*). */
         final int fit, colors, dither, ditherMode;
-        /** Резкие пиксели: пиксель либо непрозрачен, либо прозрачен целиком. */
+        /** Резкие пиксели: пиксель либо непрозрачен, либо прозрачен целиком (sharpen), и соседние пиксели при уменьшении не смешиваются (resample). */
         final boolean sharp;
         final String key;
 
@@ -159,7 +159,7 @@ public final class ImageStylizer {
         int outW = Math.max(1, (int) Math.round(tw));
         int outH = Math.max(1, (int) Math.round(th));
 
-        int[] out = resample(src, srcW, srcH, sx0, sy0, sx1, sy1, outW, outH);
+        int[] out = resample(src, srcW, srcH, sx0, sy0, sx1, sy1, outW, outH, l.sharp);
         if (l.sharp) sharpen(out);
         posterize(out, outW, outH, l.colors, l.dither / (float) PictureSettings.MAX_DITHER, l.colors == 0,
             l.ditherMode == PictureSettings.DITHER_ORDERED);
@@ -174,19 +174,20 @@ public final class ImageStylizer {
         return res;
     }
 
-    // --------------------------------------------------------------------- Ресемплинг: усреднение по площади (с учётом прозрачности) при уменьшении, ближайший пиксель при увеличении.
+    // --------------------------------------------------------------------- Ресемплинг: усреднение по площади (с учётом прозрачности) при уменьшении, ближайший пиксель при увеличении и у резких пикселей.
 
-    private static int[] resample(int[] src, int sw, int sh, double sx0, double sy0, double sx1, double sy1, int tw, int th) {
+    /** nearest — всегда ближайший пиксель, без усреднения (резкие пиксели): иначе при сдвиге на долю пикселя и при уменьшении соседние пиксели смешиваются — картинка сглаживается. */
+    static int[] resample(int[] src, int sw, int sh, double sx0, double sy0, double sx1, double sy1, int tw, int th, boolean nearest) {
         int[] out = new int[tw * th];
         double stepX = (sx1 - sx0) / tw, stepY = (sy1 - sy0) / th;
         int[] xa = new int[tw], xb = new int[tw];
         for (int i = 0; i < tw; i++) {
-            int[] span = span(sx0 + i * stepX, stepX, sw);
+            int[] span = span(sx0 + i * stepX, stepX, sw, nearest);
             xa[i] = span[0];
             xb[i] = span[1];
         }
         for (int j = 0; j < th; j++) {
-            int[] spanY = span(sy0 + j * stepY, stepY, sh);
+            int[] spanY = span(sy0 + j * stepY, stepY, sh, nearest);
             for (int i = 0; i < tw; i++) {
                 long a = 0, r = 0, g = 0, b = 0;
                 int n = 0;
@@ -220,10 +221,10 @@ public final class ImageStylizer {
         }
     }
 
-    /** Диапазон исходных пикселей [from, to) для одного выходного. */
-    private static int[] span(double start, double step, int size) {
+    /** Диапазон исходных пикселей [from, to) для одного выходного: при увеличении и nearest — один пиксель под центром выходного. */
+    private static int[] span(double start, double step, int size, boolean nearest) {
         int from, to;
-        if (step < 1) {
+        if (nearest || step < 1) {
             from = (int) Math.floor(start + step / 2);
             to = from + 1;
         } else {

@@ -105,8 +105,8 @@ final class GifFrames {
         if (w != canvas.getWidth() || h != canvas.getHeight()) {
             img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = img.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            // Ближайший пиксель: анимации GIF чаще всего пиксель-арт с малой палитрой — сглаживание размыло бы пиксели и добавило цветов.
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             g.drawImage(canvas, 0, 0, w, h, null);
             g.dispose();
         }
