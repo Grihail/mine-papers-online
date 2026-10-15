@@ -11,10 +11,12 @@ import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 
-/** Свои варианты ванильных типов отрисовки. */
-public final class PictureRenderTypes {
+/** Свои варианты ванильных типов отрисовки. Наследник RenderType — только ради доступа к его защищённым частям (в старых версиях они не открыты); экземпляров нет. */
+public final class PictureRenderTypes extends RenderType {
 
-    private PictureRenderTypes() {}
+    private PictureRenderTypes() {
+        super("minepapers", DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, 0, false, false, () -> {}, () -> {});
+    }
 
     /** Картинка-граффити: как entityTranslucent, но со смещением полигонов — прижата к стене без мерцания. */
     private static final Function<ResourceLocation, RenderType> DECAL = Util.memoize(texture -> RenderType.create(

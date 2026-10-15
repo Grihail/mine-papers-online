@@ -9,7 +9,9 @@ import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
+//? if >=1.20.5 {
 import net.minecraft.world.item.crafting.CraftingInput;
+//?}
 import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
@@ -17,15 +19,25 @@ import net.minecraft.world.level.Level;
 /** Рецепты без формы, как копирование карт (заприваченные картины в них не участвуют): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. onCrafted). */
 public class RecipePictureFrame extends CustomRecipe {
 
+    //? if >=1.20.5 {
     public RecipePictureFrame(CraftingBookCategory category) {
         super(category);
     }
+    //?} else {
+    /*public RecipePictureFrame(net.minecraft.resources.ResourceLocation id, CraftingBookCategory category) {
+        super(id, category);
+    }
+    *///?}
 
     /** Настроенная рамка из сетки или null, если сетка не подходит под рецепт. Пустые пишутся в empty[0]. */
+    //? if >=1.20.5 {
     private static ItemStack find(CraftingInput input, int[] empty) {
+    //?} else {
+    /*private static ItemStack find(net.minecraft.world.inventory.CraftingContainer input, int[] empty) {
+    *///?}
         ItemStack configured = null;
         empty[0] = 0;
-        for (int i = 0; i < input.size(); i++) {
+        for (int i = 0; i < size(input); i++) {
             ItemStack stack = input.getItem(i);
             if (stack.isEmpty()) continue;
             if (!stack.is(MinePapers.FRAME.get())) return null;
@@ -43,6 +55,18 @@ public class RecipePictureFrame extends CustomRecipe {
         return configured;
     }
 
+    /** Сетка крафта: с 1.20.5 — CraftingInput, раньше — сам контейнер верстака. */
+    //? if >=1.20.5 {
+    private static int size(CraftingInput input) {
+        return input.size();
+    }
+    //?} else {
+    /*private static int size(net.minecraft.world.inventory.CraftingContainer input) {
+        return input.getContainerSize();
+    }
+    *///?}
+
+    //? if >=1.20.5 {
     @Override
     public boolean matches(CraftingInput input, Level level) {
         return !assemble(input, level.registryAccess()).isEmpty();
@@ -50,6 +74,15 @@ public class RecipePictureFrame extends CustomRecipe {
 
     @Override
     public ItemStack assemble(CraftingInput input, HolderLookup.Provider registries) {
+    //?} else {
+    /*@Override
+    public boolean matches(net.minecraft.world.inventory.CraftingContainer input, Level level) {
+        return !assemble(input, level.registryAccess()).isEmpty();
+    }
+
+    @Override
+    public ItemStack assemble(net.minecraft.world.inventory.CraftingContainer input, net.minecraft.core.RegistryAccess registries) {
+    *///?}
         int[] empty = new int[1];
         ItemStack configured = find(input, empty);
         if (configured == null) return ItemStack.EMPTY;
@@ -70,7 +103,7 @@ public class RecipePictureFrame extends CustomRecipe {
             }
             settings.putInt("Mode", PictureFrame.MODE_DECAL);
         }
-        copy.set(MinePapers.FRAME_SETTINGS.get(), settings);
+        ItemPictureFrame.setSettings(copy, settings);
         return copy;
     }
 

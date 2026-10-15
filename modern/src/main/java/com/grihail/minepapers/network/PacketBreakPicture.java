@@ -5,26 +5,30 @@ import com.grihail.minepapers.picture.BreakTimer;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.server.ServerImages;
 
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
 /** Клиент -> сервер: игрок начал "копать" картину (START) или докопал (FINISH). Сервер ломает картину, только если с начала прошло не меньше времени, чем нужно этому игроку с его инструментом. */
-public record PacketBreakPicture(int entityId, byte action) implements CustomPacketPayload {
+public record PacketBreakPicture(int entityId, byte action) implements ModPacket {
 
     public static final byte START = 0, FINISH = 1;
 
-    public static final Type<PacketBreakPicture> TYPE = new Type<>(MinePapers.id("break_picture"));
-    public static final StreamCodec<ByteBuf, PacketBreakPicture> CODEC = StreamCodec.composite(
-        ByteBufCodecs.VAR_INT, PacketBreakPicture::entityId,
-        ByteBufCodecs.BYTE, PacketBreakPicture::action,
-        PacketBreakPicture::new);
+    public static final ResourceLocation ID = MinePapers.id("break_picture");
 
     @Override
-    public Type<PacketBreakPicture> type() {
-        return TYPE;
+    public ResourceLocation id() {
+        return ID;
+    }
+
+    @Override
+    public void write(FriendlyByteBuf buf) {
+        buf.writeVarInt(entityId);
+        buf.writeByte(action);
+    }
+
+    public static PacketBreakPicture read(FriendlyByteBuf buf) {
+        return new PacketBreakPicture(buf.readVarInt(), buf.readByte());
     }
 
     /** Применить пакет от игрока player (в серверном потоке). */

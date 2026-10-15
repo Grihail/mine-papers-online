@@ -3,10 +3,6 @@ package com.grihail.minepapers.client;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.Util;
-import com.mojang.authlib.properties.Property;
-import com.mojang.authlib.GameProfile;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.IntBinaryOperator;
 import java.util.function.IntConsumer;
@@ -15,6 +11,8 @@ import java.util.function.IntFunction;
 import org.joml.Matrix4f;
 
 import com.grihail.minepapers.MinePapers;
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -22,24 +20,28 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
-import net.minecraft.client.gui.components.WidgetSprites;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.DefaultPlayerSkin;
-import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.world.level.block.entity.SkullBlockEntity;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+//? if >=1.20.2 {
+import java.util.Optional;
+import net.minecraft.client.gui.components.WidgetSprites;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.PlayerSkin;
+//?}
 
-/** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры и спрайты (сундук, вкладки творческого режима, кнопки, кнопки маяка), поэтому окно выглядит как родное и меняется вместе с ресурспаком. Из своей текстуры textures/gui/picture_frame.png — только иконки. */
+/** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры и спрайты (сундук, вкладки творческого режима, кнопки, кнопки маяка), поэтому окно выглядит как родное и меняется вместе с ресурспаком. До 1.20.2 спрайтов интерфейса нет — то же берётся из прежних текстур (widgets.png, tabs.png, beacon.png). Из своей текстуры textures/gui/picture_frame.png — только иконки. */
 final class GuiWidgets {
 
     /** Свои иконки: вкладки 16x16 в ряд с (0, 0) (см. TAB_ICON_U), обновление 10x10 в (64, 0), галочки 10x10 с (20, 16), вписывание 16x16 с (0, 32), источники 16x16 с (0, 48), с (0, 64) — обшивка рамки, за ней холсты (из блока, сама картинка). "Нет" у обоих — глаз (Eye). */
@@ -57,15 +59,22 @@ final class GuiWidgets {
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
 
-    private static final ResourceLocation CHEST = ResourceLocation.withDefaultNamespace("textures/gui/container/generic_54.png");
-    private static final ResourceLocation TAB_SELECTED = vanilla("container/creative_inventory/tab_top_selected_2");
-    private static final ResourceLocation TAB_UNSELECTED = vanilla("container/creative_inventory/tab_top_unselected_2");
-    private static final ResourceLocation BEACON_BUTTON = vanilla("container/beacon/button");
-    private static final ResourceLocation BEACON_SELECTED = vanilla("container/beacon/button_selected");
-    private static final ResourceLocation BEACON_HIGHLIGHTED = vanilla("container/beacon/button_highlighted");
-    private static final ResourceLocation BEACON_DISABLED = vanilla("container/beacon/button_disabled");
-    private static final WidgetSprites BUTTON = new WidgetSprites(vanilla("widget/button"), vanilla("widget/button_disabled"),
-        vanilla("widget/button_highlighted"));
+    private static final ResourceLocation CHEST = MinePapers.vanilla("textures/gui/container/generic_54.png");
+    //? if >=1.20.2 {
+    private static final ResourceLocation TAB_SELECTED = MinePapers.vanilla("container/creative_inventory/tab_top_selected_2");
+    private static final ResourceLocation TAB_UNSELECTED = MinePapers.vanilla("container/creative_inventory/tab_top_unselected_2");
+    private static final ResourceLocation BEACON_BUTTON = MinePapers.vanilla("container/beacon/button");
+    private static final ResourceLocation BEACON_SELECTED = MinePapers.vanilla("container/beacon/button_selected");
+    private static final ResourceLocation BEACON_HIGHLIGHTED = MinePapers.vanilla("container/beacon/button_highlighted");
+    private static final ResourceLocation BEACON_DISABLED = MinePapers.vanilla("container/beacon/button_disabled");
+    private static final WidgetSprites BUTTON = new WidgetSprites(MinePapers.vanilla("widget/button"),
+        MinePapers.vanilla("widget/button_disabled"), MinePapers.vanilla("widget/button_highlighted"));
+    //?} else {
+    /*// Прежние текстуры: вкладки творческого режима (26x32, вторая слева, сверху), кнопки (200x20) и кнопки маяка (22x22).
+    private static final ResourceLocation TABS = MinePapers.vanilla("textures/gui/container/creative_inventory/tabs.png");
+    private static final ResourceLocation WIDGETS = MinePapers.vanilla("textures/gui/widgets.png");
+    private static final ResourceLocation BEACON = MinePapers.vanilla("textures/gui/container/beacon.png");
+    *///?}
 
     /** Цвета текста на панели (TEXT — как у подписи "Инвентарь" в ванили). */
     static final int TEXT = 0x404040, HINT = 0x707070, HOVER = 0x1E50A0, ERROR = 0xA00000;
@@ -74,10 +83,6 @@ final class GuiWidgets {
     static final int INVENTORY_PART_HEIGHT = 96, INVENTORY_PART_SLOTS_Y = 14;
 
     private GuiWidgets() {}
-
-    private static ResourceLocation vanilla(String path) {
-        return ResourceLocation.withDefaultNamespace(path);
-    }
 
     /** Окно высотой height: верх и боковины из текстуры сундука, снизу — его же часть с инвентарём игрока. */
     static void panel(GuiGraphics g, int x, int y, int width, int height) {
@@ -100,19 +105,54 @@ final class GuiWidgets {
         RenderSystem.disableBlend();
     }
 
-    /** Спрайт интерфейса, отражённый по диагонали: верх спрайта уходит влево, левый край — вверх (вкладка сверху становится вкладкой слева, свет по-прежнему сверху-слева). */
-    static void spriteTransposed(GuiGraphics g, ResourceLocation id, int x, int y, int w, int h) {
-        TextureAtlasSprite s = Minecraft.getInstance().getGuiSprites().getSprite(id);
-        RenderSystem.setShaderTexture(0, s.atlasLocation());
+    /** Ванильная кнопка (тянется по девяти частям). */
+    static void button(GuiGraphics g, int x, int y, int w, int h, boolean active, boolean hovered) {
+        //? if >=1.20.2 {
+        g.blitSprite(BUTTON.get(active, hovered), x, y, w, h);
+        //?} else {
+        /*g.blitNineSliced(WIDGETS, x, y, w, h, 20, 4, 200, 20, 0, 46 + (!active ? 0 : hovered ? 2 : 1) * 20);
+        *///?}
+    }
+
+    /** Кнопка маяка 22x22: выбранная выглядит нажатой, выключенная — тёмной. */
+    static void beaconButton(GuiGraphics g, int x, int y, boolean active, boolean checked, boolean hovered) {
+        //? if >=1.20.2 {
+        g.blitSprite(!active ? BEACON_DISABLED : checked ? BEACON_SELECTED : hovered ? BEACON_HIGHLIGHTED : BEACON_BUTTON, x, y, 22, 22);
+        //?} else {
+        /*g.blit(BEACON, x, y, !active ? 44 : checked ? 22 : hovered ? 66 : 0, 219, 22, 22);
+        *///?}
+    }
+
+    /** Вкладка творческого режима (вторая слева, сверху), отражённая по диагонали: верх уходит влево, левый край — вверх (вкладка сверху становится вкладкой слева, свет по-прежнему сверху-слева). */
+    static void tab(GuiGraphics g, boolean selected, int x, int y, int w, int h) {
+        //? if >=1.20.2 {
+        TextureAtlasSprite s = Minecraft.getInstance().getGuiSprites().getSprite(selected ? TAB_SELECTED : TAB_UNSELECTED);
+        ResourceLocation texture = s.atlasLocation();
+        float u0 = s.getU0(), v0 = s.getV0(), u1 = s.getU1(), v1 = s.getV1();
+        //?} else {
+        /*ResourceLocation texture = TABS;
+        float u0 = 26 / 256f, u1 = 52 / 256f, v0 = (selected ? 32 : 0) / 256f, v1 = v0 + 32 / 256f;
+        *///?}
+        RenderSystem.setShaderTexture(0, texture);
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.enableBlend();
         Matrix4f m = g.pose().last().pose();
+        //? if >=1.21 {
         BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-        b.addVertex(m, x, y, 0).setUv(s.getU0(), s.getV0());
-        b.addVertex(m, x, y + h, 0).setUv(s.getU1(), s.getV0());
-        b.addVertex(m, x + w, y + h, 0).setUv(s.getU1(), s.getV1());
-        b.addVertex(m, x + w, y, 0).setUv(s.getU0(), s.getV1());
+        b.addVertex(m, x, y, 0).setUv(u0, v0);
+        b.addVertex(m, x, y + h, 0).setUv(u1, v0);
+        b.addVertex(m, x + w, y + h, 0).setUv(u1, v1);
+        b.addVertex(m, x + w, y, 0).setUv(u0, v1);
         BufferUploader.drawWithShader(b.buildOrThrow());
+        //?} else {
+        /*BufferBuilder b = Tesselator.getInstance().getBuilder();
+        b.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
+        b.vertex(m, x, y, 0).uv(u0, v0).endVertex();
+        b.vertex(m, x, y + h, 0).uv(u1, v0).endVertex();
+        b.vertex(m, x + w, y + h, 0).uv(u1, v1).endVertex();
+        b.vertex(m, x + w, y, 0).uv(u0, v1).endVertex();
+        BufferUploader.drawWithShader(b.end());
+        *///?}
         RenderSystem.disableBlend();
     }
 
@@ -160,7 +200,7 @@ final class GuiWidgets {
 
         /** Невыбранные рисуются до окна (окно закрывает их край), выбранная — после, сливаясь с ним. */
         void drawBody(GuiGraphics g) {
-            spriteTransposed(g, selected ? TAB_SELECTED : TAB_UNSELECTED, getX(), getY(), WIDTH, HEIGHT);
+            tab(g, selected, getX(), getY(), WIDTH, HEIGHT);
         }
 
         void drawIcon(GuiGraphics g) {
@@ -187,8 +227,7 @@ final class GuiWidgets {
 
         @Override
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            g.blitSprite(!active ? BEACON_DISABLED : checked ? BEACON_SELECTED : isHovered() ? BEACON_HIGHLIGHTED : BEACON_BUTTON,
-                getX(), getY(), 22, 22);
+            beaconButton(g, getX(), getY(), active, checked, isHovered());
             icon(g, getX() + 3, getY() + 3, iconU, iconV, 16, 16);
             if (!active) g.fill(getX() + 3, getY() + 3, getX() + 19, getY() + 19, 0xA0303030);
         }
@@ -255,7 +294,11 @@ final class GuiWidgets {
         }
 
         @Override
+        //? if >=1.20.2 {
         public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        //?} else {
+        /*public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+        *///?}
             if (scrollY == 0 || !isMouseOver(mouseX, mouseY)) return false;
             int v = getInt();
             setInt(wheel.applyAsInt(v, scrollY < 0 ? 1 : -1));
@@ -296,11 +339,11 @@ final class GuiWidgets {
 
         @Override
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            g.blitSprite(BUTTON.get(active, isHovered()), getX(), getY(), width, height);
+            button(g, getX(), getY(), width, height, active, isHovered());
             if (owner == null || mine) {
                 icon(g, getX() + 5, getY() + 5, owner == null ? ICON_UNLOCKED_U : ICON_LOCKED_U, 0, 10, 10);
             } else {
-                PlayerFaceRenderer.draw(g, skin(owner, ownerName), getX() + 2, getY() + 2, 16);
+                face(g, owner, ownerName, getX() + 2, getY() + 2, 16);
             }
         }
     }
@@ -318,11 +361,11 @@ final class GuiWidgets {
 
         @Override
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            g.blitSprite(BUTTON.get(active, isHovered()), getX(), getY(), width, height);
+            button(g, getX(), getY(), width, height, active, isHovered());
             if (signer == null) {
                 icon(g, getX() + 2, getY() + 2, PEN_U, PEN_V, 16, 16);
             } else {
-                PlayerFaceRenderer.draw(g, skin(signer, signerName), getX() + 2, getY() + 2, 16);
+                face(g, signer, signerName, getX() + 2, getY() + 2, 16);
             }
         }
     }
@@ -338,15 +381,31 @@ final class GuiWidgets {
 
         @Override
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            g.blitSprite(BUTTON.get(active, isHovered()), getX(), getY(), width, height);
+            button(g, getX(), getY(), width, height, active, isHovered());
             icon(g, getX() + 2, getY() + 2, marked ? NSFW_ON_U : NSFW_U, NSFW_V, 16, 16);
         }
     }
 
+    /** Лицо игрока с его скина (см. skin). */
+    static void face(GuiGraphics g, UUID id, String name, int x, int y, int size) {
+        PlayerFaceRenderer.draw(g, skin(id, name), x, y, size);
+    }
+
+    /** Профиль игрока со скином: если у игровых серверов его нет (офлайн-сервер, лаунчер с прокси) — прямо у Mojang, см. MojangProfiles. null — не нашлось. Только в фоновом потоке. */
+    private static GameProfile withTextures(GameProfile profile, UUID id, String name) {
+        if (profile != null && profile.getProperties().containsKey("textures")) return profile;
+        String[] textures = MojangProfiles.textures(id, name);
+        if (textures == null) return null;
+        GameProfile found = new GameProfile(id, name);
+        found.getProperties().put("textures", new Property("textures", textures[0], textures[1]));
+        return found;
+    }
+
+    //? if >=1.20.2 {
     /** Скины владельцев: пока настоящий не загружен — стандартный (Стив, Алекс...). */
     private static final Map<UUID, PlayerSkin> SKINS = new HashMap<UUID, PlayerSkin>();
 
-    /** Скин игрока: если он на сервере — из списка игроков, иначе его профиль запрашивается (как у голов игроков) и скин подгружается. Не нашлось (офлайн-сервер, лаунчер с прокси) — прямо у Mojang, см. MojangProfiles. */
+    /** Скин игрока: если он на сервере — из списка игроков, иначе его профиль запрашивается (как у голов игроков) и скин подгружается. */
     static PlayerSkin skin(UUID id, String name) {
         Minecraft mc = Minecraft.getInstance();
         PlayerInfo info = mc.getConnection() != null ? mc.getConnection().getPlayerInfo(id) : null;
@@ -356,20 +415,34 @@ final class GuiWidgets {
         PlayerSkin fallback = DefaultPlayerSkin.get(id);
         SKINS.put(id, fallback);
         SkullBlockEntity.fetchGameProfile(id)
-            .thenCompose(p -> p.isPresent() && p.get().getProperties().containsKey("textures") ? CompletableFuture.completedFuture(p)
-                : CompletableFuture.supplyAsync(() -> {
-                    String[] textures = MojangProfiles.textures(id, name);
-                    if (textures == null) return Optional.<GameProfile>empty();
-                    GameProfile profile = new GameProfile(id, name);
-                    profile.getProperties().put("textures", new Property("textures", textures[0], textures[1]));
-                    return Optional.of(profile);
-                }, Util.backgroundExecutor()))
+            .thenApplyAsync(p -> Optional.ofNullable(withTextures(p.orElse(null), id, name)), Util.backgroundExecutor())
             .thenCompose(p -> p.map(mc.getSkinManager()::getOrLoad).orElseGet(() -> CompletableFuture.completedFuture(null)))
             .thenAccept(s -> {
                 if (s != null) mc.execute(() -> SKINS.put(id, s));
             });
         return fallback;
     }
+    //?} else {
+    /*// Текстуры скинов владельцев: пока настоящая не загружена — стандартная (Стив, Алекс...).
+    private static final Map<UUID, ResourceLocation> SKINS = new HashMap<UUID, ResourceLocation>();
+
+    // Скин игрока: если он на сервере — из списка игроков, иначе его профиль запрашивается (как у голов игроков) и скин подгружается.
+    static ResourceLocation skin(UUID id, String name) {
+        Minecraft mc = Minecraft.getInstance();
+        PlayerInfo info = mc.getConnection() != null ? mc.getConnection().getPlayerInfo(id) : null;
+        if (info != null) return info.getSkinLocation();
+        ResourceLocation known = SKINS.get(id);
+        if (known != null) return known;
+        ResourceLocation fallback = DefaultPlayerSkin.getDefaultSkin(id);
+        SKINS.put(id, fallback);
+        SkullBlockEntity.updateGameprofile(new GameProfile(id, name), p -> CompletableFuture
+            .supplyAsync(() -> withTextures(p, id, name), Util.backgroundExecutor())
+            .thenAccept(found -> {
+                if (found != null) mc.execute(() -> SKINS.put(id, mc.getSkinManager().getInsecureSkinLocation(found)));
+            }));
+        return fallback;
+    }
+    *///?}
 
     /** Маленькая ванильная кнопка (спрайт тянется по девяти частям): с текстом или с иконкой 10x10 (iconU >= 0). */
     static class Small extends Widget {
@@ -383,7 +456,7 @@ final class GuiWidgets {
 
         @Override
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-            g.blitSprite(BUTTON.get(active, isHovered()), getX(), getY(), width, height);
+            button(g, getX(), getY(), width, height, active, isHovered());
             if (iconU >= 0) {
                 icon(g, getX() + (width - 10) / 2, getY() + (height - 10) / 2, iconU, 0, 10, 10);
             } else {

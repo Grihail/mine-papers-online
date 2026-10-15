@@ -142,12 +142,22 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         /** Нормаль у всех вершин — вверх: так ванильный шейдер сущностей не затемняет картину в зависимости от стороны света, а затенение граней PictureMesh делает сам, как у блоков. */
         @Override
         protected void emit(double x, double y, double z, double tu, double tv) {
+            //? if >=1.21 {
             out.addVertex(pose, (float) x, (float) y, (float) z)
                 .setColor(r, g, b, 1f)
                 .setUv((float) tu, (float) tv)
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(light)
                 .setNormal(pose, 0f, 1f, 0f);
+            //?} else {
+            /*out.vertex(pose.pose(), (float) x, (float) y, (float) z)
+                .color(r, g, b, 1f)
+                .uv((float) tu, (float) tv)
+                .overlayCoords(OverlayTexture.NO_OVERLAY)
+                .uv2(light)
+                .normal(pose.normal(), 0f, 1f, 0f)
+                .endVertex();
+            *///?}
         }
 
         @Override

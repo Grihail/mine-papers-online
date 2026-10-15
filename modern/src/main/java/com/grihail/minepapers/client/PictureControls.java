@@ -38,7 +38,7 @@ public class PictureControls {
         Minecraft mc = Minecraft.getInstance();
         Entity view = mc.getCameraEntity();
         if (mc.player == null) return null;
-        double reach = mc.player.blockInteractionRange();
+        double reach = ModClient.reach();
         Vec3 eye = view.getEyePosition(partialTick);
         Vec3 look = view.getViewVector(partialTick);
         AABB search = view.getBoundingBox().expandTowards(look.scale(reach)).inflate(1 + FrameGeometry.SEARCH_MARGIN);
@@ -135,7 +135,7 @@ public class PictureControls {
         if (!stack.is(MinePapers.FRAME.get())) return false;
         // Блок дальше, чем можно дотянуться: его координаты не мировые (движущиеся конструкции других модов хранят
         // блоки в своей области и рисуют их со сдвигом и поворотом). Где он на экране, отсюда не узнать — контур не рисуем.
-        double far = mc.player.blockInteractionRange() + 2;
+        double far = ModClient.reach() + 2;
         if (target.getBlockPos().getCenter().distanceToSqr(cam) > far * far) return false;
         PictureFrame ghost = ItemPictureFrame.ghostAt(mc.level, target.getBlockPos(), target.getDirection(),
             mc.player.getYRot(), stack);

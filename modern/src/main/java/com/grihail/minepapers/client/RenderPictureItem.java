@@ -244,12 +244,22 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
 
     /** Пиксели иконки -> куб 0..1: x вправо, y вверх. */
     private void vertex(double x, double y, float z, double u, double v, float nx, float ny, float nz) {
+        //? if >=1.21 {
         out.addVertex(pose, (float) (x / ICON), (float) (1 - y / ICON), z)
             .setColor(colorR, colorG, colorB, 1f)
             .setUv((float) u, (float) v)
             .setOverlay(OverlayTexture.NO_OVERLAY)
             .setLight(light)
             .setNormal(pose, nx, ny, nz);
+        //?} else {
+        /*out.vertex(pose.pose(), (float) (x / ICON), (float) (1 - y / ICON), z)
+            .color(colorR, colorG, colorB, 1f)
+            .uv((float) u, (float) v)
+            .overlayCoords(OverlayTexture.NO_OVERLAY)
+            .uv2(light)
+            .normal(pose.normal(), nx, ny, nz)
+            .endVertex();
+        *///?}
     }
 
     private void color(float r, float g, float b) {
@@ -259,10 +269,10 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
     }
 
     private static double texU(TextureAtlasSprite sprite, double px) {
-        return sprite.getU((float) (px / 16));
+        return FrameSkin.u(sprite, px);
     }
 
     private static double texV(TextureAtlasSprite sprite, double px) {
-        return sprite.getV((float) (px / 16));
+        return FrameSkin.v(sprite, px);
     }
 }

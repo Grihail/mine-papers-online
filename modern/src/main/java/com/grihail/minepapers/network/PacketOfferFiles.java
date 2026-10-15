@@ -3,25 +3,29 @@ package com.grihail.minepapers.network;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.server.ServerImages;
 
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
 /** Клиент -> сервер: картинки локального источника картины target (PictureTarget; origin — путь, как он записан в рамке). Сервер в ответ просит недостающие (PacketHashes.Need), а когда они все у него, записывает список в рамку. */
-public record PacketOfferFiles(int target, String origin, byte[] hashes) implements CustomPacketPayload {
+public record PacketOfferFiles(int target, String origin, byte[] hashes) implements ModPacket {
 
-    public static final Type<PacketOfferFiles> TYPE = new Type<>(MinePapers.id("offer_files"));
-    public static final StreamCodec<ByteBuf, PacketOfferFiles> CODEC = StreamCodec.composite(
-        ByteBufCodecs.VAR_INT, PacketOfferFiles::target,
-        ByteBufCodecs.stringUtf8(4096), PacketOfferFiles::origin,
-        PacketHashes.HASHES, PacketOfferFiles::hashes,
-        PacketOfferFiles::new);
+    public static final ResourceLocation ID = MinePapers.id("offer_files");
 
     @Override
-    public Type<PacketOfferFiles> type() {
-        return TYPE;
+    public ResourceLocation id() {
+        return ID;
+    }
+
+    @Override
+    public void write(FriendlyByteBuf buf) {
+        buf.writeVarInt(target);
+        buf.writeUtf(origin, 4096);
+        buf.writeByteArray(hashes);
+    }
+
+    public static PacketOfferFiles read(FriendlyByteBuf buf) {
+        return new PacketOfferFiles(buf.readVarInt(), buf.readUtf(4096), PacketHashes.readHashes(buf));
     }
 
     /** Применить пакет от игрока player (в серверном потоке). */

@@ -48,6 +48,78 @@
     {
       "type": "java",
       "request": "launch",
+      "name": "1.20.1-forge - Client",
+      "presentation": {
+        "group": "Mod Development - 1.20.1-forge",
+        "order": 0
+      },
+      "projectName": "1.20.1-forge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\build\\moddev\\clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\gametest"
+      ],
+      "cwd": "${workspaceFolder}\\modern\\versions\\1.20.1-forge\\run",
+      "env": {
+        "MOD_CLASSES": "minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\gametest"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.20.1-forge - GameTestServer",
+      "presentation": {
+        "group": "Mod Development - 1.20.1-forge",
+        "order": 1
+      },
+      "projectName": "1.20.1-forge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\build\\moddev\\gameTestServerRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\build\\moddev\\gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\gametest"
+      ],
+      "cwd": "${workspaceFolder}\\modern\\versions\\1.20.1-forge\\run",
+      "env": {
+        "MOD_CLASSES": "minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\gametest"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "1.20.1-forge - Server",
+      "presentation": {
+        "group": "Mod Development - 1.20.1-forge",
+        "order": 2
+      },
+      "projectName": "1.20.1-forge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\build\\moddev\\serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\gametest"
+      ],
+      "cwd": "${workspaceFolder}\\modern\\versions\\1.20.1-forge\\run",
+      "env": {
+        "MOD_CLASSES": "minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.20.1-forge\\bin\\gametest"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
       "name": "1.21.1-neoforge - Client",
       "presentation": {
         "group": "Mod Development - 1.21.1-neoforge",
@@ -56,13 +128,13 @@
       "projectName": "1.21.1-neoforge",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\build\\moddev\\clientRunProgramArgs.txt"
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\build\\moddev\\clientRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\build\\moddev\\clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\bin\\gametest"
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\bin\\gametest"
       ],
-      "cwd": "${workspaceFolder}\\1.21.1\\neoforge\\run",
+      "cwd": "${workspaceFolder}\\modern\\versions\\1.21.1-neoforge\\run",
       "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"
@@ -78,13 +150,13 @@
       "projectName": "1.21.1-neoforge",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\build\\moddev\\gameTestServerRunProgramArgs.txt"
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\build\\moddev\\gameTestServerRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\build\\moddev\\gameTestServerRunVmArgs.txt",
-        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\bin\\gametest"
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\build\\moddev\\gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\bin\\gametest"
       ],
-      "cwd": "${workspaceFolder}\\1.21.1\\neoforge\\run",
+      "cwd": "${workspaceFolder}\\modern\\versions\\1.21.1-neoforge\\run",
       "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"
@@ -100,13 +172,13 @@
       "projectName": "1.21.1-neoforge",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\build\\moddev\\serverRunProgramArgs.txt"
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\build\\moddev\\serverRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\build\\moddev\\serverRunVmArgs.txt",
-        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\1.21.1\\neoforge\\bin\\gametest"
+        "@P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dminepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\bin\\main;minepapers%%P:\\Personal\\Coding\\Mine Papers Online\\modern\\versions\\1.21.1-neoforge\\bin\\gametest"
       ],
-      "cwd": "${workspaceFolder}\\1.21.1\\neoforge\\run",
+      "cwd": "${workspaceFolder}\\modern\\versions\\1.21.1-neoforge\\run",
       "env": {},
       "console": "internalConsole",
       "shortenCommandLine": "none"

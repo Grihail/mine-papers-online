@@ -14,9 +14,7 @@ import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.server.ServerImages;
 import com.mojang.logging.LogUtils;
 
-import net.minecraft.core.component.DataComponentType;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -24,8 +22,12 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer;
+//? if >=1.20.5 {
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.network.codec.ByteBufCodecs;
+//?}
 
-/** Мод для 1.21.1 без движка: что регистрируется и как это создать. Регистрирует движок (MinePapersNeoForge, MinePapersFabric) и ставит сюда то, что получилось. */
+/** Мод для современных версий без движка: что регистрируется и как это создать. Регистрирует движок (MinePapersNeoForge, MinePapersFabric) и ставит сюда то, что получилось. */
 public final class MinePapers {
 
     public static final String MODID = "minepapers";
@@ -39,8 +41,10 @@ public final class MinePapers {
     public static CommonProxy proxy = new CommonProxy();
     public static Platform platform;
 
-    /** Настройки картины в предмете. */
+    //? if >=1.20.5 {
+    /** Настройки картины в предмете (до 1.20.5 — тег предмета ItemPictureFrame.TAG). */
     public static Supplier<DataComponentType<CompoundTag>> FRAME_SETTINGS;
+    //?}
     public static Supplier<? extends ItemPictureFrame> FRAME;
     public static Supplier<EntityType<EntityPicture>> PICTURE;
     /** Копирование настроенной рамки и сброс настроек. */
@@ -68,7 +72,29 @@ public final class MinePapers {
     }
 
     public static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(MODID, path);
+        return location(MODID, path);
+    }
+
+    /** Ванильный ресурс minecraft:path. */
+    public static ResourceLocation vanilla(String path) {
+        return location("minecraft", path);
+    }
+
+    public static ResourceLocation location(String namespace, String path) {
+        //? if >=1.21 {
+        return ResourceLocation.fromNamespaceAndPath(namespace, path);
+        //?} else {
+        /*return new ResourceLocation(namespace, path);
+        *///?}
+    }
+
+    /** Ресурс из строки "namespace:path" (без namespace — minecraft); не ресурс — исключение. */
+    public static ResourceLocation parse(String id) {
+        //? if >=1.21 {
+        return ResourceLocation.parse(id);
+        //?} else {
+        /*return new ResourceLocation(id);
+        *///?}
     }
 
     // ---------- Что регистрировать (имена — константы рядом) ----------
@@ -76,9 +102,11 @@ public final class MinePapers {
     public static final String FRAME_ID = "picture_frame", PICTURE_ID = "picture", FRAME_COPY_ID = "frame_copy",
         FRAME_MENU_ID = "picture_frame", FRAME_SETTINGS_ID = "frame";
 
+    //? if >=1.20.5 {
     public static DataComponentType<CompoundTag> makeFrameSettings() {
         return DataComponentType.<CompoundTag>builder().persistent(CompoundTag.CODEC).networkSynchronized(ByteBufCodecs.COMPOUND_TAG).build();
     }
+    //?}
 
     public static ItemPictureFrame makeFrame() {
         return new ItemPictureFrame(new Item.Properties());

@@ -45,12 +45,29 @@ public final class FrameSkin extends PictureMesh.Skin {
 
     @Override
     public double u(double px) {
-        return sprite.getU((float) (px / 16));
+        return u(sprite, px);
     }
 
     @Override
     public double v(double px) {
+        return v(sprite, px);
+    }
+
+    /** Пиксель спрайта (0..16) -> координата в атласе. До 1.21 getU/getV принимали пиксели 0..16, с 1.21 — долю 0..1. */
+    public static double u(TextureAtlasSprite sprite, double px) {
+        //? if >=1.21 {
+        return sprite.getU((float) (px / 16));
+        //?} else {
+        /*return sprite.getU(px);
+        *///?}
+    }
+
+    public static double v(TextureAtlasSprite sprite, double px) {
+        //? if >=1.21 {
         return sprite.getV((float) (px / 16));
+        //?} else {
+        /*return sprite.getV(px);
+        *///?}
     }
 
     public static TextureAtlasSprite sprite(ResourceLocation id) {

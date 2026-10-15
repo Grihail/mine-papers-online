@@ -3,7 +3,9 @@ package com.grihail.minepapers.client;
 import java.util.function.Supplier;
 
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.item.ItemPictureFrame;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.color.item.ItemColors;
 import net.minecraft.world.item.ItemStack;
 
@@ -37,8 +39,18 @@ public final class ModClient {
         ImageSync.onDisconnect();
     }
 
+    /** Как далеко игрок дотягивается до блоков. */
+    public static double reach() {
+        Minecraft mc = Minecraft.getInstance();
+        //? if >=1.20.5 {
+        return mc.player.blockInteractionRange();
+        //?} else {
+        /*return mc.gameMode.getPickRange();
+        *///?}
+    }
+
     /** Свойство модели предмета minepapers:configured: 1 — картину настраивали (рисует RenderPictureItem), 0 — обычная иконка. */
     public static float configured(ItemStack stack) {
-        return stack.has(MinePapers.FRAME_SETTINGS.get()) ? 1f : 0f;
+        return ItemPictureFrame.settings(stack) != null ? 1f : 0f;
     }
 }

@@ -9,22 +9,16 @@ import com.grihail.minepapers.picture.MaterialStack;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
-import io.netty.buffer.ByteBuf;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 /** Клиент -> сервер: новые настройки картины target (PictureTarget: сущность или предмет в инвентаре). Приходит при закрытии окна: блоки материалов, которые выбранному виду не нужны (рамки без рамки, холста без холста), возвращаются игроку. */
-public record PacketSaveFrame(int target, CompoundTag settings) implements CustomPacketPayload {
+public record PacketSaveFrame(int target, CompoundTag settings) implements ModPacket {
 
-    public static final Type<PacketSaveFrame> TYPE = new Type<>(MinePapers.id("save_frame"));
-    public static final StreamCodec<ByteBuf, PacketSaveFrame> CODEC = StreamCodec.composite(
-        ByteBufCodecs.VAR_INT, PacketSaveFrame::target,
-        ByteBufCodecs.COMPOUND_TAG, PacketSaveFrame::settings,
-        PacketSaveFrame::new);
+    public static final ResourceLocation ID = MinePapers.id("save_frame");
 
     public static PacketSaveFrame of(FrameHolder holder) {
         CompoundTag settings = new CompoundTag();
@@ -33,8 +27,18 @@ public record PacketSaveFrame(int target, CompoundTag settings) implements Custo
     }
 
     @Override
-    public Type<PacketSaveFrame> type() {
-        return TYPE;
+    public ResourceLocation id() {
+        return ID;
+    }
+
+    @Override
+    public void write(FriendlyByteBuf buf) {
+        buf.writeVarInt(target);
+        buf.writeNbt(settings);
+    }
+
+    public static PacketSaveFrame read(FriendlyByteBuf buf) {
+        return new PacketSaveFrame(buf.readVarInt(), buf.readNbt());
     }
 
     /** Применить пакет от игрока player (в серверном потоке). */

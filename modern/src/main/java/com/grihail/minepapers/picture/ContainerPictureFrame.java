@@ -5,10 +5,8 @@ import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
-import io.netty.buffer.ByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleMenuProvider;
@@ -51,10 +49,14 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
 
     /** Что сервер сообщает клиенту при открытии окна: какую картину настраивают (PictureTarget) и можно ли менять материалы стопке. */
     public record OpenData(int target, boolean stackMaterials) {
-        public static final StreamCodec<ByteBuf, OpenData> CODEC = StreamCodec.composite(
-            ByteBufCodecs.VAR_INT, OpenData::target,
-            ByteBufCodecs.BOOL, OpenData::stackMaterials,
-            OpenData::new);
+        public void write(FriendlyByteBuf buf) {
+            buf.writeVarInt(target);
+            buf.writeBoolean(stackMaterials);
+        }
+
+        public static OpenData read(FriendlyByteBuf buf) {
+            return new OpenData(buf.readVarInt(), buf.readBoolean());
+        }
     }
 
     /** Открыть окно игроку (на сервере). */
@@ -126,7 +128,7 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
             setCarried(change(index, ItemStack.EMPTY, MaterialStack.takeCount(pictures, right, current.getMaxStackSize()), player));
             return;
         }
-        if (!accepts(m, carried) || ItemStack.isSameItemSameComponents(current, carried)) return;
+        if (!accepts(m, carried) || sameItem(current, carried)) return;
         int count = MaterialStack.putCount(pictures, carried.getCount(), right);
         ItemStack old = change(index, carried, count, player);
         carried.shrink(count);
@@ -177,6 +179,14 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
     }
 
     /** Саму рамку для картин класть нельзя (картина в картине), в слот свечения — только светящиеся блоки. */
+    private static boolean sameItem(ItemStack a, ItemStack b) {
+        //? if >=1.20.5 {
+        return ItemStack.isSameItemSameComponents(a, b);
+        //?} else {
+        /*return ItemStack.isSameItemSameTags(a, b);
+        *///?}
+    }
+
     private static boolean accepts(PictureFrame.Material m, ItemStack stack) {
         return !stack.is(MinePapers.FRAME.get()) && m.accepts(stack);
     }

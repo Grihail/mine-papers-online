@@ -8,15 +8,12 @@ import com.grihail.minepapers.picture.PictureConfig;
 import com.grihail.minepapers.picture.PictureFrame;
 import com.grihail.minepapers.server.ServerImages;
 
-import io.netty.buffer.ByteBuf;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -24,13 +21,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /** Клиент -> сервер: вставка конфига картины — какие предметы положить в слоты материалов. Сервер берёт их из инвентаря игрока, по одному на каждую картину стопки (прежние возвращает), в творческом режиме недостающие создаёт, а чего нет — перечисляет в чате. Ключи тега — PictureConfig.MATERIALS: "" — вынуть, id — положить. */
-public record PacketPasteMaterials(int target, CompoundTag materials) implements CustomPacketPayload {
+public record PacketPasteMaterials(int target, CompoundTag materials) implements ModPacket {
 
-    public static final Type<PacketPasteMaterials> TYPE = new Type<>(MinePapers.id("paste_materials"));
-    public static final StreamCodec<ByteBuf, PacketPasteMaterials> CODEC = StreamCodec.composite(
-        ByteBufCodecs.VAR_INT, PacketPasteMaterials::target,
-        ByteBufCodecs.COMPOUND_TAG, PacketPasteMaterials::materials,
-        PacketPasteMaterials::new);
+    public static final ResourceLocation ID = MinePapers.id("paste_materials");
 
     /** target — PictureTarget. */
     public static PacketPasteMaterials of(int target, PictureConfig config) {
@@ -44,8 +37,18 @@ public record PacketPasteMaterials(int target, CompoundTag materials) implements
     }
 
     @Override
-    public Type<PacketPasteMaterials> type() {
-        return TYPE;
+    public ResourceLocation id() {
+        return ID;
+    }
+
+    @Override
+    public void write(FriendlyByteBuf buf) {
+        buf.writeVarInt(target);
+        buf.writeNbt(materials);
+    }
+
+    public static PacketPasteMaterials read(FriendlyByteBuf buf) {
+        return new PacketPasteMaterials(buf.readVarInt(), buf.readNbt());
     }
 
     /** Применить пакет от игрока player (в серверном потоке). */

@@ -43,9 +43,35 @@ public class ItemPictureFrame extends Item {
         super(properties);
     }
 
+    //? if <1.20.5 {
+    /*// До 1.20.5 настройки лежат в теге предмета под этим ключом (как и в 1.7.10).
+    public static final String TAG = "MinePapersFrame";
+    *///?}
+
     /** Настройки из предмета или null, если предмет не настраивали. */
     public static CompoundTag settings(ItemStack stack) {
+        //? if >=1.20.5 {
         return stack.get(MinePapers.FRAME_SETTINGS.get());
+        //?} else {
+        /*return stack.getTagElement(TAG);
+        *///?}
+    }
+
+    /** Записать настройки в предмет как есть (null — убрать: картина станет обычной). */
+    public static void setSettings(ItemStack stack, CompoundTag settings) {
+        //? if >=1.20.5 {
+        if (settings == null) {
+            stack.remove(MinePapers.FRAME_SETTINGS.get());
+        } else {
+            stack.set(MinePapers.FRAME_SETTINGS.get(), settings);
+        }
+        //?} else {
+        /*if (settings == null) {
+            stack.removeTagKey(TAG);
+        } else {
+            stack.addTagElement(TAG, settings);
+        }
+        *///?}
     }
 
     /** Картина запривачена (в настройках есть владелец). */
@@ -82,13 +108,29 @@ public class ItemPictureFrame extends Item {
     /** Записать настройки в предмет; ненастроенная картина остаётся без них и складывается с новыми. */
     public static void store(ItemStack stack, PictureFrame frame) {
         if (!frame.isCustomized()) {
-            stack.remove(MinePapers.FRAME_SETTINGS.get());
+            setSettings(stack, null);
             return;
         }
         CompoundTag settings = new CompoundTag();
         frame.writeSettings(settings);
-        stack.set(MinePapers.FRAME_SETTINGS.get(), settings);
+        setSettings(stack, settings);
     }
+
+    //? if forge {
+    /*// Forge до 1.21: свой рендерер предмета задаёт сам предмет (настроенная рамка — модель picture_frame_configured, builtin/entity).
+    @Override
+    public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
+        consumer.accept(new net.minecraftforge.client.extensions.common.IClientItemExtensions() {
+            private com.grihail.minepapers.client.RenderPictureItem renderer;
+
+            @Override
+            public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                if (renderer == null) renderer = new com.grihail.minepapers.client.RenderPictureItem();
+                return renderer;
+            }
+        });
+    }
+    *///?}
 
     /** ПКМ не по блоку — окно настройки этой картины, как у висящей. Окно с инвентарём открывает сервер. */
     @Override
@@ -143,12 +185,16 @@ public class ItemPictureFrame extends Item {
                 SoundSource.BLOCKS, (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
             level.gameEvent(player, GameEvent.ENTITY_PLACE, picture.position());
         }
-        stack.consume(1, player);
+        if (player == null || !player.getAbilities().instabuild) stack.shrink(1);
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Override
+    //? if >=1.20.5 {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
+    //?} else {
+    /*public void appendHoverText(ItemStack stack, Level level, List<Component> lines, TooltipFlag flag) {
+    *///?}
         CompoundTag settings = settings(stack);
         if (settings == null) return;
         PictureFrame s = new PictureFrame();
@@ -206,7 +252,7 @@ public class ItemPictureFrame extends Item {
 
     /** Предмет, с которого взята текстура материала (рамки или холста); пустой — обычный материал. */
     public static ItemStack borderStack(String itemId) {
-        return new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.parse(itemId)));
+        return new ItemStack(BuiltInRegistries.ITEM.get(MinePapers.parse(itemId)));
     }
 
 }

@@ -1,9 +1,13 @@
 package com.grihail.minepapers.neoforge;
 
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.Platform;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.item.RecipePictureFrame;
+import com.grihail.minepapers.network.ModPacket;
 import com.grihail.minepapers.network.PacketBreakPicture;
 import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
@@ -18,7 +22,10 @@ import com.grihail.minepapers.server.ServerImages;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
@@ -64,7 +71,7 @@ public class MinePapersNeoForge implements Platform {
         RECIPES.register(MinePapers.FRAME_COPY_ID, MinePapers::makeFrameCopy);
     private static final DeferredHolder<MenuType<?>, MenuType<ContainerPictureFrame>> FRAME_MENU =
         MENUS.register(MinePapers.FRAME_MENU_ID, () -> IMenuTypeExtension.create(
-            (id, inventory, buf) -> ContainerPictureFrame.fromData(id, inventory, ContainerPictureFrame.OpenData.CODEC.decode(buf))));
+            (id, inventory, buf) -> ContainerPictureFrame.fromData(id, inventory, ContainerPictureFrame.OpenData.read(buf))));
 
     public MinePapersNeoForge(IEventBus modBus, ModContainer container) {
         MinePapers.init(FMLPaths.CONFIGDIR.get(), container.getModInfo().getVersion().toString(), this);
@@ -96,40 +103,44 @@ public class MinePapersNeoForge implements Platform {
     /** Пакеты мода. Обработчики выполняются в главном потоке (сервера или клиента). */
     private static void registerPackets(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
-        registrar.playToServer(PacketSaveFrame.TYPE, PacketSaveFrame.CODEC, (msg, ctx) -> PacketSaveFrame.apply(player(ctx), msg));
-        registrar.playToServer(PacketOfferFiles.TYPE, PacketOfferFiles.CODEC, (msg, ctx) -> PacketOfferFiles.apply(player(ctx), msg));
-        registrar.playToServer(PacketFileChunk.Upload.TYPE, PacketFileChunk.Upload.CODEC,
-            (msg, ctx) -> PacketFileChunk.Upload.apply(player(ctx), msg));
-        registrar.playToServer(PacketHashes.Request.TYPE, PacketHashes.Request.CODEC, (msg, ctx) -> PacketHashes.Request.apply(player(ctx), msg));
-        registrar.playToServer(PacketBreakPicture.TYPE, PacketBreakPicture.CODEC, (msg, ctx) -> PacketBreakPicture.apply(player(ctx), msg));
-        registrar.playToServer(PacketOpenFrame.TYPE, PacketOpenFrame.CODEC, (msg, ctx) -> PacketOpenFrame.apply(player(ctx), msg));
-        registrar.playToServer(PacketPasteMaterials.TYPE, PacketPasteMaterials.CODEC,
-            (msg, ctx) -> PacketPasteMaterials.apply(player(ctx), msg));
-        registrar.playToClient(PacketHashes.Need.TYPE, PacketHashes.Need.CODEC,
+        toServer(registrar, PacketSaveFrame.ID, PacketSaveFrame::read, PacketSaveFrame::apply);
+        toServer(registrar, PacketOfferFiles.ID, PacketOfferFiles::read, PacketOfferFiles::apply);
+        toServer(registrar, PacketFileChunk.Upload.ID, PacketFileChunk.Upload::read, PacketFileChunk.Upload::apply);
+        toServer(registrar, PacketHashes.Request.ID, PacketHashes.Request::read, PacketHashes.Request::apply);
+        toServer(registrar, PacketBreakPicture.ID, PacketBreakPicture::read, PacketBreakPicture::apply);
+        toServer(registrar, PacketOpenFrame.ID, PacketOpenFrame::read, PacketOpenFrame::apply);
+        toServer(registrar, PacketPasteMaterials.ID, PacketPasteMaterials::read, PacketPasteMaterials::apply);
+        registrar.playToClient(new CustomPacketPayload.Type<PacketHashes.Need>(PacketHashes.Need.ID), codec(PacketHashes.Need::read),
             (msg, ctx) -> MinePapers.proxy.onFilesNeeded(msg.hashes()));
-        registrar.playToClient(PacketFileChunk.TYPE, PacketFileChunk.CODEC,
+        registrar.playToClient(new CustomPacketPayload.Type<PacketFileChunk>(PacketFileChunk.ID), codec(PacketFileChunk::read),
             (msg, ctx) -> MinePapers.proxy.onFileChunk(msg.hash(), msg.total(), msg.offset(), msg.data()));
     }
 
-    private static ServerPlayer player(net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        return (ServerPlayer) ctx.player();
+    private static <T extends ModPacket> void toServer(PayloadRegistrar registrar, ResourceLocation id, Function<FriendlyByteBuf, T> read,
+                                                       BiConsumer<ServerPlayer, T> apply) {
+        registrar.playToServer(new CustomPacketPayload.Type<T>(id), codec(read), (msg, ctx) -> apply.accept((ServerPlayer) ctx.player(), msg));
+    }
+
+    /** Кодек пакета из его write и read. */
+    private static <T extends ModPacket> StreamCodec<FriendlyByteBuf, T> codec(Function<FriendlyByteBuf, T> read) {
+        return StreamCodec.ofMember(ModPacket::write, read::apply);
     }
 
     // ---------- Platform ----------
 
     @Override
-    public void sendToServer(CustomPacketPayload payload) {
-        PacketDistributor.sendToServer(payload);
+    public void sendToServer(ModPacket packet) {
+        PacketDistributor.sendToServer(packet);
     }
 
     @Override
-    public void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
-        PacketDistributor.sendToPlayer(player, payload);
+    public void sendToPlayer(ServerPlayer player, ModPacket packet) {
+        PacketDistributor.sendToPlayer(player, packet);
     }
 
     @Override
     public void openMenu(ServerPlayer player, MenuProvider provider, ContainerPictureFrame.OpenData data) {
-        player.openMenu(provider, buf -> ContainerPictureFrame.OpenData.CODEC.encode(buf, data));
+        player.openMenu(provider, data::write);
     }
 
     @Override

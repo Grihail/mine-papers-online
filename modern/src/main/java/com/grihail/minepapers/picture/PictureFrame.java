@@ -79,7 +79,11 @@ public class PictureFrame extends PictureSettings {
             if (cache == null) {
                 HolderLookup.Provider registries = registries();
                 if (registries == null) return ItemStack.EMPTY;
+                //? if >=1.20.5 {
                 cache = ItemStack.parseOptional(registries, tag);
+                //?} else {
+                /*cache = ItemStack.of(tag);
+                *///?}
             }
             return cache;
         }
@@ -94,7 +98,11 @@ public class PictureFrame extends PictureSettings {
                 return;
             }
             ItemStack one = stack.copyWithCount(1);
+            //? if >=1.20.5 {
             tag = (CompoundTag) one.save(registries);
+            //?} else {
+            /*tag = one.save(new CompoundTag());
+            *///?}
             cache = one;
             item = BuiltInRegistries.ITEM.getKey(one.getItem()).toString();
         }

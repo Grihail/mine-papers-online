@@ -9,6 +9,8 @@
 | Версия Minecraft | Загрузчик | Java |
 | --- | --- | --- |
 | 1.7.10 | Forge 10.13.4.1614 | 8 |
+| 1.20.1 | Forge 47.4.28 | 17 |
+| 1.20.1 | Fabric Loader 0.16+, Fabric API | 17 |
 | 1.21.1 | NeoForge 21.1.259 | 21 |
 | 1.21.1 | Fabric Loader 0.16+, Fabric API | 21 |
 
@@ -181,6 +183,8 @@ $env:JAVA_HOME = 'C:\Program Files\Java\jdk-25'
 
 ```
 1.7.10/forge/build/libs/MinePapersOnline-1.7.10-forge-<версия>.jar
+modern/versions/1.20.1-forge/build/libs/MinePapersOnline-1.20.1-forge-<версия>.jar
+modern/versions/1.20.1-fabric/build/libs/MinePapersOnline-1.20.1-fabric-<версия>.jar
 modern/versions/1.21.1-neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<версия>.jar
 modern/versions/1.21.1-fabric/build/libs/MinePapersOnline-1.21.1-fabric-<версия>.jar
 ```
@@ -231,7 +235,7 @@ Mine Papers Online/
     modern/                 современные версии (1.20+) — одно дерево Stonecutter
         src/                общий код и ресурсы без движка, с условиями //? для версий и движков; игровые тесты
         versions/<версия>-<движок>/   узел: код движка, его описание мода, gradle.properties с версиями
-        neoforge.gradle, fabric.gradle   сборка узлов каждого движка
+        forge.gradle, neoforge.gradle, fabric.gradle   сборка узлов каждого движка
         stonecutter.gradle  активная версия
 ```
 
@@ -311,6 +315,7 @@ Mine Papers Online/
 
 - **1.7.10.** Предмет картины является `ItemBlock` блока `BlockPictureFrame`, рецепт и предмет лежат в пакете `block`. В пакете `block` есть классы для старых сохранений, где картины были блоками: `TileLegacyPicture` превращает такую картину в сущность, `BlockPictureFiller` убирает лишние части. Свет ставится своим невидимым блоком `BlockPictureLight`. Своё многострочное поле ввода `GuiTextArea`, потому что в 1.7.10 его нет.
 - **1.21.1.** Предмет и рецепт в пакете `item`. Настройки хранятся в компоненте предмета `minepapers:frame`. Свет ставится ванильным блоком `minecraft:light`. Подсказки окна сделаны ванильными `Tooltip`. Свои типы отрисовки в `client/PictureRenderTypes.java`. Место и настройки картины приходят клиенту ванильными данными сущности (`SynchedEntityData`), без данных спавна загрузчика. Всё, что зависит от загрузчика, общий код получает через `Platform` (пакеты, окно с данными для клиента, текущий сервер) и `client/ModClient` (события клиента). Загрузчики — тонкие обёртки: NeoForge — `neoforge/MinePapersNeoForge` и `MinePapersNeoForgeClient` (регистрация, пакеты, события); Fabric — `fabric/MinePapersFabric`, `MinePapersFabricClient` и два миксина, для которых у Fabric API нет событий: клики мышью до ванильной обработки (`MinecraftMixin`) и возврат материалов при крафте (`ResultSlotMixin`).
+- **1.20.1** (то же дерево `modern/`, отличия размечены условиями `//?`). Настройки предмета — в его NBT под ключом `MinePapersFrame`, как в 1.7.10 (компонентов предметов до 1.20.5 нет). Пакеты — те же `ModPacket`, их передаёт канал загрузчика: у Forge — `SimpleChannel`, у Fabric — пакеты по `ResourceLocation`, обработчик переносится в главный поток. Окно рисуется прежними текстурами интерфейса (`widgets.png`, `tabs.png`, `beacon.png`): спрайтов интерфейса до 1.20.2 нет. Папки данных во множественном числе (`recipes`, `structures`, `tags/entity_types`) — их переименовывает сборка, ресурсы лежат в раскладке 1.21. У Forge в ресурсах узла есть `pack.mcmeta`: без него Forge 1.20.1 не подключает данные мода.
 
 ## Общий код и адаптеры
 

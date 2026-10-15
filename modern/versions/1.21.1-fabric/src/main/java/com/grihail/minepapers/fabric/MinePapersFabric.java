@@ -1,11 +1,14 @@
 package com.grihail.minepapers.fabric;
 
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.Platform;
 import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.item.RecipePictureFrame;
+import com.grihail.minepapers.network.ModPacket;
 import com.grihail.minepapers.network.PacketBreakPicture;
 import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
@@ -32,7 +35,10 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
@@ -48,7 +54,7 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 public class MinePapersFabric implements ModInitializer, Platform {
 
     /** Отправка пакетов на сервер — только на клиенте, её ставит MinePapersFabricClient (классы клиентской сети на сервере не загружаются). */
-    static Consumer<CustomPacketPayload> clientSender = payload -> {
+    static Consumer<ModPacket> clientSender = packet -> {
         throw new IllegalStateException("not a client");
     };
 
@@ -64,7 +70,7 @@ public class MinePapersFabric implements ModInitializer, Platform {
         EntityType<EntityPicture> picture = register(BuiltInRegistries.ENTITY_TYPE, MinePapers.PICTURE_ID, MinePapers.makePicture());
         RecipeSerializer<RecipePictureFrame> frameCopy = register(BuiltInRegistries.RECIPE_SERIALIZER, MinePapers.FRAME_COPY_ID, MinePapers.makeFrameCopy());
         MenuType<ContainerPictureFrame> menu = register(BuiltInRegistries.MENU, MinePapers.FRAME_MENU_ID, new ExtendedScreenHandlerType<>(
-            ContainerPictureFrame::fromData, ContainerPictureFrame.OpenData.CODEC));
+            ContainerPictureFrame::fromData, StreamCodec.ofMember(ContainerPictureFrame.OpenData::write, ContainerPictureFrame.OpenData::read)));
         MinePapers.FRAME_SETTINGS = () -> settings;
         MinePapers.FRAME = () -> frame;
         MinePapers.PICTURE = () -> picture;
@@ -89,37 +95,44 @@ public class MinePapersFabric implements ModInitializer, Platform {
         return Registry.register(registry, MinePapers.id(name), value);
     }
 
+    /** Типы пакетов сервер -> клиент: на них клиент вешает обработчики (MinePapersFabricClient). */
+    static final CustomPacketPayload.Type<PacketHashes.Need> NEED = new CustomPacketPayload.Type<>(PacketHashes.Need.ID);
+    static final CustomPacketPayload.Type<PacketFileChunk> FILE_CHUNK = new CustomPacketPayload.Type<>(PacketFileChunk.ID);
+
     /** Пакеты мода. Обработчики Fabric выполняются в главном потоке сервера. */
     private static void registerPackets() {
-        PayloadTypeRegistry.playC2S().register(PacketSaveFrame.TYPE, PacketSaveFrame.CODEC);
-        PayloadTypeRegistry.playC2S().register(PacketOfferFiles.TYPE, PacketOfferFiles.CODEC);
-        PayloadTypeRegistry.playC2S().register(PacketFileChunk.Upload.TYPE, PacketFileChunk.Upload.CODEC);
-        PayloadTypeRegistry.playC2S().register(PacketHashes.Request.TYPE, PacketHashes.Request.CODEC);
-        PayloadTypeRegistry.playC2S().register(PacketBreakPicture.TYPE, PacketBreakPicture.CODEC);
-        PayloadTypeRegistry.playC2S().register(PacketOpenFrame.TYPE, PacketOpenFrame.CODEC);
-        PayloadTypeRegistry.playC2S().register(PacketPasteMaterials.TYPE, PacketPasteMaterials.CODEC);
-        PayloadTypeRegistry.playS2C().register(PacketHashes.Need.TYPE, PacketHashes.Need.CODEC);
-        PayloadTypeRegistry.playS2C().register(PacketFileChunk.TYPE, PacketFileChunk.CODEC);
+        toServer(PacketSaveFrame.ID, PacketSaveFrame::read, PacketSaveFrame::apply);
+        toServer(PacketOfferFiles.ID, PacketOfferFiles::read, PacketOfferFiles::apply);
+        toServer(PacketFileChunk.Upload.ID, PacketFileChunk.Upload::read, PacketFileChunk.Upload::apply);
+        toServer(PacketHashes.Request.ID, PacketHashes.Request::read, PacketHashes.Request::apply);
+        toServer(PacketBreakPicture.ID, PacketBreakPicture::read, PacketBreakPicture::apply);
+        toServer(PacketOpenFrame.ID, PacketOpenFrame::read, PacketOpenFrame::apply);
+        toServer(PacketPasteMaterials.ID, PacketPasteMaterials::read, PacketPasteMaterials::apply);
+        PayloadTypeRegistry.playS2C().register(NEED, codec(PacketHashes.Need::read));
+        PayloadTypeRegistry.playS2C().register(FILE_CHUNK, codec(PacketFileChunk::read));
+    }
 
-        ServerPlayNetworking.registerGlobalReceiver(PacketSaveFrame.TYPE, (msg, ctx) -> PacketSaveFrame.apply(ctx.player(), msg));
-        ServerPlayNetworking.registerGlobalReceiver(PacketOfferFiles.TYPE, (msg, ctx) -> PacketOfferFiles.apply(ctx.player(), msg));
-        ServerPlayNetworking.registerGlobalReceiver(PacketFileChunk.Upload.TYPE, (msg, ctx) -> PacketFileChunk.Upload.apply(ctx.player(), msg));
-        ServerPlayNetworking.registerGlobalReceiver(PacketHashes.Request.TYPE, (msg, ctx) -> PacketHashes.Request.apply(ctx.player(), msg));
-        ServerPlayNetworking.registerGlobalReceiver(PacketBreakPicture.TYPE, (msg, ctx) -> PacketBreakPicture.apply(ctx.player(), msg));
-        ServerPlayNetworking.registerGlobalReceiver(PacketOpenFrame.TYPE, (msg, ctx) -> PacketOpenFrame.apply(ctx.player(), msg));
-        ServerPlayNetworking.registerGlobalReceiver(PacketPasteMaterials.TYPE, (msg, ctx) -> PacketPasteMaterials.apply(ctx.player(), msg));
+    private static <T extends ModPacket> void toServer(ResourceLocation id, Function<FriendlyByteBuf, T> read, BiConsumer<ServerPlayer, T> apply) {
+        CustomPacketPayload.Type<T> type = new CustomPacketPayload.Type<>(id);
+        PayloadTypeRegistry.playC2S().register(type, codec(read));
+        ServerPlayNetworking.registerGlobalReceiver(type, (msg, ctx) -> apply.accept(ctx.player(), msg));
+    }
+
+    /** Кодек пакета из его write и read. */
+    private static <T extends ModPacket> StreamCodec<FriendlyByteBuf, T> codec(Function<FriendlyByteBuf, T> read) {
+        return StreamCodec.ofMember(ModPacket::write, read::apply);
     }
 
     // ---------- Platform ----------
 
     @Override
-    public void sendToServer(CustomPacketPayload payload) {
-        clientSender.accept(payload);
+    public void sendToServer(ModPacket packet) {
+        clientSender.accept(packet);
     }
 
     @Override
-    public void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
-        ServerPlayNetworking.send(player, payload);
+    public void sendToPlayer(ServerPlayer player, ModPacket packet) {
+        ServerPlayNetworking.send(player, packet);
     }
 
     @Override

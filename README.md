@@ -9,6 +9,8 @@ The mod is built for several game versions from a single repository:
 | Minecraft version | Loader | Java |
 | --- | --- | --- |
 | 1.7.10 | Forge 10.13.4.1614 | 8 |
+| 1.20.1 | Forge 47.4.28 | 17 |
+| 1.20.1 | Fabric Loader 0.16+, Fabric API | 17 |
 | 1.21.1 | NeoForge 21.1.259 | 21 |
 | 1.21.1 | Fabric Loader 0.16+, Fabric API | 21 |
 
@@ -181,6 +183,8 @@ Output files:
 
 ```
 1.7.10/forge/build/libs/MinePapersOnline-1.7.10-forge-<version>.jar
+modern/versions/1.20.1-forge/build/libs/MinePapersOnline-1.20.1-forge-<version>.jar
+modern/versions/1.20.1-fabric/build/libs/MinePapersOnline-1.20.1-fabric-<version>.jar
 modern/versions/1.21.1-neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<version>.jar
 modern/versions/1.21.1-fabric/build/libs/MinePapersOnline-1.21.1-fabric-<version>.jar
 ```
@@ -231,7 +235,7 @@ Mine Papers Online/
     modern/                 modern versions (1.20+) - one Stonecutter tree
         src/                shared code and resources without a loader, with //? conditions for versions and loaders; game tests
         versions/<version>-<loader>/   node: loader code, its mod description, gradle.properties with versions
-        neoforge.gradle, fabric.gradle   build of each loader's nodes
+        forge.gradle, neoforge.gradle, fabric.gradle   build of each loader's nodes
         stonecutter.gradle  the active version
 ```
 
@@ -311,6 +315,7 @@ Version differences:
 
 - **1.7.10.** The picture item is the `ItemBlock` of the `BlockPictureFrame` block; the recipe and item are in the `block` package. The `block` package also has classes for old saves where pictures were blocks: `TileLegacyPicture` turns such a picture into an entity, `BlockPictureFiller` removes leftover parts. Light is placed with a custom invisible block `BlockPictureLight`. A custom multiline text field `GuiTextArea`, because 1.7.10 has none.
 - **1.21.1.** The item and recipe are in the `item` package. Settings are stored in the `minepapers:frame` item component. Light is placed with the vanilla `minecraft:light` block. Window tooltips use vanilla `Tooltip`. Custom render types are in `client/PictureRenderTypes.java`. The picture position and settings reach the client as vanilla entity data (`SynchedEntityData`), without loader spawn data. Everything that depends on the loader comes to the shared code through `Platform` (packets, a window with data for the client, the current server) and `client/ModClient` (client events). The loaders are thin wrappers: NeoForge - `neoforge/MinePapersNeoForge` and `MinePapersNeoForgeClient` (registration, packets, events); Fabric - `fabric/MinePapersFabric`, `MinePapersFabricClient` and two mixins for things Fabric API has no events for: mouse clicks before vanilla handling (`MinecraftMixin`) and returning materials on crafting (`ResultSlotMixin`).
+- **1.20.1** (the same `modern/` tree, differences marked with `//?` conditions). Item settings are in its NBT under the `MinePapersFrame` key, as in 1.7.10 (there are no item components before 1.20.5). Packets are the same `ModPacket`s carried by the loader's channel: Forge `SimpleChannel`, Fabric packets by `ResourceLocation` with the handler moved to the main thread. The window is drawn with the old GUI textures (`widgets.png`, `tabs.png`, `beacon.png`): there are no GUI sprites before 1.20.2. Data folders are plural (`recipes`, `structures`, `tags/entity_types`); the build renames them, resources stay in the 1.21 layout. The Forge node has a `pack.mcmeta` in its resources: without it Forge 1.20.1 does not load the mod's data.
 
 ## Common code and adapters
 

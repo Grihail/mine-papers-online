@@ -38,8 +38,8 @@ public class MinePapersFabricClient implements ClientModInitializer {
         ModClient.itemColors = () -> Minecraft.getInstance().itemColors; // открыто в minepapers.accesswidener
         MinePapersFabric.clientSender = ClientPlayNetworking::send;
 
-        ClientPlayNetworking.registerGlobalReceiver(PacketHashes.Need.TYPE, (msg, ctx) -> MinePapers.proxy.onFilesNeeded(msg.hashes()));
-        ClientPlayNetworking.registerGlobalReceiver(PacketFileChunk.TYPE,
+        ClientPlayNetworking.registerGlobalReceiver(MinePapersFabric.NEED, (msg, ctx) -> MinePapers.proxy.onFilesNeeded(msg.hashes()));
+        ClientPlayNetworking.registerGlobalReceiver(MinePapersFabric.FILE_CHUNK,
             (msg, ctx) -> MinePapers.proxy.onFileChunk(msg.hash(), msg.total(), msg.offset(), msg.data()));
 
         EntityRendererRegistry.register(MinePapers.PICTURE.get(), RenderPicture::new);

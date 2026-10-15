@@ -354,7 +354,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
             /** Колёсико над полем — и без клика по нему. */
             @Override
+            //? if >=1.20.2 {
             public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+            //?} else {
+            /*public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+            *///?}
                 if (number == null || scrollY == 0 || !isMouseOver(mouseX, mouseY)) return false;
                 ed.step(f, scrollY > 0 ? 1 : -1);
                 return true;
@@ -389,8 +393,16 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             }
 
             @Override
+            //? if >=1.20.2 {
             public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+            //?} else {
+            /*public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+            *///?}
+                //? if >=1.20.2 {
                 return visible && super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+                //?} else {
+                /*return visible && super.mouseScrolled(mouseX, mouseY, scrollY);
+                *///?}
             }
         };
         // Без ограничения длины: иначе под полем появляется счётчик символов и занимает место.
@@ -731,6 +743,9 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        //? if <1.20.2 {
+        /*renderBackground(g); // с 1.20.2 затемнение рисует сам super.render
+        *///?}
         super.render(g, mouseX, mouseY, partialTick);
         renderTooltip(g, mouseX, mouseY);
         Style link = linkAt(mouseX, mouseY);

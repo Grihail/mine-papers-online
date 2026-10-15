@@ -2,6 +2,7 @@ plugins {
     // Плагины сборки объявляются здесь, а применяются в подпроектах версий.
     id 'com.gtnewhorizons.retrofuturagradle' version '2.0.2' apply false
     id 'net.neoforged.moddev' version '2.0.148' apply false
+    id 'net.neoforged.moddev.legacyforge' version '2.0.148' apply false
     id 'fabric-loom' version '1.15.5' apply false
 }
 
@@ -93,6 +94,16 @@ configure(subprojects.findAll { it.name ==~ /\d.*-.*/ }) {
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
     }
+    // Папки данных до 1.21 — во множественном числе (recipes, structures, tags/entity_types); ресурсы лежат в раскладке 1.21.
+    if (compareVersions(mcVersion, '1.21') < 0) {
+        tasks.withType(ProcessResources).configureEach {
+            eachFile {
+                it.path = it.path
+                    .replaceFirst('^data/([^/]+)/(recipe|structure|advancement|loot_table)/', 'data/$1/$2s/')
+                    .replaceFirst('^data/([^/]+)/tags/(entity_type|item|block)/', 'data/$1/tags/$2s/')
+            }
+        }
+    }
     // В классах мода только номера строк (для крашрепортов), без имён локальных переменных: jar меньше на ~30 КБ.
     tasks.named('compileJava') {
         options.debugOptions.debugLevel = 'source,lines'
@@ -129,7 +140,7 @@ configure(subprojects.findAll { it.name ==~ /\d.*-.*/ }) {
         filteringCharset = 'UTF-8'
         inputs.property 'version', project.version
         inputs.property 'mcversion', mcVersion
-        filesMatching(['mcmod.info', 'version.properties', 'META-INF/neoforge.mods.toml', 'fabric.mod.json']) {
+        filesMatching(['mcmod.info', 'version.properties', 'META-INF/neoforge.mods.toml', 'META-INF/mods.toml', 'fabric.mod.json']) {
             expand 'version': project.version, 'mcversion': mcVersion
         }
 

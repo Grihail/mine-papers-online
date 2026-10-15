@@ -59,9 +59,23 @@ public class EntityPicture extends Entity {
     }
 
     @Override
+    //? if >=1.20.5 {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(SETTINGS, new CompoundTag());
     }
+    //?} else {
+    /*protected void defineSynchedData() {
+        entityData.define(SETTINGS, new CompoundTag());
+    }
+    *///?}
+
+    //? if <1.20.2 {
+    /*// До 1.20.2 пакет появления сущности у клиента задаёт сама сущность: обычный ванильный, место и настройки придут данными сущности.
+    @Override
+    public net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getAddEntityPacket() {
+        return new net.minecraft.network.protocol.game.ClientboundAddEntityPacket(this);
+    }
+    *///?}
 
     // ---------- Настройки и хитбокс ----------
 

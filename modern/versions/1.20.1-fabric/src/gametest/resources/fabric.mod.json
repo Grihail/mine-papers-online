@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "minepapers-gametest",
+  "version": "1.0.0",
+  "name": "Mine Papers Online game tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["com.grihail.minepapers.fabric.FabricGameTests"]
+  },
+  "depends": {
+    "minepapers": "*",
+    "fabric-gametest-api-v1": "*"
+  }
+}

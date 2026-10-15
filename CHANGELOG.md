@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### Добавлено
+
+- Версии для Minecraft 1.20.1: Forge и Fabric (на Fabric рядом с модом нужен Fabric API).
+
 ## [1.5.1]
 
 ### Добавлено

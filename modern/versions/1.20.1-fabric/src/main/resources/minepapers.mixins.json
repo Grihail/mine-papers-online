@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.grihail.minepapers.fabric.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "ResultSlotMixin"
+  ],
+  "client": [
+    "MinecraftMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

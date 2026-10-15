@@ -31,7 +31,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -40,13 +39,18 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
-import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.phys.Vec3;
+//? if >=1.20.2 {
+import net.minecraft.server.network.CommonListenerCookie;
+//?}
+//? if >=1.20.5 {
+import net.minecraft.world.item.crafting.CraftingInput;
+//?}
 
 /** Игровые тесты картины на сервере: установка, ломание, свет, пакеты окна, права, рецепты, сохранение — одни для всех движков версии. Тест — открытый статический метод с GameTestHelper; движок регистрирует их все через all() (ванильный @GameTestGenerator в своём классе тестов). Запуск — build.bat test: сервер каждого движка прогоняет тесты и выходит с ошибкой, если какой-то упал. */
 public final class PictureGameTests {
@@ -64,8 +68,13 @@ public final class PictureGameTests {
             int mod = m.getModifiers();
             if (!Modifier.isPublic(mod) || !Modifier.isStatic(mod) || m.getReturnType() != void.class
                 || m.getParameterCount() != 1 || m.getParameterTypes()[0] != GameTestHelper.class) continue;
+            //? if >=1.20.5 {
             tests.add(new TestFunction("minepapers", "minepapers." + m.getName().toLowerCase(Locale.ROOT), EMPTY, Rotation.NONE,
                 TIMEOUT_TICKS, 0, true, false, 1, 1, false, helper -> {
+            //?} else {
+            /*tests.add(new TestFunction("minepapers", "minepapers." + m.getName().toLowerCase(Locale.ROOT), EMPTY, Rotation.NONE,
+                TIMEOUT_TICKS, 0, true, 1, 1, helper -> {
+            *///?}
                     try {
                         m.invoke(null, helper);
                     } catch (InvocationTargetException e) {
@@ -85,8 +94,12 @@ public final class PictureGameTests {
 
     /** Игрок на сервере с поддельным соединением (как GameTestHelper.makeMockServerPlayerInLevel, но и в выживании), стоит перед стеной. */
     private static ServerPlayer player(GameTestHelper h, boolean creative) {
+        //? if >=1.20.2 {
         CommonListenerCookie cookie = CommonListenerCookie.createInitial(new GameProfile(UUID.randomUUID(), "tester"), false);
         ServerPlayer player = new ServerPlayer(h.getLevel().getServer(), h.getLevel(), cookie.gameProfile(), cookie.clientInformation()) {
+        //?} else {
+        /*ServerPlayer player = new ServerPlayer(h.getLevel().getServer(), h.getLevel(), new GameProfile(UUID.randomUUID(), "tester")) {
+        *///?}
             @Override
             public boolean isSpectator() {
                 return false;
@@ -99,7 +112,11 @@ public final class PictureGameTests {
         };
         Connection connection = new Connection(PacketFlow.SERVERBOUND);
         new EmbeddedChannel(connection);
+        //? if >=1.20.2 {
         h.getLevel().getServer().getPlayerList().placeNewPlayer(connection, player, cookie);
+        //?} else {
+        /*h.getLevel().getServer().getPlayerList().placeNewPlayer(connection, player);
+        *///?}
         // Тестовый сервер по умолчанию даёт творческий режим, а в нём предметы не тратятся.
         player.setGameMode(creative ? GameType.CREATIVE : GameType.SURVIVAL);
         Vec3 at = h.absoluteVec(Vec3.atBottomCenterOf(WALL.south(2)));
@@ -123,16 +140,26 @@ public final class PictureGameTests {
         h.setBlock(WALL, Blocks.STONE);
         h.assertTrue(use(h, player, new ItemStack(MinePapers.FRAME.get())).consumesAction(), "picture is placed");
         List<EntityPicture> pictures = pictures(h);
-        h.assertValueEqual(pictures.size(), 1, "pictures");
+        eq(h, pictures.size(), 1, "pictures");
         return pictures.get(0);
     }
 
+    /** Проверка равенства (в 1.20.1 у GameTestHelper её нет). */
+    private static void eq(GameTestHelper h, Object actual, Object expected, String what) {
+        h.assertTrue(java.util.Objects.equals(actual, expected), what + ": expected " + expected + ", got " + actual);
+    }
+
+    /** Площадка теста в мире (GameTestHelper.getBounds в 1.20.1 закрыт). */
+    private static AABB area(GameTestHelper h) {
+        return new AABB(h.absoluteVec(Vec3.ZERO), h.absoluteVec(new Vec3(6, 6, 6)));
+    }
+
     private static List<EntityPicture> pictures(GameTestHelper h) {
-        return h.getLevel().getEntitiesOfClass(EntityPicture.class, h.getBounds(), e -> !e.isRemoved());
+        return h.getLevel().getEntitiesOfClass(EntityPicture.class, area(h), e -> !e.isRemoved());
     }
 
     private static List<ItemEntity> drops(GameTestHelper h) {
-        return h.getLevel().getEntitiesOfClass(ItemEntity.class, h.getBounds().inflate(2),
+        return h.getLevel().getEntitiesOfClass(ItemEntity.class, area(h).inflate(2),
             e -> !e.isRemoved() && e.getItem().is(MinePapers.FRAME.get()));
     }
 
@@ -159,15 +186,15 @@ public final class PictureGameTests {
         h.assertTrue(use(h, player, stack).consumesAction(), "placed");
         EntityPicture picture = pictures(h).get(0);
         BlockPos cell = h.absolutePos(WALL.south());
-        h.assertValueEqual(new BlockPos(picture.frame.x, picture.frame.y, picture.frame.z), cell, "frame cell");
-        h.assertValueEqual(picture.frame.getFacing(), Direction.SOUTH.get3DDataValue(), "facing");
-        h.assertValueEqual(stack.getCount(), 1, "one item spent in survival");
+        eq(h, new BlockPos(picture.frame.x, picture.frame.y, picture.frame.z), cell, "frame cell");
+        eq(h, picture.frame.getFacing(), Direction.SOUTH.get3DDataValue(), "facing");
+        eq(h, stack.getCount(), 1, "one item spent in survival");
         AABB box = picture.getBoundingBox();
         h.assertTrue(Math.abs(box.minZ - cell.getZ()) < 1e-6 && box.getZsize() < 0.1, "hitbox lies on the wall: " + box);
 
         // На то же место вторую не повесить: холсты пересеклись бы.
         h.assertTrue(!use(h, player, stack).consumesAction(), "second picture is blocked");
-        h.assertValueEqual(pictures(h).size(), 1, "pictures");
+        eq(h, pictures(h).size(), 1, "pictures");
         leave(h, player);
         h.succeed();
     }
@@ -179,7 +206,7 @@ public final class PictureGameTests {
         h.setBlock(WALL, Blocks.STONE);
         h.setBlock(WALL.south().east(), Blocks.STONE); // справа от картины, на пути холста
         h.assertTrue(!use(h, player, ItemPictureFrame.makeStack(big)).consumesAction(), "3 blocks wide canvas hits the block");
-        h.assertValueEqual(pictures(h).size(), 0, "pictures");
+        eq(h, pictures(h).size(), 0, "pictures");
         leave(h, player);
         h.succeed();
     }
@@ -196,7 +223,7 @@ public final class PictureGameTests {
         h.runAfterDelay(60, () -> {
             PacketBreakPicture.apply(player, new PacketBreakPicture(picture.getId(), PacketBreakPicture.FINISH));
             h.assertTrue(picture.isRemoved(), "broken after digging");
-            h.assertValueEqual(drops(h).size(), 1, "picture item dropped");
+            eq(h, drops(h).size(), 1, "picture item dropped");
             leave(h, player);
             h.succeed();
         });
@@ -207,7 +234,7 @@ public final class PictureGameTests {
         EntityPicture picture = hang(h, player);
         PacketBreakPicture.apply(player, new PacketBreakPicture(picture.getId(), PacketBreakPicture.FINISH));
         h.assertTrue(picture.isRemoved(), "broken at once");
-        h.assertValueEqual(drops(h).size(), 0, "no drop in creative");
+        eq(h, drops(h).size(), 0, "no drop in creative");
         leave(h, player);
         h.succeed();
     }
@@ -221,8 +248,8 @@ public final class PictureGameTests {
         picture.hurt(h.getLevel().damageSources().explosion(null, null), 5f);
         h.assertTrue(picture.isRemoved(), "explosion breaks");
         List<ItemEntity> drops = drops(h);
-        h.assertValueEqual(drops.size(), 1, "drops");
-        h.assertValueEqual(ItemPictureFrame.read(drops.get(0).getItem()).title, "Boom", "settings kept in the item");
+        eq(h, drops.size(), 1, "drops");
+        eq(h, ItemPictureFrame.read(drops.get(0).getItem()).title, "Boom", "settings kept in the item");
         leave(h, player);
         h.succeed();
     }
@@ -237,7 +264,7 @@ public final class PictureGameTests {
         BlockPos cell = WALL.south();
         h.runAfterDelay(2, () -> {
             h.assertBlockPresent(Blocks.LIGHT, cell);
-            h.assertValueEqual(h.getBlockState(cell).getValue(net.minecraft.world.level.block.LightBlock.LEVEL), 15, "light level");
+            eq(h, h.getBlockState(cell).getValue(net.minecraft.world.level.block.LightBlock.LEVEL), 15, "light level");
             picture.discard();
             h.assertBlockNotPresent(Blocks.LIGHT, cell);
             leave(h, player);
@@ -256,14 +283,14 @@ public final class PictureGameTests {
         wanted.title = "Mine";
         wanted.owner = bob.getUUID(); // клиент может прислать любое имя — владельцем станет отправитель
         PacketSaveFrame.apply(alice, new PacketSaveFrame(picture.getId(), settings(wanted)));
-        h.assertValueEqual(picture.frame.title, "Mine", "title saved");
-        h.assertValueEqual(picture.frame.owner, alice.getUUID(), "owner is the sender");
+        eq(h, picture.frame.title, "Mine", "title saved");
+        eq(h, picture.frame.owner, alice.getUUID(), "owner is the sender");
 
         wanted.title = "Hacked";
         wanted.owner = null;
         PacketSaveFrame.apply(bob, new PacketSaveFrame(picture.getId(), settings(wanted)));
-        h.assertValueEqual(picture.frame.title, "Mine", "stranger cannot change a locked picture");
-        h.assertValueEqual(picture.frame.owner, alice.getUUID(), "stranger cannot unlock");
+        eq(h, picture.frame.title, "Mine", "stranger cannot change a locked picture");
+        eq(h, picture.frame.owner, alice.getUUID(), "stranger cannot unlock");
 
         PacketSaveFrame.apply(alice, new PacketSaveFrame(picture.getId(), settings(wanted)));
         h.assertTrue(picture.frame.owner == null, "owner unlocks");
@@ -278,7 +305,7 @@ public final class PictureGameTests {
         PictureFrame wanted = new PictureFrame();
         wanted.title = "Far";
         PacketSaveFrame.apply(player, new PacketSaveFrame(picture.getId(), settings(wanted)));
-        h.assertValueEqual(picture.frame.title, "", "out of reach");
+        eq(h, picture.frame.title, "", "out of reach");
         leave(h, player);
         h.succeed();
     }
@@ -292,7 +319,7 @@ public final class PictureGameTests {
         menu.setCarried(new ItemStack(Items.OAK_PLANKS, 5));
         menu.clicked(ContainerPictureFrame.FIRST_MATERIAL_SLOT, 0, ClickType.PICKUP, player);
         h.assertTrue(picture.frame.border.stack().is(Items.OAK_PLANKS), "frame material set");
-        h.assertValueEqual(menu.getCarried().getCount(), 4, "one block per picture");
+        eq(h, menu.getCarried().getCount(), 4, "one block per picture");
         // Картину саму в себя не положить.
         menu.setCarried(new ItemStack(MinePapers.FRAME.get()));
         menu.clicked(ContainerPictureFrame.FIRST_MATERIAL_SLOT + 1, 0, ClickType.PICKUP, player);
@@ -305,7 +332,7 @@ public final class PictureGameTests {
         wanted.mode = PictureFrame.MODE_DECAL;
         PacketSaveFrame.apply(player, new PacketSaveFrame(picture.getId(), settings(wanted)));
         h.assertTrue(picture.frame.border.stack().isEmpty(), "unused frame block taken out");
-        h.assertValueEqual(count(player, Items.OAK_PLANKS), 1, "and given back");
+        eq(h, count(player, Items.OAK_PLANKS), 1, "and given back");
         leave(h, player);
         h.succeed();
     }
@@ -317,7 +344,7 @@ public final class PictureGameTests {
         PictureConfig config = PictureConfig.fromJson("{\"materials\": {\"glow\": \"minecraft:glowstone\", \"canvas\": \"minecraft:diamond_block\"}}");
         PacketPasteMaterials.apply(player, PacketPasteMaterials.of(picture.getId(), config));
         h.assertTrue(picture.frame.glow.stack().is(Items.GLOWSTONE), "glow taken from the inventory");
-        h.assertValueEqual(count(player, Items.GLOWSTONE), 2, "one glowstone spent");
+        eq(h, count(player, Items.GLOWSTONE), 2, "one glowstone spent");
         h.assertTrue(picture.frame.canvas.stack().isEmpty(), "missing diamond block is not created in survival");
         leave(h, player);
         h.succeed();
@@ -332,7 +359,7 @@ public final class PictureGameTests {
         frame.glow.set(new ItemStack(Items.SEA_LANTERN));
         ItemStack stack = ItemPictureFrame.makeStack(frame);
         PictureFrame read = ItemPictureFrame.read(stack);
-        h.assertValueEqual(settings(read), settings(frame), "settings");
+        eq(h, settings(read), settings(frame), "settings");
         h.assertTrue(read.glow.stack().is(Items.SEA_LANTERN), "material item");
         h.assertTrue(ItemPictureFrame.settings(ItemPictureFrame.makeStack(new PictureFrame())) == null,
             "unconfigured picture has no settings and stacks with new ones");
@@ -340,7 +367,11 @@ public final class PictureGameTests {
     }
 
     public static void copyRecipe(GameTestHelper h) {
+        //? if >=1.20.5 {
         RecipePictureFrame recipe = new RecipePictureFrame(CraftingBookCategory.MISC);
+        //?} else {
+        /*RecipePictureFrame recipe = new RecipePictureFrame(MinePapers.id("frame_copy"), CraftingBookCategory.MISC);
+        *///?}
         PictureFrame frame = new PictureFrame();
         frame.title = "Copy me";
         frame.border.set(new ItemStack(Items.GOLD_BLOCK));
@@ -351,18 +382,29 @@ public final class PictureGameTests {
         grid.add(empty.copy());
         grid.add(empty.copy());
         for (int i = 0; i < 6; i++) grid.add(ItemStack.EMPTY);
-        ItemStack copies = recipe.assemble(CraftingInput.of(3, 3, grid), h.getLevel().registryAccess());
-        h.assertValueEqual(copies.getCount(), 3, "configured + 2 empty = 3 copies");
+        ItemStack copies = recipe.assemble(grid(grid), h.getLevel().registryAccess());
+        eq(h, copies.getCount(), 3, "configured + 2 empty = 3 copies");
         PictureFrame copy = ItemPictureFrame.read(copies);
-        h.assertValueEqual(copy.title, "Copy me", "settings copied");
+        eq(h, copy.title, "Copy me", "settings copied");
         h.assertTrue(copy.border.stack().isEmpty(), "materials are not duplicated");
 
         // Заприваченную не копируют.
         frame.owner = UUID.randomUUID();
         grid.set(0, ItemPictureFrame.makeStack(frame));
-        h.assertTrue(recipe.assemble(CraftingInput.of(3, 3, grid), h.getLevel().registryAccess()).isEmpty(), "locked is not copied");
+        h.assertTrue(recipe.assemble(grid(grid), h.getLevel().registryAccess()).isEmpty(), "locked is not copied");
         h.succeed();
     }
+
+    //? if >=1.20.5 {
+    private static CraftingInput grid(List<ItemStack> items) {
+        return CraftingInput.of(3, 3, items);
+    }
+    //?} else {
+    /*private static net.minecraft.world.inventory.TransientCraftingContainer grid(List<ItemStack> items) {
+        return new net.minecraft.world.inventory.TransientCraftingContainer(null, 3, 3,
+            net.minecraft.core.NonNullList.of(ItemStack.EMPTY, items.toArray(new ItemStack[0])));
+    }
+    *///?}
 
     public static void pictureSurvivesSaveAndLoad(GameTestHelper h) {
         ServerPlayer player = player(h, true);
@@ -373,8 +415,8 @@ public final class PictureGameTests {
         CompoundTag saved = picture.saveWithoutId(new CompoundTag());
         EntityPicture loaded = new EntityPicture(MinePapers.PICTURE.get(), h.getLevel());
         loaded.load(saved);
-        h.assertValueEqual(settings(loaded.frame), settings(picture.frame), "settings");
-        h.assertValueEqual(loaded.getBoundingBox(), picture.getBoundingBox(), "hitbox");
+        eq(h, settings(loaded.frame), settings(picture.frame), "settings");
+        eq(h, loaded.getBoundingBox(), picture.getBoundingBox(), "hitbox");
         leave(h, player);
         h.succeed();
     }
