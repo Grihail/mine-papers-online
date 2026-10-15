@@ -84,10 +84,11 @@ public class ItemPictureFrame extends Item {
         return settings != null && settings.hasUUID("Owner");
     }
 
-    /** Заприваченная картина блестит, как зачарованный предмет. */
+    /** Заприваченная и подписанная картины блестят, как зачарованный предмет. */
     @Override
     public boolean isFoil(ItemStack stack) {
-        return isLocked(settings(stack)) || super.isFoil(stack);
+        CompoundTag settings = settings(stack);
+        return isLocked(settings) || isSigned(settings) || super.isFoil(stack);
     }
 
     /** Предмет картины; настройки сохраняются, если картину настраивали. */

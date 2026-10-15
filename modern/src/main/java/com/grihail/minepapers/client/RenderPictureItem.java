@@ -136,12 +136,16 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
     private boolean recording = true;
 
 
-    /** Блеск зачарования (заприваченная картина) — как у щита и трезубца: свой слой поверх уже нарисованных плоскостей (проверка глубины "равно"), с одними координатами текстуры по всей иконке. Иначе каждая часть (атлас блоков, картинка) получила бы свой масштаб узора. */
+    /** Узор блеска на всю иконку — как у ванильного предмета: его спрайт 16x16 занимает 1/64 атласа. */
+    private static final double GLINT_SPAN = 1.0 / 64;
+
+    /** Блеск зачарования (заприваченная картина): свой слой поверх уже нарисованных плоскостей (проверка глубины "равно"), с одними координатами текстуры по всей иконке. Иначе каждая часть (атлас блоков, картинка) получила бы свой масштаб узора. Блеск предметов, а не сущностей (entityGlint — тусклый, как у брони). */
     private void glint(MultiBufferSource buffers) {
-        out = buffers.getBuffer(RenderType.entityGlintDirect());
+        out = buffers.getBuffer(RenderType.glint());
         recording = false;
+        double k = GLINT_SPAN / ICON;
         for (double[] r : surfaces) {
-            rect((int) r[0], r[1], r[2], r[3], r[4], r[1] / ICON, r[2] / ICON, r[3] / ICON, r[4] / ICON, (int) r[5]);
+            rect((int) r[0], r[1], r[2], r[3], r[4], r[1] * k, r[2] * k, r[3] * k, r[4] * k, (int) r[5]);
         }
         recording = true;
     }

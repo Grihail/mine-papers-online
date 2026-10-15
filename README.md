@@ -153,13 +153,15 @@ In singleplayer and in a world opened to LAN, the host uploads the pictures of t
 
 ### Mod settings
 
-The `config/minepapers.json` file is shared by all game versions. The mod creates it on first launch and reads it on every launch. The file may contain `//` comments. `stackMaterials` works on the server (a client connected to a server uses the server's value), `hideNsfw` and `titleNeedsSneak` only on the client where they are set.
+The `config/minepapers.json` file is shared by all game versions. The mod creates it on first launch and reads it on every launch. The file may contain `//` comments. `stackMaterials`, `disassembleSigned` and `disassembleLocked` work on the server (a client connected to a server uses the server's value), `hideNsfw` and `titleNeedsSneak` only on the client where they are set.
 
 | Key | Default | What it does |
 | --- | --- | --- |
 | `stackMaterials` | `true` | `true`: a stack of pictures in hand changes materials as a whole, one block per picture. `false`: materials change only for a single picture in hand, a stack's material slots are locked, and the "Frame" tab says why. This lets a server admin prevent players from mass-producing pictures with materials. |
 | `hideNsfw` | `false` | Client only. `true`: pictures marked as NSFW (18+) show an empty canvas with a red "18+" mark in the center (1x1 block) instead of the image, the item icon shows the placeholder with the same mark, and their images are not downloaded. The source link stays visible in the window and the item tooltip. Takes effect after restarting the game. |
 | `titleNeedsSneak` | `true` | Client only. `true`: the title and signer over a picture show only while looking at it with Shift held. `false`: as soon as you look at the picture. |
+| `disassembleSigned` | `false` | `true`: a signed picture can be taken apart in the crafting grid (materials out, then reset to an empty picture, which removes the signature). Signed pictures can never be copied. |
+| `disassembleLocked` | `false` | `true`: a private (locked) picture can be taken apart in the crafting grid (the reset removes the lock). Private pictures can never be copied. |
 
 ## Building
 

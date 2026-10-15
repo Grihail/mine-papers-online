@@ -1,6 +1,7 @@
 package com.grihail.minepapers.block;
 
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -13,7 +14,7 @@ import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 
-/** Рецепты без формы, как копирование карт (заприваченные картины в них не участвуют): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. Events). */
+/** Рецепты без формы, как копирование карт (заприваченные и подписанные картины не копируются, а разбираются, только если это разрешено в config/minepapers.json): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. Events). */
 public class RecipePictureFrame implements IRecipe {
 
     private static boolean isConfigured(ItemStack stack) {
@@ -31,14 +32,15 @@ public class RecipePictureFrame implements IRecipe {
             if (stack.getItem() != frame) return null;
             if (isConfigured(stack)) {
                 if (configured != null) return null; // две настроенные — непонятно, чью копировать
-                if (ItemPictureFrame.isLocked(stack)) return null; // заприваченную не разбирают и не копируют
                 configured = stack;
             } else {
                 empty[0]++;
             }
         }
-        // Подписанную не копируют: подпись уникальна.
-        if (configured != null && empty[0] > 0 && ItemPictureFrame.isSigned(configured)) return null;
+        // Заприваченную и подписанную не копируют никогда, а разбирают — только если это разрешено (ModConfig.mayCraft).
+        if (configured != null && !ModConfig.mayCraft(ItemPictureFrame.isLocked(configured), ItemPictureFrame.isSigned(configured), empty[0] > 0)) {
+            return null;
+        }
         return configured;
     }
 
@@ -59,7 +61,7 @@ public class RecipePictureFrame implements IRecipe {
         boolean hadMaterials = stripMaterials(settings);
         if (empty[0] == 0) {
             // Разбор: сначала только вынимаем материалы — картина остаётся с настройками, но без рамки и холста (граффити). Повторный крафт сбрасывает её полностью.
-            if (!hadMaterials) return ItemPictureFrame.isSigned(configured) ? null : new ItemStack(MinePapers.frame); // подпись навсегда
+            if (!hadMaterials) return new ItemStack(MinePapers.frame);
             settings.setInteger("Mode", PictureFrame.MODE_DECAL);
         }
         return copy;

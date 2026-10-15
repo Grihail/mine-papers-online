@@ -112,11 +112,11 @@ public class ItemPictureFrame extends ItemBlock {
             && PictureFrame.parseUuid(stack.getTagCompound().getCompoundTag(BlockPictureFrame.ITEM_TAG).getString("Owner")) != null;
     }
 
-    /** Заприваченная картина блестит, как зачарованный предмет. */
+    /** Заприваченная и подписанная картины блестят, как зачарованный предмет. */
     @Override
     @SideOnly(Side.CLIENT)
     public boolean hasEffect(ItemStack stack, int pass) {
-        return isLocked(stack) || super.hasEffect(stack, pass);
+        return isLocked(stack) || isSigned(stack) || super.hasEffect(stack, pass);
     }
 
     /** Блоки из слотов материалов (рамка, холст), лежащие в картине-предмете. */

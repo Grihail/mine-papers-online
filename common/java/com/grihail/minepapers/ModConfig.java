@@ -29,7 +29,20 @@ public final class ModConfig {
     /** Только на этом клиенте: заголовок и ник подписавшего над картиной видны, только если смотреть на неё с зажатым Shift (присев). false — сразу, как только навёлся. */
     public static boolean titleNeedsSneak = true;
 
+    /** Разрешить разбирать в крафте подписанные картины: вынимать материалы и сбрасывать до пустой (подпись при сбросе пропадает). Копировать их нельзя всё равно — подпись уникальна. */
+    public static boolean disassembleSigned = false;
+
+    /** Разрешить разбирать в крафте заприваченные картины (приват при сбросе пропадает). Копировать их нельзя всё равно. */
+    public static boolean disassembleLocked = false;
+
     private ModConfig() {}
+
+    /** Можно ли пустить картину в рецепт мода: обычную — всегда; заприваченную и подписанную копировать (copy) нельзя никогда, а разбирать — если это разрешено настройками. */
+    public static boolean mayCraft(boolean locked, boolean signed, boolean copy) {
+        if (!locked && !signed) return true;
+        if (copy) return false;
+        return (!locked || disassembleLocked) && (!signed || disassembleSigned);
+    }
 
     /** Скрыть ли картинку картины с такой пометкой на этом клиенте. */
     public static boolean hides(boolean nsfw) {
@@ -53,8 +66,12 @@ public final class ModConfig {
             if (json.has("stackMaterials")) stackMaterials = json.get("stackMaterials").getAsBoolean();
             if (json.has("hideNsfw")) hideNsfw = json.get("hideNsfw").getAsBoolean();
             if (json.has("titleNeedsSneak")) titleNeedsSneak = json.get("titleNeedsSneak").getAsBoolean();
+            if (json.has("disassembleSigned")) disassembleSigned = json.get("disassembleSigned").getAsBoolean();
+            if (json.has("disassembleLocked")) disassembleLocked = json.get("disassembleLocked").getAsBoolean();
             // Файл прежней версии — дописываем новые настройки (со значениями по умолчанию).
-            if (!json.has("hideNsfw") || !json.has("titleNeedsSneak")) save(file);
+            if (!json.has("hideNsfw") || !json.has("titleNeedsSneak") || !json.has("disassembleSigned") || !json.has("disassembleLocked")) {
+                save(file);
+            }
         } catch (Exception e) {
             LOG.warn("Не удалось прочитать " + file + ", действуют настройки по умолчанию: " + e);
         }
@@ -66,6 +83,14 @@ public final class ModConfig {
             + "  // true: a stack of pictures held in hand changes its materials (frame, canvas, glow) all at once,\n"
             + "  // one block per picture. false: materials can be changed only for a single picture in hand.\n"
             + "  \"stackMaterials\": " + stackMaterials + ",\n"
+            + "\n"
+            + "  // true: signed pictures can be taken apart in the crafting grid (materials out, then reset to an empty picture,\n"
+            + "  // which removes the signature). Signed pictures can never be copied.\n"
+            + "  \"disassembleSigned\": " + disassembleSigned + ",\n"
+            + "\n"
+            + "  // true: private (locked) pictures can be taken apart in the crafting grid (the reset removes the lock).\n"
+            + "  // Private pictures can never be copied.\n"
+            + "  \"disassembleLocked\": " + disassembleLocked + ",\n"
             + "\n"
             + "  // Client only: true hides pictures marked as NSFW (18+). Instead of the picture you see an empty canvas,\n"
             + "  // and its images are not downloaded. Takes effect after restarting the game.\n"

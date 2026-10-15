@@ -392,6 +392,27 @@ public final class PictureGameTests {
         frame.owner = UUID.randomUUID();
         grid.set(0, ItemPictureFrame.makeStack(frame));
         h.assertTrue(recipe.assemble(grid(grid), h.getLevel().registryAccess()).isEmpty(), "locked is not copied");
+
+        // Подписанную тоже: ни копировать, ни разобрать. И она блестит, как заприваченная.
+        frame.owner = null;
+        frame.signer = UUID.randomUUID();
+        frame.signerName = "Signer";
+        ItemStack signed = ItemPictureFrame.makeStack(frame);
+        h.assertTrue(signed.hasFoil(), "signed picture glints");
+        grid.set(0, signed);
+        h.assertTrue(recipe.assemble(grid(grid), h.getLevel().registryAccess()).isEmpty(), "signed is not copied");
+        grid.set(1, ItemStack.EMPTY);
+        grid.set(2, ItemStack.EMPTY);
+        h.assertTrue(recipe.assemble(grid(grid), h.getLevel().registryAccess()).isEmpty(), "signed is not taken apart");
+
+        // Разбор подписанной разрешён настройкой: сброс до пустой картины.
+        com.grihail.minepapers.ModConfig.disassembleSigned = true;
+        try {
+            ItemStack reset = recipe.assemble(grid(grid), h.getLevel().registryAccess());
+            h.assertTrue(reset.is(MinePapers.FRAME.get()) && ItemPictureFrame.settings(reset) == null, "allowed: signed picture is reset");
+        } finally {
+            com.grihail.minepapers.ModConfig.disassembleSigned = false;
+        }
         h.succeed();
     }
 
