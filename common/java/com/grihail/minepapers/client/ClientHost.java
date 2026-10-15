@@ -52,6 +52,9 @@ public abstract class ClientHost {
     /** Сервер запущен в этом клиенте (одиночная игра или открытая в LAN). */
     public abstract boolean isSingleplayerHost();
 
+    /** Игра на паузе (меню Esc в одиночной игре): мир стоит, сущности не тикают. */
+    public abstract boolean isPaused();
+
     /** Загрузить кадр в видеопамять. @param argb пиксели ARGB, строки сверху вниз @return ссылка на текстуру — у каждой версии своя (её понимает только рендер версии) */
     public abstract Object uploadTexture(int[] argb, int width, int height);
 

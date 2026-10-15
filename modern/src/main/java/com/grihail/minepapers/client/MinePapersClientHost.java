@@ -58,6 +58,11 @@ final class MinePapersClientHost extends ClientHost {
     }
 
     @Override
+    public boolean isPaused() {
+        return Minecraft.getInstance().isPaused();
+    }
+
+    @Override
     public Object uploadTexture(int[] argb, int width, int height) {
         NativeImage img = new NativeImage(width, height, false);
         for (int y = 0; y < height; y++) {

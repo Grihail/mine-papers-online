@@ -54,7 +54,7 @@
   "minepapers.gui.padding.tip": "絵とキャンバスの端との間の余白。",
   "minepapers.gui.zoom": "ズーム",
   "minepapers.gui.zoom.tip": "絵を大きく、または小さくします。\n余白からはみ出た部分は切り取られます。",
-  "minepapers.gui.image": "画像",
+  "minepapers.gui.image": "移動",
   "minepapers.gui.image.tip": "領域内で絵を動かします。\n余白からはみ出た部分は切り取られます。",
   "minepapers.gui.titleLabel": "タイトル：",
   "minepapers.gui.description": "説明：",

@@ -176,6 +176,12 @@ public abstract class PictureMesh {
             PictureManager.Variant previous = (PictureManager.Variant) tile.clientRenderState;
             if (previous.isReady()) return previous;
         }
+        // Показывать ещё нечего — любая уже загруженная картинка источника (например, следующий слайд докачался раньше текущего), не дожидаясь своей.
+        PictureManager.Picture any = source.anyLoaded();
+        if (any != null) {
+            PictureManager.Variant v = any.variant(ImageStylizer.Layout.of(tile, any.getOrigWidth(), any.getOrigHeight()));
+            if (v.isReady()) return v;
+        }
         return null;
     }
 

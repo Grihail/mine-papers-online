@@ -63,7 +63,7 @@ If the source has several pictures, the frame shows them as a slideshow with the
 - Canvas offset to the right and up from the clicked cell. The canvas always covers that cell by at least one pixel.
 - Padding of the image from the canvas edges, on all sides (0 or more).
 - Zoom: makes the image bigger (positive) or smaller (negative) by the given amount on each side. What goes past the padding is cropped. Padding and zoom have their own "px" checkboxes.
-- Image: moves the image right and up inside its area (size, offset and padding set the area; what goes past it is cropped). Own "px" checkbox.
+- Move: moves the image right and up inside its area (size, offset and padding set the area; what goes past it is cropped). Own "px" checkbox.
 - Fitting the image into the canvas works like CSS `object-fit`, always from the center: fill, contain, cover, none, scale-down.
 
 ### Look and style

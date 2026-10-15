@@ -55,6 +55,11 @@ final class MinePapersClientHost extends ClientHost {
     }
 
     @Override
+    public boolean isPaused() {
+        return Minecraft.getMinecraft().isGamePaused();
+    }
+
+    @Override
     public Object uploadTexture(int[] argb, int width, int height) {
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         img.setRGB(0, 0, width, height, argb, 0, width);

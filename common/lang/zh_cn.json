@@ -54,7 +54,7 @@
   "minepapers.gui.padding.tip": "图片与画布边缘之间的空隙。",
   "minepapers.gui.zoom": "缩放",
   "minepapers.gui.zoom.tip": "放大或缩小图片。\n超出内边距的部分会被裁掉。",
-  "minepapers.gui.image": "图片",
+  "minepapers.gui.image": "移动",
   "minepapers.gui.image.tip": "在区域内移动图片。\n超出内边距的部分会被裁掉。",
   "minepapers.gui.titleLabel": "标题：",
   "minepapers.gui.description": "描述：",

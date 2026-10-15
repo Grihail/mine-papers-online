@@ -54,7 +54,7 @@
   "minepapers.gui.padding.tip": "Gap between the image and the canvas edges.",
   "minepapers.gui.zoom": "Zoom",
   "minepapers.gui.zoom.tip": "Makes the image bigger or smaller.\nWhat goes past the padding is cropped.",
-  "minepapers.gui.image": "Image",
+  "minepapers.gui.image": "Move",
   "minepapers.gui.image.tip": "Moves the image inside its area.\nWhat goes past the padding is cropped.",
   "minepapers.gui.titleLabel": "Title:",
   "minepapers.gui.description": "Description:",

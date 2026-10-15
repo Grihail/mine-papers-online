@@ -60,8 +60,12 @@ public final class PictureManager {
     /** Список папки Яндекс Диска — страницами: первая маленькая, чтобы картинка появилась сразу, остальные догружаются в фоне. */
     private static final int YANDEX_FIRST_PAGE = 20, YANDEX_PAGE = 200;
     /** Только нужные поля: без них Яндекс отдаёт к каждому файлу превью, размеры, EXIF и хэши, и большая папка грузится очень долго. */
-    private static final String YANDEX_FIELDS = "type,name,mime_type,_embedded.total,_embedded.items.type,_embedded.items.name,"
-        + "_embedded.items.path,_embedded.items.mime_type";
+    private static final String YANDEX_FIELDS = "type,name,mime_type,file,preview,_embedded.total,_embedded.items.type,"
+        + "_embedded.items.name,_embedded.items.path,_embedded.items.mime_type,_embedded.items.file,_embedded.items.preview";
+    /** Превью JPEG вместо оригинала: XXXL — до 1280 пикселей по большей стороне (фото с телефона весят мегабайты, превью — сотни килобайт). У остальных форматов превью нет смысла брать: пропали бы анимация GIF и прозрачность PNG и WebP. */
+    private static final String YANDEX_PREVIEW_SIZE = "XXXL";
+    /** Превью не скачалось (Яндекс не отдаёт их без входа в аккаунт или поменял формат) — больше не пробуем, качаем оригиналы. */
+    private static volatile boolean yandexPreviewFailed;
 
     /** .jfif/.jpe/.jif/.pjpeg/.pjp — это тоже JPEG (так их часто сохраняют браузеры). */
     private static final String[] IMAGE_EXTENSIONS = { ".png", ".jpg", ".jpeg", ".jfif", ".jpe", ".jif", ".pjpeg",
@@ -92,7 +96,7 @@ public final class PictureManager {
     public static Variant thumbnail(String sourceKey, ImageStylizer.Layout layout) {
         String key = sourceKey + "|" + layout.key;
         Thumb thumb = THUMBS.computeIfAbsent(key, k -> new Thumb());
-        thumb.lastUsed = System.currentTimeMillis();
+        thumb.lastUsed = now();
         if (thumb.variant == null && !thumb.failed) {
             Source source = get(sourceKey);
             Picture first = source.first();
@@ -161,12 +165,24 @@ public final class PictureManager {
         if (tile.clientRenderState instanceof Variant) ((Variant) tile.clientRenderState).touch();
         String key = tile.getSourceKey();
         Source source = key != null ? SOURCES.get(key) : null;
-        if (source != null) source.lastUsed = System.currentTimeMillis();
+        if (source != null) source.lastUsed = now();
+    }
+
+    /** Часы выгрузки: настоящее время минус время, пока игра стояла на паузе. На паузе картины рядом не тикают и не отмечаются как нужные (keepAlive), и без этого после долгой паузы они оказывались выгружены. */
+    private static long pausedMillis, lastTick = System.currentTimeMillis();
+    /** Тиков не было дольше этого — игра стояла (зависла, пауза без тиков): это время тоже не считается. */
+    private static final long STALL_MS = 10_000L;
+
+    static long now() {
+        return System.currentTimeMillis() - pausedMillis;
     }
 
     /** Периодически вызывается из клиентского тика: выгружает давно не используемые текстуры. */
     public static void tick() {
-        long now = System.currentTimeMillis();
+        long real = System.currentTimeMillis();
+        if (ClientHost.get().isPaused() || real - lastTick > STALL_MS) pausedMillis += real - lastTick;
+        lastTick = real;
+        long now = now();
         for (Iterator<Source> it = SOURCES.values().iterator(); it.hasNext();) {
             Source source = it.next();
             List<Picture> pictures = source.pictures;
@@ -222,7 +238,7 @@ public final class PictureManager {
         volatile String errorKey;
         /** Текст ошибки (сообщение исключения) или null. */
         volatile String errorDetail;
-        long lastUsed = System.currentTimeMillis();
+        long lastUsed = now();
 
         Source(String key) {
             this.key = key;
@@ -276,7 +292,7 @@ public final class PictureManager {
 
         /** Картинка для текущего момента слайдшоу (null, если список ещё не готов). Порядок случайный, но считается от игрового времени и seed рамки — у всех игроков одинаковый. @param offset 0 — текущий слайд, 1 — следующий (для предзагрузки) @param seed   своё значение у каждой рамки, чтобы рамки с одной папкой не показывали одно и то же */
         public Picture slide(long worldTime, int intervalSeconds, int offset, long seed) {
-            lastUsed = System.currentTimeMillis();
+            lastUsed = now();
             List<Picture> list = pictures;
             if (list == null || list.isEmpty()) return null;
             int n = list.size();
@@ -285,9 +301,19 @@ public final class PictureManager {
             return list.get(shuffledIndex(slot, n, seed));
         }
 
+        /** Любая уже загруженная картинка источника (null — ни одной): её показывают, пока грузится картинка текущего слайда. */
+        public Picture anyLoaded() {
+            List<Picture> list = pictures;
+            if (list == null) return null;
+            for (Picture p : list) {
+                if (p.state == Picture.READY) return p;
+            }
+            return null;
+        }
+
         /** Первая картинка списка (для иконки предмета) или null, если список ещё не готов. */
         public Picture first() {
-            lastUsed = System.currentTimeMillis();
+            lastUsed = now();
             List<Picture> list = pictures;
             return list == null || list.isEmpty() ? null : list.get(0);
         }
@@ -378,7 +404,7 @@ public final class PictureManager {
 
         /** Запускает загрузку исходника, если нужно. true — исходник готов. */
         public boolean request() {
-            lastUsed = System.currentTimeMillis();
+            lastUsed = now();
             if (state == IDLE && sharedHash != null && !ImageSync.ensure(sharedHash)) {
                 // Ещё качается с сервера: потоки загрузки не ждут, проверим снова в следующем кадре.
                 if (ImageSync.isFailed(sharedHash)) state = FAILED;
@@ -412,7 +438,7 @@ public final class PictureManager {
                 v = newVariant(layout, false);
                 variants.put(layout.key, v);
             }
-            lastUsed = v.lastUsed = System.currentTimeMillis();
+            lastUsed = v.lastUsed = now();
             v.upload();
             return v;
         }
@@ -546,7 +572,7 @@ public final class PictureManager {
         }
 
         public void touch() {
-            lastUsed = owner.lastUsed = System.currentTimeMillis();
+            lastUsed = owner.lastUsed = now();
         }
 
         /** Загружает готовые кадры в видеопамять — не больше UPLOAD_PIXELS_PER_FRAME за вызов (хотя бы один кадр), остальные в следующих кадрах игры. Вариант готов, когда загружены все кадры. */
@@ -765,12 +791,12 @@ public final class PictureManager {
         int offset = 0, limit = YANDEX_FIRST_PAGE;
         while (true) {
             JsonObject root = getJson(YANDEX_API + "?public_key=" + encode(publicUrl) + "&limit=" + limit + "&offset=" + offset
-                + "&sort=name&fields=" + encode(YANDEX_FIELDS));
+                + "&sort=name&preview_size=" + YANDEX_PREVIEW_SIZE + "&fields=" + encode(YANDEX_FIELDS));
 
             if ("file".equals(getString(root, "type"))) {
                 // Ссылка на один файл, а не на папку
                 if (isSupportedMime(root)) {
-                    result.add(yandexPicture(publicUrl, null, getString(root, "name")));
+                    result.add(yandexPicture(publicUrl, null, root));
                 }
                 return result;
             }
@@ -781,7 +807,7 @@ public final class PictureManager {
             for (JsonElement el : items) {
                 JsonObject item = el.getAsJsonObject();
                 if ("file".equals(getString(item, "type")) && isSupportedMime(item)) {
-                    result.add(yandexPicture(publicUrl, getString(item, "path"), getString(item, "name")));
+                    result.add(yandexPicture(publicUrl, getString(item, "path"), item));
                 }
             }
             if (!result.isEmpty()) found.accept(new ArrayList<Picture>(result));
@@ -804,9 +830,27 @@ public final class PictureManager {
         return name != null && isImageFile(new File(name));
     }
 
-    private static Picture yandexPicture(final String publicUrl, final String path, String name) {
-        return new Picture(name, () -> {
-            // Прямые ссылки на скачивание живут недолго, поэтому получаем свежую при каждой загрузке.
+    /** Картинка с Диска. Ссылки из списка (превью JPEG, прямая ссылка на файл) — сразу, без лишнего запроса к API; они живут несколько часов, поэтому, если не сработали, свежая ссылка берётся у API. */
+    private static Picture yandexPicture(final String publicUrl, final String path, JsonObject item) {
+        String mime = getString(item, "mime_type");
+        final String preview = mime != null && mime.toLowerCase(Locale.ROOT).contains("jpeg") ? getString(item, "preview") : null;
+        final String file = getString(item, "file");
+        return new Picture(getString(item, "name"), () -> {
+            if (preview != null && !yandexPreviewFailed) {
+                try {
+                    return download(preview);
+                } catch (IOException e) {
+                    yandexPreviewFailed = true;
+                    LOG.info("Превью Яндекс Диска не скачиваются, дальше — оригиналы: " + e);
+                }
+            }
+            if (file != null) {
+                try {
+                    return download(file);
+                } catch (IOException e) {
+                    // ссылка устарела — ниже берём свежую
+                }
+            }
             String api = YANDEX_API + "/download?public_key=" + encode(publicUrl)
                 + (path != null ? "&path=" + encode(path) : "");
             String href = getString(getJson(api), "href");

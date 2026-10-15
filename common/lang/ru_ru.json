@@ -54,7 +54,7 @@
   "minepapers.gui.padding.tip": "Отступ картинки от краёв холста.",
   "minepapers.gui.zoom": "Масштаб",
   "minepapers.gui.zoom.tip": "Увеличивает или уменьшает картинку.\nЧто выходит за отступ, обрезается.",
-  "minepapers.gui.image": "Картинка",
+  "minepapers.gui.image": "Сдвиг",
   "minepapers.gui.image.tip": "Сдвигает картинку внутри её области.\nЧто выходит за отступ, обрезается.",
   "minepapers.gui.titleLabel": "Заголовок:",
   "minepapers.gui.description": "Описание:",
