@@ -1,0 +1,59 @@
+plugins {
+    id 'fabric-loom'
+}
+
+// Узел Stonecutter на Fabric (versions/<версия>-fabric). Общий код и ресурсы (src/main, src/gametest этой папки) Stonecutter
+// подключает сам, обработав условия //? для версии узла; код движка, fabric.mod.json, миксины и access widener лежат в src узла.
+// Версии — в gradle.properties узла.
+stonecutter.constants.match('fabric', 'fabric', 'neoforge', 'forge')
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(property('java_version') as int)
+    }
+}
+
+// Игровые тесты (общие — src/gametest, обёртка Fabric — src/gametest узла) — отдельный мод minepapers-gametest: в jar мода не попадают.
+sourceSets {
+    gametest {
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += main.runtimeClasspath + main.output
+    }
+}
+
+loom {
+    accessWidenerPath = file('src/main/resources/minepapers.accesswidener')
+
+    mods {
+        minepapers {
+            sourceSet sourceSets.main
+        }
+        minepapers_gametest {
+            sourceSet sourceSets.gametest
+        }
+    }
+
+    runs {
+        // Сервер прогоняет все тесты и выходит; упал хоть один — сборка с ошибкой.
+        gametest {
+            server()
+            name 'Game Test'
+            source sourceSets.gametest
+            vmArg '-Dfabric-api.gametest'
+            vmArg "-Dfabric-api.gametest.report-file=${layout.buildDirectory.file('gametest/report.xml').get().asFile}"
+            runDir 'build/gametest'
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${stonecutter.current.version}"
+    // Имена Mojang — те же, что у NeoForge и Forge: общий код компилируется без изменений.
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${property('fabric_loader_version')}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${property('fabric_api_version')}"
+}
+
+rootProject.tasks.named('gameTest') {
+    dependsOn tasks.named('runGametest')
+}

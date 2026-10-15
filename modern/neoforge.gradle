@@ -2,29 +2,26 @@ plugins {
     id 'net.neoforged.moddev'
 }
 
+// Узел Stonecutter на NeoForge (versions/<версия>-neoforge). Общий код и ресурсы (src/main, src/gametest этой папки) Stonecutter
+// подключает сам, обработав условия //? для версии узла; код движка лежит в src узла. Версии — в gradle.properties узла.
+stonecutter.constants.match('neoforge', 'fabric', 'neoforge', 'forge')
+
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(property('java_version') as int)
     }
 }
 
-// Код и ресурсы версии без движка (1.21.1/shared) — те же, что у Fabric.
-// Игровые тесты (общие — shared/src/gametest, обёртка NeoForge — src/gametest): в jar мода не попадают, их запускает сервер runGameTestServer.
+// Игровые тесты (общие — src/gametest, обёртка NeoForge — src/gametest узла): в jar мода не попадают, их запускает сервер runGameTestServer.
 sourceSets {
-    main {
-        java.srcDir '../shared/src/main/java'
-        resources.srcDir '../shared/src/main/resources'
-    }
     gametest {
-        java.srcDir '../shared/src/gametest/java'
-        resources.srcDir '../shared/src/gametest/resources'
         compileClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.main.output
     }
 }
 
 neoForge {
-    version = '21.1.259'
+    version = property('neoforge_version')
     addModdingDependenciesTo(sourceSets.gametest)
 
     runs {

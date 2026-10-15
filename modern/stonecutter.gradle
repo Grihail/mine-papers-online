@@ -1,0 +1,7 @@
+plugins {
+    id 'dev.kikugie.stonecutter'
+}
+
+// Контроллер Stonecutter: какая версия активна, то есть чей код лежит в src без комментариев (её и видит IDE).
+// Строку меняет сама задача переключения версии; в git — всегда vcsVersion из settings.gradle.
+stonecutter.active '1.21.1-neoforge'

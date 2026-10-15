@@ -8,24 +8,47 @@ pluginManagement {
             name = 'Fabric'
             url = 'https://maven.fabricmc.net/'
         }
+        maven {
+            name = 'Stonecutter'
+            url = 'https://maven.kikugie.dev/releases'
+        }
         gradlePluginPortal()
         mavenCentral()
     }
 }
 
+plugins {
+    id 'dev.kikugie.stonecutter' version '0.9.8'
+}
+
 rootProject.name = 'MinePapersOnline'
 
-// Папка на каждую версию Minecraft, в ней — по подпроекту на движок: <версия>/<движок>, имя подпроекта — <версия>-<движок>.
-// Код версии без API движка (только ванильный Minecraft) лежит в <версия>/shared и собирается в каждом её движке.
-// Общие для всех версий файлы лежат в common/ (см. build.gradle).
+// Подпроект на каждую пару "версия Minecraft + движок", имя — <версия>-<движок>. Общие для всех версий файлы лежат в common/ (см. build.gradle).
+
+// Старые версии — каждая отдельно, в папке <версия>/<движок>.
 [
     '1.7.10': ['forge'],
-    '1.21.1': ['neoforge', 'fabric'],
 ].each { mc, loaders ->
     loaders.each { loader ->
         include "${mc}-${loader}"
         project(":${mc}-${loader}").projectDir = file("${mc}/${loader}")
     }
 }
+
+// Современные версии (Mojang-имена, 1.20+) — одно дерево Stonecutter в modern/: общий код в modern/src с условиями //? для версий
+// и движков, код движка — в modern/versions/<версия>-<движок>/src, скрипт сборки — modern/<движок>.gradle.
+// Активная версия (её код лежит в modern/src без комментариев) — vcsVersion; переключить — задачи "Set active project" Stonecutter.
+stonecutter {
+    create(':modern') {
+        [
+            '1.21.1': ['neoforge', 'fabric'],
+        ].each { mc, loaders ->
+            loaders.each { loader -> version("${mc}-${loader}", mc).buildscript("${loader}.gradle") }
+        }
+        vcsVersion = '1.21.1-neoforge'
+        kotlinController = false
+    }
+}
+
 // Общий код без игры — только для его тестов (в jar версий он попадает исходниками).
 include 'common'

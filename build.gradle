@@ -22,8 +22,8 @@ tasks.register('gameTest') {
     description = 'Runs the game tests of every version.'
 }
 
-// Общие настройки для всех подпроектов версий (подпроект <версия Minecraft>-<движок> в папке <версия>/<движок>: 1.7.10/forge, 1.21.1/neoforge, ...;
-// код версии без движка — в <версия>/shared, см. settings.gradle).
+// Общие настройки для всех подпроектов версий — с именем <версия Minecraft>-<движок> (1.7.10-forge, 1.21.1-neoforge, ...; где они лежат —
+// см. settings.gradle). Не трогаются common/ и контроллер Stonecutter modern/.
 // Подпроект common/ — тот же общий код, но отдельно и только ради его тестов (см. common/build.gradle).
 // Общие файлы лежат в common/:
 //   java/      — исходники, одинаковые для всех версий (только Java 8 и без API Minecraft);
@@ -31,7 +31,7 @@ tasks.register('gameTest') {
 //   resources/ — ресурсы в раскладке 1.13+ (textures/block, textures/item), до 1.13 папки переименовываются в blocks/items;
 //   lang/      — словари в формате 1.13+ (en_us.json); ключи одинаковы для всех версий.
 //                До 1.13 при сборке они превращаются в .lang: в 1.11–1.12.2 — en_us.lang, до 1.11 — en_US.lang.
-configure(subprojects.findAll { it.name != 'common' }) {
+configure(subprojects.findAll { it.name ==~ /\d.*-.*/ }) {
     apply plugin: 'java'
 
     // Версия Minecraft — первая часть имени подпроекта: 1.21.1-neoforge -> 1.21.1

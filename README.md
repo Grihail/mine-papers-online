@@ -181,8 +181,8 @@ Output files:
 
 ```
 1.7.10/forge/build/libs/MinePapersOnline-1.7.10-forge-<version>.jar
-1.21.1/neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<version>.jar
-1.21.1/fabric/build/libs/MinePapersOnline-1.21.1-fabric-<version>.jar
+modern/versions/1.21.1-neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<version>.jar
+modern/versions/1.21.1-fabric/build/libs/MinePapersOnline-1.21.1-fabric-<version>.jar
 ```
 
 On Fabric, Fabric API must be in the mods folder next to the mod.
@@ -192,7 +192,7 @@ The mod version is set in `gradle.properties` (`mod_version`).
 Build a single version:
 
 ```bat
-gradlew :1.21.1-neoforge:build
+gradlew :modern:1.21.1-neoforge:build
 ```
 
 Only check that everything compiles:
@@ -204,14 +204,14 @@ gradlew compileJava
 Run the game from the development environment:
 
 ```bat
-gradlew :1.21.1-neoforge:runClient
-gradlew :1.21.1-fabric:runClient
+gradlew :modern:1.21.1-neoforge:runClient
+gradlew :modern:1.21.1-fabric:runClient
 ```
 
 ### Tests
 
 - `gradlew :common:test` (part of `build`) - tests of the common code without the game (JUnit, `common/test`): settings and their limits, the config, geometry, the picture mesh, the settings window, picture exchange.
-- `gradlew gameTest` (or `build.bat test`) - game tests: the server of every version and loader starts by itself, runs the tests and exits with an error if any of them failed. A version's tests are shared by its loaders (`<version>/shared/src/gametest`); a loader only registers them (the loader's `src/gametest`).
+- `gradlew gameTest` (or `build.bat test`) - game tests: the server of every version and loader starts by itself, runs the tests and exits with an error if any of them failed. The tests of modern versions are shared (`modern/src/gametest`); a loader only registers them (the node's `src/gametest`).
 
 ## Repository layout
 
@@ -228,14 +228,20 @@ Mine Papers Online/
         resources/          textures and item table
         proguard/           ProGuard rules for the WebP libraries
     1.7.10/forge/           Minecraft 1.7.10 + Forge version
-    1.21.1/shared/          1.21.1 code and resources without a loader (vanilla Minecraft only) and game tests
-    1.21.1/neoforge/        NeoForge loader for 1.21.1
-    1.21.1/fabric/          Fabric loader for 1.21.1
+    modern/                 modern versions (1.20+) - one Stonecutter tree
+        src/                shared code and resources without a loader, with //? conditions for versions and loaders; game tests
+        versions/<version>-<loader>/   node: loader code, its mod description, gradle.properties with versions
+        neoforge.gradle, fabric.gradle   build of each loader's nodes
+        stonecutter.gradle  the active version
 ```
 
 ### Version subprojects
 
-Each "Minecraft version + loader" pair is a subproject `<version>-<loader>` in the folder `<version>/<loader>` (the list is in `settings.gradle`). The Minecraft version is taken from the first part of the subproject name, so the name matters. A version's code that does not depend on the loader (vanilla Minecraft only) lives in `<version>/shared` and is added to each of its loaders as an extra source and resource folder.
+Each "Minecraft version + loader" pair is a subproject `<version>-<loader>` (the list is in `settings.gradle`). The Minecraft version is taken from the first part of the subproject name, so the name matters.
+
+Old versions live one by one in the folder `<version>/<loader>` (1.7.10).
+
+Modern ones (1.20+, Mojang class names) are one [Stonecutter](https://stonecutter.kikugie.dev/) tree in `modern/`: subprojects `:modern:<version>-<loader>` in `modern/versions/`. All loader-free code (vanilla Minecraft only) lives once in `modern/src`; where versions or loaders differ, the code is marked with conditions in comments: `//? if >=1.20.5 {` ... `//?} else {` ... `//?}`, `//? if fabric {`. For each node Stonecutter turns the right branch on and the others off (comments them out). `modern/src` holds the active version's code uncommented (`stonecutter.gradle`; in git it is always `vcsVersion` from `settings.gradle`); the Stonecutter task "Set active project" makes another version active in the IDE. The loader code (entry point, registration, events, mixins) and its mod description live in the node's `src`, dependency versions in the node's `gradle.properties`, and the build is shared per loader: `modern/<loader>.gradle`. The condition constants are the loader names `fabric`, `neoforge`, `forge`.
 
 For each subproject, the root `build.gradle`:
 
@@ -279,7 +285,7 @@ Package `com.grihail.minepapers`. Only things that do not depend on the game ver
 
 ### Version folders
 
-All versions are organized the same way. Packages inside `com.grihail.minepapers` (in 1.21.1 they are in `1.21.1/shared`, shared by NeoForge and Fabric):
+All versions are organized the same way. Packages inside `com.grihail.minepapers` (for modern versions they are in `modern/src`, shared by all their versions and loaders):
 
 | Package or file | Contents |
 | --- | --- |
@@ -370,7 +376,7 @@ A new key is added to all four JSON files.
 | `textures/misc/nsfw.png` | Red "18+" mark on a hidden NSFW picture. |
 | `flattening.txt` | Table "old item name + metadata -> name in newer versions". Needed to paste a picture config from 1.7.10 into 1.21.1 and back. Built from the vanilla DataFixer. |
 
-Resources needed by only one version live in its folder. In 1.21.1 these are the item models, recipes and the tag (in `1.21.1/shared/src/main/resources`), plus the mod description for each loader: `neoforge.mods.toml`, and `fabric.mod.json` with the mixins and the access widener. The tag `data/sable/tags/entity_type/wall_entities.json` is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 these are `mcmod.info` and `version.properties` (the mod version for FML).
+Resources needed by only one version live in its folder. In 1.21.1 these are the item models, recipes and the tag (in `modern/src/main/resources`), plus the mod description for each loader: `neoforge.mods.toml`, and `fabric.mod.json` with the mixins and the access widener. The tag `data/sable/tags/entity_type/wall_entities.json` is for Sable (Create Aeronautics sublevels): with it, the picture moves along with the moving contraption it hangs on. In 1.7.10 these are `mcmod.info` and `version.properties` (the mod version for FML).
 
 ## Data and formats
 
@@ -483,13 +489,14 @@ In 1.7.10 packet handlers run on the network thread, so server packets queue a t
 
 ## Adding a new game version
 
-1. Create a `<Minecraft version>/<loader>` folder, for example `1.12.2/forge`, with its own `build.gradle`: plugin, Java version, loader version. If the version will have several loaders, put the loader-free code into `<version>/shared` right away, as 1.21.1 does.
+1. A modern version (1.20+): add it with its loaders to the `stonecutter` block in `settings.gradle`, create the node `modern/versions/<version>-<loader>` with `gradle.properties` (Java and dependency versions) and the loader code (following the neighboring node), and mark the version differences in `modern/src` with `//?` conditions. Steps 2-6 below are for old versions.
+   An old version: create a `<Minecraft version>/<loader>` folder, for example `1.12.2/forge`, with its own `build.gradle`: plugin, Java version, loader version.
 2. Add it to the version list in `settings.gradle`.
 3. If a new build plugin is needed, declare it in the root `build.gradle` with `apply false`.
 4. Port the version classes following the neighboring folders. Implement the adapters: `NbtTag`, `MinePapersClientHost`, `ServerImages` (as `ServerHost`). Make `PictureFrame` extend `PictureSettings` and `FrameGeometry` extend `CanvasGeometry`.
 5. Install the adapters at startup: `ClientHost.install(...)` on the client and `ServerImages.install()` when the mod starts.
 6. Translations, textures and the `.lang` format are picked up automatically from the version in the subproject name.
-7. Hook up the game tests: the version's shared tests and the task that runs the test server, added to the root project's `gameTest` (see `1.21.1/*/build.gradle`).
+7. Hook up the game tests: the version's shared tests and the task that runs the test server, added to the root project's `gameTest` (see `modern/*.gradle`).
 
 If code is the same for two or more versions and does not use the game API, it moves to `common/java`. The copies in the version folders are then removed.
 
