@@ -191,7 +191,8 @@ public class PictureSettings {
     public int dither = MAX_DITHER;
     /** Вид дизеринга (DITHER_*). */
     public int ditherMode = DITHER_DIFFUSION;
-    public int mode = MODE_PANEL;
+    /** Вид (сочетание рамки и холста); новая картина — с багетом шириной DEFAULT_MOLDING на холсте из блока. */
+    public int mode = MODE_REALISTIC;
     /** Ширина багета в пикселях (у видов с багетом). */
     public int moldingWidth = DEFAULT_MOLDING;
 

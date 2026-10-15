@@ -190,7 +190,7 @@ public final class PictureGameTests {
         eq(h, picture.frame.getFacing(), Direction.SOUTH.get3DDataValue(), "facing");
         eq(h, stack.getCount(), 1, "one item spent in survival");
         AABB box = picture.getBoundingBox();
-        h.assertTrue(Math.abs(box.minZ - cell.getZ()) < 1e-6 && box.getZsize() < 0.1, "hitbox lies on the wall: " + box);
+        h.assertTrue(Math.abs(box.minZ - cell.getZ()) < 1e-6 && box.getZsize() < 0.2, "hitbox lies on the wall: " + box);
 
         // На то же место вторую не повесить: холсты пересеклись бы.
         h.assertTrue(!use(h, player, stack).consumesAction(), "second picture is blocked");

@@ -212,7 +212,7 @@ public final class ServerGameTests {
         eq(picture.frame.getFacing(), EnumFacing.SOUTH.getIndex(), "facing");
         eq(stack.getCount(), 1, "one item spent in survival");
         AxisAlignedBB box = picture.getEntityBoundingBox();
-        check(Math.abs(box.minZ - cell.getZ()) < 1e-6 && box.maxZ - box.minZ < 0.1, "hitbox lies on the wall: " + box);
+        check(Math.abs(box.minZ - cell.getZ()) < 1e-6 && box.maxZ - box.minZ < 0.2, "hitbox lies on the wall: " + box);
 
         // На то же место вторую не повесить: холсты пересеклись бы.
         check(use(player, stack) != EnumActionResult.SUCCESS, "second picture is blocked");
