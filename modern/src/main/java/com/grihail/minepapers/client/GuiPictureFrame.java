@@ -80,6 +80,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Рамка и холст — ряды кнопок справа от их слотов на вкладке "Рамка". */
     private final List<GuiWidgets.Toggle> frameButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> canvasButtons = new ArrayList<GuiWidgets.Toggle>();
+    /** Что светится — ряд кнопок справа от слота свечения: всё, только рамка, только картинка (value — PictureFrame.GLOW_*). */
+    private final List<GuiWidgets.Toggle> glowButtons = new ArrayList<GuiWidgets.Toggle>();
     private GuiWidgets.Slider slColors, slDither, slPpb;
     /** Вкладка, на которой лежит виджет (у самих вкладок записи нет — они видны всегда). */
     private final Map<AbstractWidget, Integer> widgetTab = new HashMap<AbstractWidget, Integer>();
@@ -162,6 +164,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         ditherButtons.clear();
         frameButtons.clear();
         canvasButtons.clear();
+        glowButtons.clear();
         widgetTab.clear();
 
         int x = leftPos, y = topPos;
@@ -281,6 +284,17 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         molding.setTooltip(tip("minepapers.gui.frameShape.2", "minepapers.gui.frameShape.2.tip"));
         lookButtons(canvasButtons, "minepapers.gui.canvasKind.", PictureFrame.CANVAS_COUNT, 1, x,
             lookY + ContainerPictureFrame.MATERIAL_STEP, ed::chooseCanvas);
+        for (int i = 0; i < PictureFrame.GLOW_PART_COUNT; i++) {
+            int value = PictureFrame.GLOW_PART_COUNT - 1 - i;
+            String key = "minepapers.gui.glowPart." + value;
+            GuiWidgets.Toggle t = add(new GuiWidgets.Toggle(x + LOOK_X + i * 24, lookY + 2 * ContainerPictureFrame.MATERIAL_STEP, value,
+                GuiWidgets.GLOW_ICON_U + i * 16, GuiWidgets.LOOK_ICON_V, Component.translatable(key), () -> {
+                    ed.glowPart = value;
+                    updateWidgets();
+                }), TAB_FRAME);
+            t.setTooltip(tip(key, key + ".tip"));
+            glowButtons.add(t);
+        }
 
         // Описание
         field(F_TITLE, x + 8, y + 17, 160, PictureFrame.MAX_TITLE);
@@ -492,6 +506,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         for (GuiWidgets.Toggle t : ditherButtons) t.checked = t.value == ed.ditherMode;
         for (GuiWidgets.Toggle t : frameButtons) t.checked = t.value == ed.frameShape;
         for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.value == ed.canvasKind;
+        for (GuiWidgets.Toggle t : glowButtons) t.checked = t.value == ed.glowPart;
         cbSharp.checked = ed.sharp;
         cbMapPalette.checked = ed.mapPalette;
         slColors.setInt(ed.colors);

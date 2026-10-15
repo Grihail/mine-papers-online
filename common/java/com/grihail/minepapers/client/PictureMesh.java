@@ -82,7 +82,9 @@ public abstract class PictureMesh {
         fx = tile.x;
         fy = tile.y;
         fz = tile.z;
-        this.glow = glow;
+        // Свечение — у тех частей, что выбраны (PictureSettings.glowPart): картинка с холстом и рамка — по отдельности.
+        int pictureGlow = tile.glowsPicture() ? glow : 0, frameGlow = tile.glowsFrame() ? glow : 0;
+        this.glow = pictureGlow;
         shadeFront = shade(0, 0, 1);
         shadeUp = shade(0, 1, 0);
         shadeDown = shade(0, -1, 0);
@@ -105,6 +107,7 @@ public abstract class PictureMesh {
             if (!decal && frame == PictureSettings.FRAME_NONE) edges(canvasSkin, u0, v0, u1, v1, 0, PX);
         }
         if (frame != PictureSettings.FRAME_NONE) {
+            this.glow = frameGlow;
             texture(ATLAS, borderSkin.atlas());
             setTint(borderSkin.r, borderSkin.g, borderSkin.b);
             if (frame == PictureSettings.FRAME_EDGES) {
@@ -115,6 +118,7 @@ public abstract class PictureMesh {
         }
         // Цвет материала (трава, листва) красит только холст и рамку — не картинку и не следующую картину.
         setTint(1f, 1f, 1f);
+        this.glow = pictureGlow;
 
         // 2. Картинка (без холста — прижата к стене, пластина — объёмная, сама по себе; торцы в рамке закрывает рамка)
         if (hasPicture) {

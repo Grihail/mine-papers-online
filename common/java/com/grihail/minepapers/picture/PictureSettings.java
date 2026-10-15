@@ -24,6 +24,9 @@ public class PictureSettings {
     public static final int FIT_SCALE_DOWN = 4;
     public static final int FIT_COUNT = 5;
 
+    /** Что светится у светящейся картины (материал в слоте свечения): только картинка с холстом (по умолчанию и у картин прежних версий), только рамка или всё. */
+    public static final int GLOW_PICTURE = 0, GLOW_FRAME = 1, GLOW_ALL = 2, GLOW_PART_COUNT = 3;
+
     /** Стилизация цветов прежних версий (до 1.5.0): исходные цвета или палитра карт без дизеринга, с полным и с мягким. Теперь вместо неё палитра карт или число цветов и сила дизеринга (mapPalette, colors, dither); старые картины и конфиги переводятся в них (legacyDither), а в конфиг рядом пишется ближайший старый стиль (legacyStyle). */
     public static final int STYLE_ORIGINAL = 0;
     public static final int STYLE_MAP = 1;
@@ -170,6 +173,8 @@ public class PictureSettings {
 
     /** Как картинка вписывается в холст (масштабирование всегда от центра) */
     public int fitMode = FIT_COVER;
+    /** Что светится (GLOW_*). */
+    public int glowPart = GLOW_PICTURE;
     /** Разрешение стилизации: пикселей картинки на один блок (128 = как карта, 16 = как ванильная картина) */
     public int pixelsPerBlock = 128;
     /** Резкие пиксели: без полупрозрачности — пиксель либо виден целиком, либо прозрачен (как на картах), поэтому края картинки с прозрачным фоном не размываются по стене. */
@@ -345,6 +350,16 @@ public class PictureSettings {
         return dither * 4 >= MAX_DITHER * 3 ? STYLE_MAP_DITHER : STYLE_MAP_SOFT_DITHER;
     }
 
+    /** Светится ли рамка (если картина вообще светится). */
+    public boolean glowsFrame() {
+        return glowPart != GLOW_PICTURE;
+    }
+
+    /** Светятся ли картинка и холст (если картина вообще светится). */
+    public boolean glowsPicture() {
+        return glowPart != GLOW_FRAME;
+    }
+
     /** Нужен ли этому виду блок рамки. */
     public boolean usesBorder() {
         return getFrameShape() != FRAME_NONE;
@@ -423,6 +438,7 @@ public class PictureSettings {
         }
         if (nsfw) tag.putInt("Nsfw", 1);
         tag.putInt("Fit", fitMode);
+        if (glowPart != GLOW_PICTURE) tag.putInt("GlowPart", glowPart);
         tag.putInt("PPB", pixelsPerBlock);
         tag.putInt("Sharp", sharpPixels ? 1 : 0);
         tag.putInt("MapPalette", mapPalette ? 1 : 0);
@@ -485,6 +501,7 @@ public class PictureSettings {
 
         nsfw = tag.getInt("Nsfw") != 0;
         fitMode = tag.contains("Fit") ? tag.getInt("Fit") : FIT_COVER;
+        glowPart = range(tag.getInt("GlowPart"), 0, GLOW_PART_COUNT - 1);
         pixelsPerBlock = tag.contains("PPB") ? range(tag.getInt("PPB"), MIN_PPB, MAX_PPB) : 128;
         if (tag.contains("Colors")) {
             sharpPixels = !tag.contains("Sharp") || tag.getInt("Sharp") != 0;

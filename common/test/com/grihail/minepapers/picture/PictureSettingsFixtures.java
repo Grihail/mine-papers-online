@@ -33,6 +33,7 @@ public final class PictureSettingsFixtures {
         s.signerName = "Bob";
         s.nsfw = true;
         s.fitMode = PictureSettings.FIT_CONTAIN;
+        s.glowPart = PictureSettings.GLOW_ALL;
         s.pixelsPerBlock = 64;
         s.sharpPixels = false;
         s.mapPalette = true;

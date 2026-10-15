@@ -28,6 +28,8 @@ public final class PictureConfig {
     public static final String[] STYLES = { "original", "map", "map-dither", "map-soft-dither" };
     public static final String[] DITHER_MODES = { "diffusion", "ordered" };
     public static final String[] MATERIALS = { "frame", "canvas", "glow" };
+    /** Что светится — по порядку PictureSettings.GLOW_*. */
+    public static final String[] GLOW_PARTS = { "picture", "frame", "all" };
 
     /** Версия игры, в которой конфиг скопирован: по ней понятно, в каких названиях записаны предметы (до 1.13 и после — разные, см. translate). */
     public String minecraft;
@@ -46,6 +48,8 @@ public final class PictureConfig {
     public Float zoom;
     public Boolean zoomPixels;
     public Integer fit, look, frame, canvas, style, pixelsPerBlock;
+    /** Что светится (GLOW_PARTS). */
+    public Integer glowPart;
     /** Ширина багета в пикселях (у frame "molding"). */
     public Integer moldingWidth;
     /** Резкие пиксели (без полупрозрачности), палитра карт, число цветов и сила дизеринга в процентах. Рядом пишется ближайший старый style — для прежних версий; при вставке эти поля главнее style. */
@@ -107,6 +111,7 @@ public final class PictureConfig {
         root.add("zoom", zoomObject);
 
         if (fit != null) root.addProperty("fit", name(FITS, fit));
+        if (glowPart != null) root.addProperty("glowPart", name(GLOW_PARTS, glowPart));
         if (look != null) root.addProperty("look", name(LOOKS, look));
         if (frame != null) root.addProperty("frame", name(FRAMES, frame));
         if (moldingWidth != null) root.addProperty("moldingWidth", moldingWidth);
@@ -186,6 +191,7 @@ public final class PictureConfig {
                 c.zoomPixels = bool(zoomObject, "pixels");
             }
             c.fit = value(root, "fit", FITS);
+            c.glowPart = value(root, "glowPart", GLOW_PARTS);
             c.look = value(root, "look", LOOKS);
             c.frame = value(root, "frame", FRAMES);
             c.moldingWidth = integer(root, "moldingWidth");

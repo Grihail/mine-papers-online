@@ -35,12 +35,15 @@ class PictureMeshTest {
         final List<double[]> vertices = new ArrayList<double[]>();
         final List<Integer> lights = new ArrayList<Integer>();
         final List<Integer> kinds = new ArrayList<Integer>();
+        /** Номер смены текстуры у каждой вершины: у панели 1 — холст, 2 — рамка. */
+        final List<Integer> parts = new ArrayList<Integer>();
         int finished;
 
         @Override
         protected void emit(double x, double y, double z, double tu, double tv) {
             vertices.add(new double[] { x, y, z, tu, tv, r, g, b });
             lights.add(light);
+            parts.add(kinds.size());
         }
 
         @Override
@@ -101,6 +104,7 @@ class PictureMeshTest {
     void canvasIsTintedAndGlowLightsIt() {
         PictureSettings s = new PictureSettings();
         s.mode = PictureSettings.MODE_PANEL;
+        s.glowPart = PictureSettings.GLOW_ALL;
         Recorder r = new Recorder();
         r.draw(s, null, 12, SKIN, SKIN);
         assertEquals(PictureMesh.ATLAS, (int) r.kinds.get(0));
@@ -109,6 +113,23 @@ class PictureMeshTest {
         for (int light : r.lights) {
             assertEquals(7 << 20, light & 0xFFFF0000, "sky light is kept");
             assertEquals(12 << 4, light & 0xFFFF, "block light is raised to the glow");
+        }
+    }
+
+    /** Светится только выбранная часть: картинка с холстом, рамка или всё. */
+    @Test
+    void glowLightsOnlyChosenPart() {
+        int[][] expected = { { 12, 3 }, { 3, 12 }, { 12, 12 } }; // по GLOW_*: свет холста и рамки
+        for (int part = 0; part < PictureSettings.GLOW_PART_COUNT; part++) {
+            PictureSettings s = new PictureSettings();
+            s.mode = PictureSettings.MODE_PANEL;
+            s.glowPart = part;
+            Recorder r = new Recorder();
+            r.draw(s, null, 12, SKIN, SKIN);
+            for (int i = 0; i < r.lights.size(); i++) {
+                int canvasOrFrame = r.parts.get(i) == 1 ? 0 : 1;
+                assertEquals(expected[part][canvasOrFrame] << 4, r.lights.get(i) & 0xFFFF, "glow part " + part + ", vertex " + i);
+            }
         }
     }
 

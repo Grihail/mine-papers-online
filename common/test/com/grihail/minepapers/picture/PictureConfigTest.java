@@ -27,6 +27,7 @@ class PictureConfigTest {
         c.zoom = -2f;
         c.zoomPixels = true;
         c.fit = PictureSettings.FIT_SCALE_DOWN;
+        c.glowPart = PictureSettings.GLOW_FRAME;
         c.look = PictureSettings.MODE_REALISTIC;
         c.frame = PictureSettings.FRAME_MOLDING;
         c.moldingWidth = 3;
@@ -48,6 +49,8 @@ class PictureConfigTest {
         assertEquals("multi\nline", d.description);
         assertEquals(2.5f, d.width);
         assertEquals(PictureSettings.DITHER_ORDERED, (int) d.ditherMode);
+        assertEquals(PictureSettings.GLOW_FRAME, (int) d.glowPart);
+        assertTrue(json.contains("\"glowPart\": \"frame\""));
         assertTrue(d.hasMaterial[0]);
         assertFalse(d.hasMaterial[1]);
         assertTrue(d.hasMaterial[2]);

@@ -98,7 +98,7 @@ The "Frame" tab has three slots:
 
 - **Frame.** The block whose texture the frame is made of.
 - **Canvas.** The block whose texture the canvas is made of.
-- **Glow.** A light-emitting block. The picture lights the world with its light level: invisible light blocks are placed in front of the canvas. Glowstone dust makes the picture bright but does not light anything around it.
+- **Glow.** A light-emitting block. The picture lights the world with its light level: invisible light blocks are placed in front of the canvas. Glowstone dust makes the picture bright but does not light anything around it. The buttons to the right of the slot choose what glows: everything, only the frame, or only the picture with its canvas (the default).
 
 The slot takes a real item. When the picture is broken, the items are part of its drop.
 
@@ -418,6 +418,7 @@ The same for all versions (`PictureSettings`):
 | `Molding` | Molding width in pixels. |
 | `Sharp`, `MapPalette`, `Colors`, `Dither`, `DitherMode` | Sharp pixels (1 - no semi-transparency), map palette (1 - instead of the number of colors), number of colors (2-25), dither strength in percent and its kind (0 diffusion, 1 grid). Pictures from older versions have `Style` instead (0 original colors, 1-3 map palette without, with and with soft dithering); it is converted on load into the same look. |
 | `Fit`, `PPB`, `Mode` | Fit, pixels per block, look. The look is a combination of frame and canvas: 0-3 are the old looks (panel, frame, graffiti, plate), 4-8 are new combinations (see `PictureSettings.LOOK_FRAME`). |
+| `GlowPart` | What glows: 0 the picture with its canvas (default, no key), 1 only the frame, 2 everything. |
 | `Files` | Pictures on the server: consecutive 20-byte SHA-1 hashes. |
 
 Materials are written by the version: `Border`, `Canvas`, `Glow` (item id for the texture) and `BorderItem`, `CanvasItem`, `GlowItem` (the item itself). 1.7.10 and 1.12.2 also have `BorderMeta`, `CanvasMeta`, `GlowMeta`.
@@ -446,6 +447,7 @@ Example JSON that the copy button puts on the clipboard:
   "padding": { "size": 0, "pixels": true },
   "zoom": { "size": 0, "pixels": true },
   "fit": "cover",
+  "glowPart": "picture",
   "look": "panel",
   "frame": "edges",
   "canvas": "block",
@@ -465,6 +467,7 @@ Example JSON that the copy button puts on the clipboard:
 ```
 
 - Values are written as words: `config`, `yandex`, `folder`, `url`; `fill`, `contain`, `cover`, `none`, `scale-down`; `panel`, `frame`, `graffiti`, `plate`; `none`, `edges`, `molding` (frame); `none`, `block`, `picture` (canvas); `original`, `map`, `map-dither`, `map-soft-dither`. A number can be used instead of a word.
+- `glowPart` - what glows: `picture`, `frame`, `all`.
 - With `"frame": "molding"`, `moldingWidth` is the molding width in pixels (2 if it is missing).
 - `sharpPixels` turns semi-transparency off; `mapPalette` uses the map palette instead of `colors`; `colors` (2-25), `dither` (0-100) and `ditherMode` (`diffusion`, `ordered`) are the number of colors, the dither strength and kind. `style` is the color style from older mod versions: the closest one is written for them, and on paste `colors` and `dither` take precedence over it.
 - `look` is the look from older mod versions. Next to `frame` and `canvas`, the closest `look` is written so that older versions understand the config. On paste, `frame` and `canvas` take precedence over `look`.

@@ -51,7 +51,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** id кнопок: вкладки — 0..4, группы переключателей — начало группы + значение. */
     private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_FRAME = 30, ID_CANVAS = 35, ID_STYLE = 40, ID_DITHER_MODE = 45,
         ID_PREV = 50, ID_NEXT = 51, ID_FOLDER = 52, ID_RELOAD = 53, ID_SIZE_PX = 54, ID_POS_PX = 55,
-        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63, ID_ZOOM_PX = 64;
+        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63, ID_ZOOM_PX = 64,
+        ID_GLOW = 70;
 
     /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
     private static final int WIDTH = 176,
@@ -87,6 +88,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Рамка и холст — ряды кнопок справа от их слотов на вкладке "Рамка". */
     private final List<GuiWidgets.Toggle> frameButtons = new ArrayList<GuiWidgets.Toggle>();
     private final List<GuiWidgets.Toggle> canvasButtons = new ArrayList<GuiWidgets.Toggle>();
+    /** Что светится — ряд кнопок справа от слота свечения: всё, только рамка, только картинка (id — ID_GLOW + PictureFrame.GLOW_*). */
+    private final List<GuiWidgets.Toggle> glowButtons = new ArrayList<GuiWidgets.Toggle>();
     /** Многострочные поля (путь, ссылки, описание): им нужны перетаскивание мыши и колёсико. */
     private final List<GuiTextArea> areas = new ArrayList<GuiTextArea>();
     /** Вкладка, на которой лежит кнопка (у самих вкладок записи нет — они видны всегда). */
@@ -171,6 +174,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         ditherButtons.clear();
         frameButtons.clear();
         canvasButtons.clear();
+        glowButtons.clear();
         areas.clear();
         buttonTab.clear();
 
@@ -242,6 +246,10 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         lookButtons(frameButtons, ID_FRAME, PictureFrame.FRAME_MOLDING, 0, x, lookY);
         field(F_MOLDING, x + LOOK_X + 2 * 22 + 1, lookY + 4, 18, 3);
         lookButtons(canvasButtons, ID_CANVAS, PictureFrame.CANVAS_COUNT, 1, x, lookY + ContainerPictureFrame.MATERIAL_STEP);
+        for (int i = 0; i < PictureFrame.GLOW_PART_COUNT; i++) {
+            glowButtons.add(add(new GuiWidgets.Toggle(ID_GLOW + PictureFrame.GLOW_PART_COUNT - 1 - i, x + LOOK_X + i * 22,
+                lookY + 2 * ContainerPictureFrame.MATERIAL_STEP, GuiWidgets.GLOW_ICON_U + i * 16, GuiWidgets.LOOK_ICON_V), TAB_FRAME));
+        }
 
         // Описание
         field(F_TITLE, x + 9, y + 18, 158, PictureFrame.MAX_TITLE);
@@ -330,6 +338,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         for (GuiWidgets.Toggle t : ditherButtons) t.checked = t.id - ID_DITHER_MODE == ed.ditherMode;
         for (GuiWidgets.Toggle t : frameButtons) t.checked = t.id - ID_FRAME == ed.frameShape;
         for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.id - ID_CANVAS == ed.canvasKind;
+        for (GuiWidgets.Toggle t : glowButtons) t.checked = t.id - ID_GLOW == ed.glowPart;
         // Слот рамки есть всегда (его содержимое синхронизирует сервер), но виден и кликается только на своей вкладке.
         for (Object o : inventorySlots.inventorySlots) {
             Slot s = (Slot) o;
@@ -362,6 +371,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         } else if (id < ID_PREV) {
             // Ползунки стиля значение уже передали сами (Slider.change), кнопки вида дизеринга — здесь
             if (id >= ID_DITHER_MODE) ed.ditherMode = id - ID_DITHER_MODE;
+        } else if (id >= ID_GLOW) {
+            ed.glowPart = id - ID_GLOW;
         } else {
             switch (id) {
                 case ID_PREV:
@@ -898,6 +909,13 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         for (GuiWidgets.Toggle t : canvasButtons) {
             if (t.hovered()) {
                 String key = "minepapers.gui.canvasKind." + (t.id - ID_CANVAS);
+                titledTooltip(key, key + ".tip", mouseX, mouseY);
+                return;
+            }
+        }
+        for (GuiWidgets.Toggle t : glowButtons) {
+            if (t.hovered()) {
+                String key = "minepapers.gui.glowPart." + (t.id - ID_GLOW);
                 titledTooltip(key, key + ".tip", mouseX, mouseY);
                 return;
             }

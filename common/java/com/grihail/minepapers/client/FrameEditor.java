@@ -34,6 +34,8 @@ public abstract class FrameEditor {
 
     public int tab = lastTab;
     public int source, fitMode, frameShape, canvasKind;
+    /** Что светится (PictureSettings.GLOW_*) — вкладка "Рамка", строка свечения. */
+    public int glowPart;
     /** Резкие пиксели и палитра карт (галочки), число цветов, сила и вид дизеринга, пикселей на блок — вкладка "Стиль". */
     public boolean sharp, mapPalette;
     public int colors, dither, ditherMode, ppb;
@@ -57,6 +59,7 @@ public abstract class FrameEditor {
         this.readOnly = !tile.mayEdit(me);
         source = tile.source;
         fitMode = tile.fitMode;
+        glowPart = tile.glowPart;
         sharp = tile.sharpPixels;
         mapPalette = tile.mapPalette;
         colors = tile.colors;
@@ -347,6 +350,7 @@ public abstract class FrameEditor {
         c.zoom = Numbers.parse(text(F_ZOOM));
         c.zoomPixels = zoomPx;
         c.fit = fitMode;
+        c.glowPart = glowPart;
         c.look = PictureSettings.classicLook(look());
         c.frame = frameShape;
         if (frameShape == PictureSettings.FRAME_MOLDING) c.moldingWidth = moldingWidth();
@@ -390,6 +394,7 @@ public abstract class FrameEditor {
         if (c.zoomPixels != null) zoomPx = c.zoomPixels;
         if (c.zoom != null) setText(F_ZOOM, Numbers.fmt(c.zoom));
         if (c.fit != null) fitMode = c.fit;
+        if (c.glowPart != null) glowPart = c.glowPart;
         if (c.look != null) {
             frameShape = PictureSettings.frameShapeOf(c.look);
             canvasKind = PictureSettings.canvasKindOf(c.look);
@@ -458,6 +463,7 @@ public abstract class FrameEditor {
         tile.zoomInPixels = zoomPx;
         tile.zoom = Numbers.orDefault(Numbers.parse(text(F_ZOOM)), tile.zoom);
         tile.fitMode = fitMode;
+        tile.glowPart = glowPart;
         tile.sharpPixels = sharp;
         tile.mapPalette = mapPalette;
         tile.colors = colors;

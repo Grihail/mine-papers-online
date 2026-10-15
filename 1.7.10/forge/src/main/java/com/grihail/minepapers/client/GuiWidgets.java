@@ -37,6 +37,8 @@ final class GuiWidgets {
     static final int ICON_COPY_U = 134, ICON_PASTE_U = 144, ICON_UNLOCKED_U = 176, ICON_LOCKED_U = 186;
     /** Крест 16x16 — кнопка "нет" у рамки и холста. */
     static final int NONE_ICON_U = 144, NONE_ICON_V = 64;
+    /** Что светится 16x16 — в ряду LOOK_ICON_V с GLOW_ICON_U: всё, только рамка, только картинка. */
+    static final int GLOW_ICON_U = 160;
     /** Перо 16x16 (контур ванильного пера) — на кнопке подписи. */
     static final int PEN_U = 64, PEN_V = 64;
     /** "18+" 16x16 — на кнопке пометки NSFW: серая и красная (картина помечена). */
