@@ -266,8 +266,15 @@ public final class PictureManager {
                 try {
                     List<Picture> list;
                     if (key.startsWith("yandex:")) {
-                        // Картинки показываются, как только пришла первая страница списка.
-                        list = listYandex(key.substring("yandex:".length()), found -> pictures = found);
+                        // Онлайн-папка: сервис определяется по ссылке (пока поддерживается только Яндекс Диск). Картинки показываются, как только пришла первая страница списка.
+                        String url = key.substring("yandex:".length());
+                        if (isYandexLink(url)) {
+                            list = listYandex(url, found -> pictures = found);
+                        } else if (googleDriveId(url) != null) {
+                            list = listGoogleDrive(url);
+                        } else {
+                            throw new SourceException("minepapers.error.unsupportedFolder");
+                        }
                     } else if (key.startsWith("url:")) {
                         list = listUrl(key.substring("url:".length()));
                     } else if (key.startsWith("shared:")) {
@@ -380,7 +387,7 @@ public final class PictureManager {
     public static final class Picture {
         private static final int IDLE = 0, LOADING = 1, READY = 2, FAILED = 3;
 
-        private final String name;
+        final String name;
         /** Возвращает File или byte[] с закодированной картинкой. */
         private final Callable<Object> loader;
         /** Картинка с сервера: загружать можно, только когда она скачана в кэш. */
@@ -827,6 +834,101 @@ public final class PictureManager {
             if (items.size() < limit || total != null && offset >= total.getAsInt()) return result;
             limit = YANDEX_PAGE;
         }
+    }
+
+    // ===================================================================== Google Диск (публичная папка, без ключа API)
+
+    /** Список публичной папки — страница встраиваемого просмотра папки: в ней у каждого файла id, тип (иконка type/image/png) и имя. Ключ API не нужен, но страница — не официальный API: если Google её поменяет, разбор придётся поправить. */
+    private static final String GOOGLE_FOLDER = "https://drive.google.com/embeddedfolderview?id=";
+    /** Картинка целиком (GIF — только так, иначе пропала бы анимация). */
+    private static final String GOOGLE_FILE = "https://drive.google.com/uc?export=download&id=";
+    /** Уменьшенная копия до MAX_SOURCE_SIZE по большей стороне — больше моду и не нужно, а качается в разы быстрее оригинала; PNG остаётся PNG с прозрачностью. */
+    private static final String GOOGLE_THUMBNAIL = "https://drive.google.com/thumbnail?sz=s" + MAX_SOURCE_SIZE + "&id=";
+    private static final java.util.regex.Pattern GOOGLE_FOLDER_ID = java.util.regex.Pattern.compile("/folders/([A-Za-z0-9_-]+)"),
+        GOOGLE_FILE_ID = java.util.regex.Pattern.compile("/file/d/([A-Za-z0-9_-]+)"),
+        GOOGLE_ID_PARAM = java.util.regex.Pattern.compile("[?&]id=([A-Za-z0-9_-]+)"),
+        GOOGLE_ENTRY = java.util.regex.Pattern.compile("id=\"entry-([A-Za-z0-9_-]+)\".*?/type/([a-z]+/[a-z0-9.+-]+)\".*?flip-entry-title\">([^<]*)<",
+            java.util.regex.Pattern.DOTALL);
+
+    /** id папки (или файла) Google Диска из ссылки — /drive/folders/ID, /drive/u/1/folders/ID, /file/d/ID, open?id=ID; null — это не Google Диск. */
+    static String googleDriveId(String url) {
+        String u = url.trim();
+        String host;
+        try {
+            host = URI.create(u.contains("://") ? u : "https://" + u).getHost();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        if (host == null || !(host.equalsIgnoreCase("drive.google.com") || host.equalsIgnoreCase("docs.google.com"))) return null;
+        for (java.util.regex.Pattern p : new java.util.regex.Pattern[] { GOOGLE_FOLDER_ID, GOOGLE_FILE_ID, GOOGLE_ID_PARAM }) {
+            java.util.regex.Matcher m = p.matcher(u);
+            if (m.find()) return m.group(1);
+        }
+        return null;
+    }
+
+    private static List<Picture> listGoogleDrive(String url) throws IOException {
+        String id = googleDriveId(url);
+        List<Picture> result = new ArrayList<Picture>();
+        if (GOOGLE_FILE_ID.matcher(url).find()) {
+            // Ссылка на один файл, а не на папку
+            result.add(googlePicture(id, "picture", null));
+            return result;
+        }
+        HttpURLConnection conn = open(GOOGLE_FOLDER + encode(id));
+        int code = conn.getResponseCode();
+        if (code == 404) throw new SourceException("minepapers.error.notFound");
+        if (code >= 400) throw new IOException("HTTP " + code);
+        result.addAll(parseGoogleFolder(readAll(conn.getInputStream(), 16 * 1024 * 1024)));
+        result.sort((a, b) -> String.CASE_INSENSITIVE_ORDER.compare(a.name, b.name));
+        return result;
+    }
+
+    /** Картинки из страницы папки (подпапки и не картинки пропускаются). */
+    static List<Picture> parseGoogleFolder(String html) {
+        List<Picture> result = new ArrayList<Picture>();
+        String[] entries = html.split("class=\"flip-entry\"");
+        for (int i = 1; i < entries.length; i++) {
+            java.util.regex.Matcher m = GOOGLE_ENTRY.matcher(entries[i]);
+            if (!m.find()) continue;
+            String mime = m.group(2);
+            if (!mime.startsWith("image/")) continue;
+            result.add(googlePicture(m.group(1), unescapeHtml(m.group(3)), mime));
+        }
+        return result;
+    }
+
+    private static Picture googlePicture(final String id, String name, String mime) {
+        final boolean gif = mime != null && mime.contains("gif");
+        return new Picture(name, () -> {
+            if (!gif) {
+                try {
+                    return download(GOOGLE_THUMBNAIL + encode(id));
+                } catch (IOException e) {
+                    // уменьшенной копии нет (например, ещё не готова) — качаем оригинал
+                }
+            }
+            return download(GOOGLE_FILE + encode(id));
+        });
+    }
+
+    private static String unescapeHtml(String s) {
+        return s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&amp;", "&").trim();
+    }
+
+    /** Ссылка на Яндекс Диск: disk.yandex.* (и другие адреса Яндекса) или yadi.sk; без "https://" тоже. */
+    static boolean isYandexLink(String url) {
+        String u = url.trim();
+        if (!u.contains("://")) u = "https://" + u;
+        String host;
+        try {
+            host = URI.create(u).getHost();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        if (host == null) return false;
+        host = host.toLowerCase(Locale.ROOT);
+        return host.equals("yadi.sk") || host.endsWith(".yadi.sk") || host.startsWith("yandex.") || host.contains(".yandex.");
     }
 
     private static boolean isSupportedMime(JsonObject item) {

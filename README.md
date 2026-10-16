@@ -48,7 +48,7 @@ The settings window opens by right-clicking a hanging picture, or by right-click
 | Source | What you enter |
 | --- | --- |
 | config/minepapers | A file or subfolder inside the `config/minepapers` folder. The `<` and `>` buttons cycle through what is there. |
-| Yandex Disk | A link to a public folder or file. Works without authorization, through the public API. |
+| Online folder | A link to a public folder with pictures (or a single file). The service is recognized by the link; Yandex Disk (through its public API) and Google Drive (through the public folder view page: no API key, but it is not an official API, so if Google changes the page, the parsing has to be fixed) are supported. No authorization is needed. The list of services is in the source button tooltip. |
 | Folder on this PC | The full path to a folder or file. |
 | Picture link | A direct `http` or `https` link to the image file itself. |
 
@@ -406,7 +406,7 @@ The same for all versions (`PictureSettings`):
 | `Facing` | The side the picture faces: 0 ceiling, 1 floor, 2-5 walls. |
 | `Rot` | Rotation on the floor and ceiling, 0-3. |
 | `Surface` | Offset from the cell boundary to the block surface, from -1 to 0. |
-| `Src` | Source: 0 config/minepapers, 1 Yandex Disk, 2 folder, 3 link. |
+| `Src` | Source: 0 config/minepapers, 1 online folder (Yandex Disk, Google Drive), 2 folder, 3 link. |
 | `Local`, `Url`, `Folder`, `ImageUrl` | Path or link for each source. |
 | `Interval` | Slideshow interval in seconds. |
 | `W`, `H`, `SizePx` | Canvas size and the "in pixels" flag. |
@@ -523,7 +523,7 @@ If code is the same for two or more versions and does not use the game API, it m
 
 ## Project rules
 
-- All player-visible text (translations, window labels, tooltips, chat) uses plain punctuation: `-` instead of an em dash, `x` instead of the multiplication sign, plain quotes, `...` instead of a single ellipsis character. The only exception are the direction arrows (↔ ↕ ◀ ▶ ▲ ▼) in the tooltips of the size tab number fields. Japanese and Chinese translations may use the native punctuation of those languages.
+- All player-visible text (translations, window labels, tooltips, chat) uses plain punctuation: `-` instead of an em dash, `x` instead of the multiplication sign, plain quotes, `...` instead of a single ellipsis character. The only exceptions are the direction arrows (↔ ↕ ◀ ▶ ▲ ▼) in the tooltips of the size tab number fields and the "•" bullets of the service list in the online folder tooltip. Japanese and Chinese translations may use the native punctuation of those languages.
 - Code comments are written in Russian.
 - Vanilla mechanics are used wherever possible: light blocks, wood sounds, drop rules, widget tooltips, vanilla window textures.
 - The code does not guard in advance against every possible error. Limits stay where they define game rules (canvas size, position, resolution) or protect the server from foreign clients (the server accepts only the files it asked for, and no more than 16 MB). Other errors are fixed when they show up.
