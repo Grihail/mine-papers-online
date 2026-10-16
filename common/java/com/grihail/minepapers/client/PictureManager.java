@@ -296,10 +296,21 @@ public final class PictureManager {
             List<Picture> list = pictures;
             if (list == null || list.isEmpty()) return null;
             int n = list.size();
-            if (n == 1) return offset == 0 ? list.get(0) : null;
+            if (n == 1 && offset != 0) return null;
             long slot = worldTime / (Math.max(1, intervalSeconds) * 20L) + offset;
-            return list.get(shuffledIndex(slot, n, seed));
+            // Выбранная на этот интервал картинка держится до его конца: список папки Яндекс Диска растёт по мере загрузки, и с новым числом картинок перестановка другая — без этого слайды менялись бы с каждой новой страницей списка, а не по таймеру.
+            String key = seed + ":" + slot;
+            Picture chosen = chosenSlides.get(key);
+            if (chosen == null) {
+                chosen = n == 1 ? list.get(0) : list.get(shuffledIndex(slot, n, seed));
+                if (chosenSlides.size() > 64) chosenSlides.clear();
+                chosenSlides.put(key, chosen);
+            }
+            return chosen;
         }
+
+        /** Картинка каждого интервала слайдшоу ("seed:номер интервала"), уже выбранная раньше (см. slide). */
+        private final Map<String, Picture> chosenSlides = new HashMap<String, Picture>();
 
         /** Любая уже загруженная картинка источника (null — ни одной): её показывают, пока грузится картинка текущего слайда. */
         public Picture anyLoaded() {
