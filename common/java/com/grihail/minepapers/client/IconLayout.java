@@ -67,6 +67,25 @@ public final class IconLayout {
             (px1 - thumb.x0) / (thumb.x1 - thumb.x0), (thumb.y1 - py0) / (thumb.y1 - thumb.y0) };
     }
 
+    /** Метка светящегося материала на иконке в инвентаре: пыль светокамня — жёлтая точка, светящийся блок — та же точка с полупрозрачным ореолом. Текстура textures/misc/glow_marks.png 16x8: метки GLOW_MARK_SIZE x GLOW_MARK_SIZE с (0, 0) и (8, 0). */
+    public static final int GLOW_MARK_NONE = 0, GLOW_MARK_DUST = 1, GLOW_MARK_LIGHT = 2, GLOW_MARK_SIZE = 5;
+
+    /** Какая метка у картины: dust — в слоте свечения пыль светокамня, level — сила света его блока. */
+    public static int glowMarkKind(boolean dust, int level) {
+        return dust ? GLOW_MARK_DUST : level > 0 ? GLOW_MARK_LIGHT : GLOW_MARK_NONE;
+    }
+
+    /** Место метки — правый верхний угол иконки: {x0, y0, x1, y1}. */
+    public static double[] glowMark() {
+        return new double[] { ICON - GLOW_MARK_SIZE, 0, ICON, GLOW_MARK_SIZE };
+    }
+
+    /** Метка kind в текстуре: {u0, v0, u1, v1}. */
+    public static double[] glowMarkUv(int kind) {
+        double u0 = (kind - 1) * 0.5;
+        return new double[] { u0, 0, u0 + GLOW_MARK_SIZE / 16.0, GLOW_MARK_SIZE / 8.0 };
+    }
+
     /** Значок "18+" скрытой картины NSFW: квадрат по меньшей стороне холста, по центру — {x0, y0, x1, y1}. */
     public double[] nsfwMark() {
         int size = Math.min(cx1 - cx0, cy1 - cy0);

@@ -31,6 +31,8 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
     private static final ResourceLocation ALPHA_GRID = MinePapers.id("textures/misc/alpha_grid.png");
     /** Значок "18+" на скрытой картине NSFW (как на холсте в мире). */
     private static final ResourceLocation NSFW_MARK = MinePapers.id("textures/misc/nsfw.png");
+    /** Метки светящегося материала (см. IconLayout.glowMark). */
+    private static final ResourceLocation GLOW_MARKS = MinePapers.id("textures/misc/glow_marks.png");
 
     private boolean flat;
     private PoseStack.Pose pose;
@@ -124,6 +126,14 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
             out = buffers.getBuffer(RenderType.entityCutoutNoCull(NSFW_MARK));
             color(1f, 1f, 1f);
             for (int face = 0; face < faces(); face++) rect(face, m[0], m[1], m[2], m[3], 0, 0, 1, 1, 2);
+        }
+        // 4. В инвентаре — метка светящегося материала в правом верхнем углу.
+        int glow = IconLayout.glowMarkKind(PictureFrame.isGlowDust(s.glow.stack()), s.glowLevel());
+        if (flat && glow != IconLayout.GLOW_MARK_NONE) {
+            double[] m = IconLayout.glowMark(), uv = IconLayout.glowMarkUv(glow);
+            out = buffers.getBuffer(RenderType.entityTranslucent(GLOW_MARKS)); // ореол метки полупрозрачный
+            color(1f, 1f, 1f);
+            rect(0, m[0], m[1], m[2], m[3], uv[0], uv[1], uv[2], uv[3], 3);
         }
         if (stack.hasFoil()) glint(buffers);
         out = null;

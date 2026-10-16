@@ -388,6 +388,7 @@ A new key is added to all four JSON files.
 | `textures/item/picture_frame.png` | Item icon. |
 | `textures/gui/picture_frame.png` | Window icons: tabs, sources, fit, frame and canvas looks, checkboxes, copy, paste, lock, quill, 18+. The layout is described at the top of `GuiWidgets.java`. |
 | `textures/misc/alpha_grid.png` | Checkerboard under a transparent picture on the item icon. |
+| `textures/misc/glow_marks.png` | Marks on the item icon of a glowing picture: a yellow dot (glowstone dust) and the same dot with a translucent glow (a light-emitting block). |
 | `textures/misc/nsfw.png` | Red "18+" mark on a hidden NSFW picture. |
 | `flattening.txt` | Table "old item name + metadata -> name in newer versions". Needed to paste a picture config from 1.7.10 into 1.21.1 and back. Built from the vanilla DataFixer. |
 
