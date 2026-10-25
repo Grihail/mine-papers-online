@@ -128,14 +128,14 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         refresh();
     }
 
-    /** Картина не движется и не горит; сервер обновляет свет после смены настроек, клиент подхватывает новые настройки с сервера. */
+    /** Картина не движется и не горит; сервер обновляет свет после смены настроек, клиент подхватывает новые настройки с сервера и держит картинку в памяти, пока сама сущность есть на клиенте - пока загружен её чанк (PictureManager.keepAlive). */
     @Override
     public void onUpdate() {
         if (!worldObj.isRemote) {
             lights.tick(frame, frame.glowLevel());
             return;
         }
-        if (worldObj.getClosestPlayerToEntity(this, PictureManager.keepAliveRange(frame)) != null) PictureManager.keepAlive(frame);
+        PictureManager.keepAlive(frame);
         ItemStack stack = dataWatcher.getWatchableObjectItemStack(WATCH_SETTINGS);
         if (stack != shownSettings) {
             shownSettings = stack;

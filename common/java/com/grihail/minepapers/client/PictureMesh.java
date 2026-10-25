@@ -94,7 +94,9 @@ public abstract class PictureMesh {
         double u0 = tile.getOffsetXBlocks(), v0 = tile.getOffsetYBlocks();
         double u1 = u0 + tile.getWidthBlocks(), v1 = v0 + tile.getHeightBlocks();
         int frame = tile.getFrameShape(), canvasKind = tile.getCanvasKind();
-        boolean decal = canvasKind == PictureSettings.CANVAS_NONE, plate = canvasKind == PictureSettings.CANVAS_PICTURE;
+        // Граффити (прижата к стене) - только без холста и без рамки; в рамке без холста картинка висит на месте холста, за прозрачным фоном видна стена.
+        boolean decal = canvasKind == PictureSettings.CANVAS_NONE && frame == PictureSettings.FRAME_NONE,
+            plate = canvasKind == PictureSettings.CANVAS_PICTURE;
 
         // 1. Холст и рамка. Без холста и у пластины холст только вместо картинки, пока её нет (не загружена, нет источника), — обычный: блок холста им не нужен. Загруженной картинке, от которой на холсте ничего не видно (отступ и масштаб не оставили места), заглушка не нужна.
         boolean drawCanvas = canvasKind == PictureSettings.CANVAS_BLOCK || shown == null;
@@ -120,9 +122,9 @@ public abstract class PictureMesh {
         setTint(1f, 1f, 1f);
         this.glow = pictureGlow;
 
-        // 2. Картинка (без холста — прижата к стене, пластина — объёмная, сама по себе; торцы в рамке закрывает рамка)
+        // 2. Картинка (граффити — прижата к стене, пластина — объёмная, сама по себе; торцы в рамке закрывает рамка)
         if (hasPicture) {
-            double d = decal ? DECAL_DEPTH : plate ? PX : PX + 0.002;
+            double d = decal ? DECAL_DEPTH : canvasKind == PictureSettings.CANVAS_BLOCK ? PX + 0.002 : PX;
             // Кадр анимации — по реальным часам (см. getCurrentTexture): при просадках TPS анимация не тормозит и не дёргается.
             texture(decal ? DECAL : PICTURE, shown.getCurrentTexture());
             double pu0 = u0 + shown.x0, pv0 = v0 + shown.y0, pu1 = u0 + shown.x1, pv1 = v0 + shown.y1;
@@ -141,9 +143,16 @@ public abstract class PictureMesh {
 
     // --------------------------------------------------------------------- Что показывать
 
-    /** Что показывает картина: текущий слайд, если он уже стилизован, иначе — то, что было на экране раньше (чтобы при смене слайда или настроек картинка не пропадала на время обработки). Заодно готовит следующий слайд, выкладывает на сервер картинки с этого компьютера (world — измерение для ImageSync.autoOffer) и запоминает показанное в tile.clientRenderState. time — время мира в тиках. */
+    /** Что показывает картина: текущий слайд, если он уже стилизован, иначе — то, что было на экране раньше (чтобы при смене слайда или настроек картинка не пропадала на время обработки), а если ничего не было — последний кадр картины с диска (Covers). Заодно готовит следующий слайд, выкладывает на сервер картинки с этого компьютера (world — измерение для ImageSync.autoOffer), запоминает показанное в tile.clientRenderState и новый кадр — на диске. time — время мира в тиках. */
     public static PictureManager.Variant shown(PictureSettings tile, Object world, int entityId, long time) {
         PictureManager.Variant shown = choose(tile, world, entityId, time);
+        Object previous = tile.clientRenderState;
+        if (shown != previous) {
+            if (previous instanceof PictureManager.Variant && ((PictureManager.Variant) previous).isCover()) {
+                Covers.release((PictureManager.Variant) previous);
+            }
+            if (shown != null && shown.hasTexture()) Covers.remember(tile, world, shown);
+        }
         tile.clientRenderState = shown;
         if (shown != null && shown.hasTexture()) shown.touch();
         return shown;
@@ -182,7 +191,8 @@ public abstract class PictureMesh {
             PictureManager.Variant v = any.variant(ImageStylizer.Layout.of(tile, any.getOrigWidth(), any.getOrigHeight()));
             if (v.isReady()) return v;
         }
-        return null;
+        // Чанк картины только что загрузился, а источник ещё читается — последний кадр картины с диска.
+        return Covers.get(tile, world);
     }
 
     // --------------------------------------------------------------------- Части картины

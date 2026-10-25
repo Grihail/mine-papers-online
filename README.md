@@ -52,6 +52,8 @@ The settings window opens by right-clicking a hanging picture, or by right-click
 | Folder on this PC | The full path to a folder or file. |
 | Picture link | A direct `http` or `https` link to the image file itself. |
 
+A path or link pasted (Ctrl+V) into the field of the wrong source goes to the field of its own source, and the source button switches: a link to a folder of a supported service goes to "Online folder", another `http` link to "Picture link", a full path to "Folder on this PC", a name from `config/minepapers` to "config/minepapers".
+
 Supported formats are png, jpg (including jfif, jpe, jif, pjpeg, pjp), gif, bmp and webp. Animated GIFs are shown animated; animated WebP shows only its first frame.
 
 If the source has several pictures, the frame shows them as a slideshow with the given interval in seconds. The order is random, but it is derived from the game time and the frame's position. So all players see the same picture, while two frames with the same folder show different ones. Each picture is shown once per cycle.
@@ -78,7 +80,7 @@ The frame and the canvas are chosen separately on the "Frame" tab, with the butt
 
 | Canvas | Looks like |
 | --- | --- |
-| No canvas | The picture is right on the wall. Without a frame it is graffiti: a PNG with a transparent background looks like writing or a drawing on the wall. Edges are not available without a canvas, molding is. |
+| No canvas | Without a frame it is graffiti: the picture is right on the wall, and a PNG with a transparent background looks like writing or a drawing on the wall. With a frame (edges or molding) the picture hangs in the frame at the canvas level, and the wall shows through its transparent background. |
 | Block canvas | The picture on a 1-pixel thick canvas. |
 | Picture itself | The picture is 1 pixel thick, the edges stretch its outer pixels. |
 
@@ -126,6 +128,7 @@ The buttons to the right of the window copy all picture settings to the clipboar
 - A picture can be opened or broken from the same distance at which the player reaches blocks.
 - Middle-click in creative mode gives a copy of the picture with all its settings.
 - A broken picture drops as an item that keeps its settings.
+- A picture is kept in memory while its chunk is loaded on the client, and is unloaded a few seconds after the chunk unloads. Its last shown frame is kept on disk, separately for each world and server: when the chunk loads again, the picture shows this frame at once, while its source is read again, and then the slideshow goes on.
 
 ### Recipes
 
@@ -280,7 +283,8 @@ Package `com.grihail.minepapers`. Only things that do not depend on the game ver
 | `picture/PictureConfig.java` | Picture settings as JSON for copy and paste. Translation of item names between versions before and after 1.13. |
 | `picture/Links.java` | Finding links in the description. |
 | `picture/Numbers.java` | Numbers in window fields: parsing, writing without trailing zeros, what can be typed and the step limits. |
-| `client/PictureManager.java` | Loading pictures from all sources, decoding, memory cache, slideshow, unloading textures that have not been drawn for a while. |
+| `client/PictureManager.java` | Loading pictures from all sources, decoding, memory cache, slideshow, unloading textures that no picture on the client holds any more. |
+| `client/Covers.java` | Disk cache of the last shown frame of every picture, per world and server: shown at once when the picture's chunk loads again. |
 | `client/ImageStylizer.java` | Preparing the texture for the canvas: fitting, pixelation, posterization, dithering. |
 | `client/GifFrames.java` | Assembling animated GIF frames into full images. |
 | `client/ImageSync.java` | Client side of picture exchange with the server: preparing and uploading, downloading into the cache. |
@@ -337,6 +341,7 @@ The common code does not know Minecraft classes. Everything version-specific com
 - the User-Agent for internet requests;
 - this version's base map colors (for the map palette; their number differs between versions);
 - the "connected to a server" and "server running in this client" flags;
+- the current world id: the singleplayer world folder or the server address (the frame cache is split by it);
 - uploading a frame to video memory and freeing it. Each version has its own texture handle: in 1.7.10 and 1.12.2 it is an OpenGL texture id, in 1.21.1 a `ResourceLocation`. The common code keeps it as an `Object` and passes it back to the version's renderer;
 - sending the three client packets for picture exchange.
 
@@ -486,6 +491,7 @@ Example JSON that the copy button puts on the clipboard:
 | `config/minepapers/` | The player's local pictures. The folder is created at startup. |
 | `config/minepapers.json` | Mod settings (see [Mod settings](#mod-settings)). |
 | `<game folder>/minepapers-cache/` | Cache of pictures downloaded from the server and prepared for upload. The file name is the SHA-1 in hex. |
+| `<game folder>/minepapers-cache/covers/` | The last shown frame of every picture (`Covers`). The file name is the SHA-1 of the world, dimension and picture place. Frames not shown for 30 days are deleted. |
 | `<world folder>/minepapers/` | Pictures uploaded to the server. The file name is the SHA-1 in hex. |
 
 A picture file on the server starts with a 12-byte header: `MPI1`, then the original width and height of the picture. Then comes the image file itself. The original size is needed because large pictures are scaled down before sending, while fitting is calculated from the original size. A picture is at most 16 MB.

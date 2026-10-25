@@ -1,6 +1,8 @@
 package com.grihail.minepapers.client;
 
+import java.io.File;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import com.grihail.minepapers.picture.MapTag;
@@ -319,6 +321,28 @@ public abstract class FrameEditor {
             index = (index + dir + entries.size()) % entries.size();
         }
         setText(F_PATH, entries.get(index));
+    }
+
+    /** Вставка (Ctrl+V) в поле пути field: путь или ссылка другого источника в это поле не попадает — источник переключается, и текст ложится в поле своего источника вместо того, что там было. Возвращает это поле (версия переводит на него фокус) или -1 — вставка обычная. */
+    public int pastePath(int field, String clipboard) {
+        String value = clipboard.replace("\r", "").replace("\n", "").trim();
+        int detected = detectSource(value);
+        if (detected < 0 || pathField(detected) == field) return -1;
+        source = detected;
+        setText(pathField(detected), value);
+        return pathField(detected);
+    }
+
+    /** Источник, которому подходит путь или ссылка (PictureSettings.SOURCE_*), или -1 — не понять. Ссылка на папку поддерживаемого сервиса — онлайн-папка, другая http-ссылка — ссылка на картинку, абсолютный путь — папка на компьютере, имя из config/minepapers — оттуда. */
+    static int detectSource(String value) {
+        if (value.isEmpty()) return -1;
+        String lower = value.toLowerCase(Locale.ROOT);
+        if (PictureManager.isYandexLink(value) || PictureManager.googleDriveId(value) != null) return PictureSettings.SOURCE_YANDEX;
+        if (lower.startsWith("http://") || lower.startsWith("https://")) return PictureSettings.SOURCE_URL;
+        // Пути, скопированные из проводника "как путь", приходят в кавычках.
+        String path = value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"") ? value.substring(1, value.length() - 1) : value;
+        if (path.matches("^[A-Za-z]:[\\\\/].*") || path.startsWith("\\\\") || path.startsWith("/")) return PictureSettings.SOURCE_FOLDER;
+        return new File(ClientHost.get().picturesDir(), path).exists() ? PictureSettings.SOURCE_LOCAL : -1;
     }
 
     /** Загрузить картинки заново, а если источник тот же, что у картины, — выложить на сервер то, что в нём появилось. */

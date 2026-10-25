@@ -98,7 +98,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbImagePx, cbSharp, cbMapPalette;
 
     /** Вкладка размера — ряды по одной настройке: подпись, одно или два поля, галочка "px". Верх полей рядов по порядку ROW_*; между отступом и масштабом — разделитель на SEPARATOR_Y: выше — область картинки на холсте, ниже — сама картинка в ней. */
-    private static final int ROW_SIZE = 18, ROW_OFFSET = 34, ROW_PAD = 50, SEPARATOR_Y = 67, ROW_ZOOM = 72, ROW_IMAGE = 88;
+    private static final int ROW_SIZE = 7, ROW_OFFSET = 23, ROW_PAD = 39, SEPARATOR_Y = 56, ROW_ZOOM = 61, ROW_IMAGE = 77;
     private static final String[] ROW_LABELS = SIZE_ROW_LABELS;
     private static final int[] ROW_Y = { ROW_SIZE, ROW_OFFSET, ROW_PAD, ROW_ZOOM, ROW_IMAGE };
     /** Левый край первого поля и ширина поля в рядах (от ширины подписей на текущем языке). */
@@ -203,14 +203,14 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
 
         // Источник
         for (int i = 0; i < PictureFrame.SOURCE_COUNT; i++) {
-            sourceButtons.add(add(new GuiWidgets.Toggle(ID_SOURCE + i, x + 8 + i * 22, y + 17, i * 16,
+            sourceButtons.add(add(new GuiWidgets.Toggle(ID_SOURCE + i, x + 8 + i * 22, y + 6, i * 16,
                 GuiWidgets.SOURCE_ICON_V), TAB_SOURCE));
         }
-        for (int f = F_PATH; f <= F_IMAGE; f++) area(new GuiTextArea(f, fontRenderer, x + 9, y + 53, 158, 44), f, x + 9, y + 53, 158, 44);
-        btnPrev = small(TAB_SOURCE, ID_PREV, x + 8, y + 100, 14, 14, "<", -1);
-        btnNext = small(TAB_SOURCE, ID_NEXT, x + 24, y + 100, 14, 14, ">", -1);
+        for (int f = F_PATH; f <= F_IMAGE; f++) area(new GuiTextArea(f, fontRenderer, x + 9, y + 42, 158, 44), f, x + 9, y + 42, 158, 44);
+        btnPrev = small(TAB_SOURCE, ID_PREV, x + 8, y + 89, 14, 14, "<", -1);
+        btnNext = small(TAB_SOURCE, ID_NEXT, x + 24, y + 89, 14, 14, ">", -1);
         String open = I18n.format("minepapers.gui.openFolder");
-        btnFolder = small(TAB_SOURCE, ID_FOLDER, x + 40, y + 100, fontRenderer.getStringWidth(open) + 12, 14, open, -1);
+        btnFolder = small(TAB_SOURCE, ID_FOLDER, x + 40, y + 89, fontRenderer.getStringWidth(open) + 12, 14, open, -1);
         // Интервал и состояние — внизу вкладки, над инвентарём
         field(F_INTERVAL, x + 129, y + 117, 38, 6);
         btnReload = small(TAB_SOURCE, ID_RELOAD, x + 154, y + 131, 14, 14, "", GuiWidgets.ICON_RELOAD_U);
@@ -242,17 +242,17 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         }
 
         // Стиль: резкие пиксели и палитра карт, под ними ползунки — число цветов (с палитрой не действует), сила дизеринга и пикселей на блок
-        cbSharp = add(new GuiWidgets.Check(ID_SHARP, x + 8, y + 18, I18n.format("minepapers.gui.sharp"), ed.sharp), TAB_STYLE);
-        cbMapPalette = add(new GuiWidgets.Check(ID_MAP_PALETTE, x + 8, y + 31, I18n.format("minepapers.gui.mapPalette"), ed.mapPalette), TAB_STYLE);
-        slColors = add(new GuiWidgets.Slider(ID_STYLE, x + 8, y + 44, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, (v, d) -> v + d,
+        cbSharp = add(new GuiWidgets.Check(ID_SHARP, x + 8, y + 7, I18n.format("minepapers.gui.sharp"), ed.sharp), TAB_STYLE);
+        cbMapPalette = add(new GuiWidgets.Check(ID_MAP_PALETTE, x + 8, y + 20, I18n.format("minepapers.gui.mapPalette"), ed.mapPalette), TAB_STYLE);
+        slColors = add(new GuiWidgets.Slider(ID_STYLE, x + 8, y + 33, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, (v, d) -> v + d,
             ed.colors, v -> I18n.format("minepapers.gui.colors", v), v -> ed.colors = v), TAB_STYLE);
         for (int i = 0; i < PictureFrame.DITHER_MODE_COUNT; i++) {
-            ditherButtons.add(add(new GuiWidgets.Toggle(ID_DITHER_MODE + i, x + 8 + i * 22, y + 68, GuiWidgets.DITHER_ICON_U + i * 16,
+            ditherButtons.add(add(new GuiWidgets.Toggle(ID_DITHER_MODE + i, x + 8 + i * 22, y + 57, GuiWidgets.DITHER_ICON_U + i * 16,
                 GuiWidgets.DITHER_ICON_V), TAB_STYLE));
         }
-        slDither = add(new GuiWidgets.Slider(ID_STYLE + 1, x + 8, y + 92, 160, 0, PictureFrame.MAX_DITHER, (v, d) -> v + 5 * d,
+        slDither = add(new GuiWidgets.Slider(ID_STYLE + 1, x + 8, y + 81, 160, 0, PictureFrame.MAX_DITHER, (v, d) -> v + 5 * d,
             ed.dither, v -> I18n.format("minepapers.gui.dither", v), v -> ed.dither = v), TAB_STYLE);
-        slPpb = add(new GuiWidgets.Slider(ID_STYLE + 2, x + 8, y + 116, 160, PictureFrame.MIN_PPB, PictureFrame.MAX_PPB, PictureFrame::ppbWheel,
+        slPpb = add(new GuiWidgets.Slider(ID_STYLE + 2, x + 8, y + 105, 160, PictureFrame.MIN_PPB, PictureFrame.MAX_PPB, PictureFrame::ppbWheel,
             ed.ppb, v -> I18n.format("minepapers.gui.ppb", v), v -> ed.ppb = v), TAB_STYLE);
         sliders = new GuiWidgets.Slider[] { slColors, slDither, slPpb };
 
@@ -511,7 +511,9 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         for (int f = 0; f < FIELD_COUNT; f++) {
             GuiTextField field = fields[f];
             if (ed.fieldShown(f) && field.isFocused()) {
-                if (FrameEditor.number(f) == null) {
+                if (f <= F_IMAGE && isCtrlKeyDown() && key == Keyboard.KEY_V && pastePath(f)) {
+                    return;
+                } else if (FrameEditor.number(f) == null) {
                     field.textboxKeyTyped(c, key);
                 } else {
                     numberKeyTyped(f, c, key);
@@ -543,6 +545,16 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             ed.moldingChanged();
             updateWidgets();
         }
+    }
+
+    /** Ctrl+V в поле пути: путь или ссылку другого источника FrameEditor переносит в поле того источника — оно и получает фокус. */
+    private boolean pastePath(int f) {
+        int to = ed.pastePath(f, getClipboardString());
+        if (to < 0) return false;
+        fields[f].setFocused(false);
+        updateWidgets();
+        fields[to].setFocused(true);
+        return true;
     }
 
     private void focusNext() {
@@ -718,24 +730,19 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             return;
         }
         int tab = ed.tab;
-        if (tab != TAB_SIZE && tab != TAB_STYLE && tab != TAB_INFO) text(I18n.format("minepapers.gui.tab." + tab), 8, 6, GuiWidgets.TEXT);
         switch (tab) {
             case TAB_SOURCE: {
-                text(I18n.format("minepapers.gui.path." + ed.source), 8, 42, GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.path." + ed.source), 8, 31, GuiWidgets.TEXT);
                 text(I18n.format("minepapers.gui.interval"), 8, 119, GuiWidgets.TEXT);
                 String status = ed.statusText();
                 lines(status, 8, 133, 142, 2, ed.statusError ? GuiWidgets.ERROR : GuiWidgets.TEXT);
                 break;
             }
             case TAB_SIZE:
-                text(I18n.format("minepapers.gui.tab." + tab), 8, 6, GuiWidgets.TEXT);
                 for (int i = 0; i < ROW_LABELS.length; i++) text(I18n.format(ROW_LABELS[i]), 8, ROW_Y[i] + 2, GuiWidgets.TEXT);
                 text("x", rowFieldX + rowFieldW + 2, ROW_SIZE + 2, GuiWidgets.TEXT);
                 drawRect(8, SEPARATOR_Y, WIDTH - 8, SEPARATOR_Y + 1, 0xFF8B8B8B);
                 text(I18n.format("minepapers.gui.fit"), 8, 117, GuiWidgets.TEXT);
-                break;
-            case TAB_STYLE:
-                text(I18n.format("minepapers.gui.style"), 8, 6, GuiWidgets.TEXT);
                 break;
             case TAB_INFO:
                 text(I18n.format("minepapers.gui.titleLabel"), 8, 6, GuiWidgets.TEXT);

@@ -154,12 +154,12 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         refresh();
     }
 
-    /** Картина не движется и не горит; сервер обновляет свет после смены настроек, клиент держит в памяти картину рядом с игроком (PictureManager.keepAlive). */
+    /** Картина не движется и не горит; сервер обновляет свет после смены настроек, клиент держит её картинку в памяти, пока сама сущность есть на клиенте - пока загружен её чанк (PictureManager.keepAlive). */
     @Override
     public void onUpdate() {
         if (!world.isRemote) {
             lights.tick(frame, frame.glowLevel());
-        } else if (world.getClosestPlayerToEntity(this, PictureManager.keepAliveRange(frame)) != null) {
+        } else {
             PictureManager.keepAlive(frame);
         }
     }

@@ -87,7 +87,6 @@
   "minepapers.gui.fit.2.tip": "cover：縦横比を保ったまま画像で\nキャンバス全体を覆います。はみ出した部分は切り抜かれます。",
   "minepapers.gui.fit.3.tip": "none：元のサイズ - 画像の1ピクセルを\nスタイルの1ピクセルとして中央に配置し、はみ出した部分は切り抜きます。",
   "minepapers.gui.fit.4.tip": "scale-down：none と同じですが、画像が収まらない場合は\ncontain のように縮小します。",
-  "minepapers.gui.style": "スタイル：",
   "minepapers.gui.sharp": "くっきりピクセル",
   "minepapers.gui.sharp.tip": "半透明なし：ピクセルは完全に見えるか、\n完全に透明かのどちらか（地図と同じ）。\n背景が透明な絵の縁がぼやけて\n壁に溶け込まず、くっきりします。",
   "minepapers.gui.mapPalette": "地図パレット",

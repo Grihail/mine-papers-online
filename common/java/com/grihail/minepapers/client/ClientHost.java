@@ -52,6 +52,9 @@ public abstract class ClientHost {
     /** Сервер запущен в этом клиенте (одиночная игра или открытая в LAN). */
     public abstract boolean isSingleplayerHost();
 
+    /** Мир, в котором сейчас клиент: папка одиночного мира (и открытого в LAN) или адрес сервера. По нему делится кэш кадров картин (Covers). */
+    public abstract String worldId();
+
     /** Игра на паузе (меню Esc в одиночной игре): мир стоит, сущности не тикают. */
     public abstract boolean isPaused();
 

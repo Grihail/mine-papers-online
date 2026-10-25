@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.storage.LevelResource;
 
 /** Клиент 1.21 для общего кода. Текстуры — ResourceLocation динамических текстур. */
 final class MinePapersClientHost extends ClientHost {
@@ -55,6 +56,13 @@ final class MinePapersClientHost extends ClientHost {
     @Override
     public boolean isSingleplayerHost() {
         return Minecraft.getInstance().hasSingleplayerServer();
+    }
+
+    @Override
+    public String worldId() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getSingleplayerServer() != null) return "local:" + mc.getSingleplayerServer().getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
+        return mc.getCurrentServer() != null ? "server:" + mc.getCurrentServer().ip : "unknown";
     }
 
     @Override

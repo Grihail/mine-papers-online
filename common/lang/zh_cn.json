@@ -87,7 +87,6 @@
   "minepapers.gui.fit.2.tip": "cover：在保持宽高比的前提下\n铺满整个画布，超出部分被裁剪。",
   "minepapers.gui.fit.3.tip": "none：原始尺寸 - 1 个图片像素对应\n1 个风格化像素，居中显示，超出部分被裁剪。",
   "minepapers.gui.fit.4.tip": "scale-down：与 none 相同，但如果图片放不下，\n则像 contain 一样缩小。",
-  "minepapers.gui.style": "风格：",
   "minepapers.gui.sharp": "清晰像素",
   "minepapers.gui.sharp.tip": "没有半透明：像素要么完全可见，\n要么完全透明，就像地图一样。\n透明背景图片的边缘保持清晰，\n不会糊进墙面。",
   "minepapers.gui.mapPalette": "地图调色板",

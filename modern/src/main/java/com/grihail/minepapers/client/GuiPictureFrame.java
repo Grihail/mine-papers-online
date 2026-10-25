@@ -89,7 +89,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbImagePx, cbSharp, cbMapPalette;
 
     /** Вкладка размера — ряды по одной настройке: подпись, одно или два поля, галочка "px". Верх полей рядов по порядку ROW_*; между отступом и масштабом — разделитель на SEPARATOR_Y: выше — область картинки на холсте, ниже — сама картинка в ней. */
-    private static final int ROW_SIZE = 17, ROW_OFFSET = 33, ROW_PAD = 49, SEPARATOR_Y = 66, ROW_ZOOM = 70, ROW_IMAGE = 86;
+    private static final int ROW_SIZE = 6, ROW_OFFSET = 22, ROW_PAD = 38, SEPARATOR_Y = 55, ROW_ZOOM = 59, ROW_IMAGE = 75;
     private static final String[] ROW_LABELS = SIZE_ROW_LABELS;
     private static final int[] ROW_Y = { ROW_SIZE, ROW_OFFSET, ROW_PAD, ROW_ZOOM, ROW_IMAGE };
     /** Левый край первого поля и ширина поля в рядах (от ширины подписей на текущем языке). */
@@ -207,18 +207,18 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         // Источник
         for (int i = 0; i < PictureFrame.SOURCE_COUNT; i++) {
             int value = i;
-            sourceButtons.add(add(new GuiWidgets.Toggle(x + 8 + i * 24, y + 17, i, i * 16, GuiWidgets.SOURCE_ICON_V,
+            sourceButtons.add(add(new GuiWidgets.Toggle(x + 8 + i * 24, y + 6, i, i * 16, GuiWidgets.SOURCE_ICON_V,
                 Component.translatable("minepapers.gui.source." + i), () -> {
                     ed.source = value;
                     updateWidgets();
                 }), TAB_SOURCE));
             sourceButtons.get(i).setTooltip(tip("minepapers.gui.source." + i, "minepapers.gui.path." + i + ".tip"));
         }
-        for (int f = F_PATH; f <= F_IMAGE; f++) area(f, x + 8, y + 52, 46, false);
-        btnPrev = small(x + 8, y + 100, 14, 14, Component.literal("<"), -1, () -> ed.cycleLocal(-1));
-        btnNext = small(x + 24, y + 100, 14, 14, Component.literal(">"), -1, () -> ed.cycleLocal(1));
+        for (int f = F_PATH; f <= F_IMAGE; f++) area(f, x + 8, y + 41, 46, false);
+        btnPrev = small(x + 8, y + 89, 14, 14, Component.literal("<"), -1, () -> ed.cycleLocal(-1));
+        btnNext = small(x + 24, y + 89, 14, 14, Component.literal(">"), -1, () -> ed.cycleLocal(1));
         Component open = Component.translatable("minepapers.gui.openFolder");
-        btnFolder = small(x + 40, y + 100, font.width(open) + 12, 14, open, -1,
+        btnFolder = small(x + 40, y + 89, font.width(open) + 12, 14, open, -1,
             () -> Util.getPlatform().openFile(MinePapers.picturesDir.toFile()));
         // Интервал и состояние — внизу вкладки, над инвентарём
         field(F_INTERVAL, x + 128, y + 116, 40, 6);
@@ -262,32 +262,32 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         }
 
         // Стиль: резкие пиксели и палитра карт, под ними ползунки — число цветов (с палитрой не действует), сила дизеринга и пикселей на блок
-        cbSharp = add(new GuiWidgets.Check(x + 8, y + 18, Component.translatable("minepapers.gui.sharp"), ed.sharp, () -> {
+        cbSharp = add(new GuiWidgets.Check(x + 8, y + 7, Component.translatable("minepapers.gui.sharp"), ed.sharp, () -> {
             ed.sharp = !ed.sharp;
             updateWidgets();
         }), TAB_STYLE);
         cbSharp.setTooltip(tip("minepapers.gui.sharp.tip"));
-        cbMapPalette = add(new GuiWidgets.Check(x + 8, y + 31, Component.translatable("minepapers.gui.mapPalette"), ed.mapPalette, () -> {
+        cbMapPalette = add(new GuiWidgets.Check(x + 8, y + 20, Component.translatable("minepapers.gui.mapPalette"), ed.mapPalette, () -> {
             ed.mapPalette = !ed.mapPalette;
             updateWidgets();
         }), TAB_STYLE);
         cbMapPalette.setTooltip(tip("minepapers.gui.mapPalette.tip"));
-        slColors = add(new GuiWidgets.Slider(x + 8, y + 44, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, (v, d) -> v + d, ed.colors,
+        slColors = add(new GuiWidgets.Slider(x + 8, y + 33, 160, PictureFrame.MIN_COLORS, PictureFrame.MAX_COLORS, (v, d) -> v + d, ed.colors,
             v -> Component.translatable("minepapers.gui.colors", v), v -> ed.colors = v), TAB_STYLE);
         slColors.setTooltip(tip("minepapers.gui.colors.tip"));
         for (int i = 0; i < PictureFrame.DITHER_MODE_COUNT; i++) {
             int value = i;
-            ditherButtons.add(add(new GuiWidgets.Toggle(x + 8 + i * 24, y + 68, i, GuiWidgets.DITHER_ICON_U + i * 16,
+            ditherButtons.add(add(new GuiWidgets.Toggle(x + 8 + i * 24, y + 57, i, GuiWidgets.DITHER_ICON_U + i * 16,
                 GuiWidgets.DITHER_ICON_V, Component.translatable("minepapers.gui.ditherMode." + i), () -> {
                     ed.ditherMode = value;
                     updateWidgets();
                 }), TAB_STYLE));
             ditherButtons.get(i).setTooltip(tip("minepapers.gui.ditherMode." + i, "minepapers.gui.ditherMode." + i + ".tip"));
         }
-        slDither = add(new GuiWidgets.Slider(x + 8, y + 92, 160, 0, PictureFrame.MAX_DITHER, (v, d) -> v + 5 * d, ed.dither,
+        slDither = add(new GuiWidgets.Slider(x + 8, y + 81, 160, 0, PictureFrame.MAX_DITHER, (v, d) -> v + 5 * d, ed.dither,
             v -> Component.translatable("minepapers.gui.dither", v), v -> ed.dither = v), TAB_STYLE);
         slDither.setTooltip(tip("minepapers.gui.dither.tip"));
-        slPpb = add(new GuiWidgets.Slider(x + 8, y + 116, 160, PictureFrame.MIN_PPB, PictureFrame.MAX_PPB, PictureFrame::ppbWheel, ed.ppb,
+        slPpb = add(new GuiWidgets.Slider(x + 8, y + 105, 160, PictureFrame.MIN_PPB, PictureFrame.MAX_PPB, PictureFrame::ppbWheel, ed.ppb,
             v -> Component.translatable("minepapers.gui.ppb", v), v -> ed.ppb = v), TAB_STYLE);
         slPpb.setTooltip(tip("minepapers.gui.ppb.tip"));
         for (GuiWidgets.Check c : new GuiWidgets.Check[] { cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbImagePx }) c.setTooltip(tip("minepapers.gui.pixels.tip"));
@@ -420,6 +420,12 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             }
 
             @Override
+            public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+                if (f <= F_IMAGE && Screen.isPaste(keyCode) && pastePath(f)) return true;
+                return super.keyPressed(keyCode, scanCode, modifiers);
+            }
+
+            @Override
             public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
                 return visible && super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
             }
@@ -441,6 +447,15 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         a.setValue(ed.initialText(f));
         fields[f] = a;
         return add(a, fieldTab(f));
+    }
+
+    /** Ctrl+V в поле пути: путь или ссылку другого источника FrameEditor переносит в поле того источника — оно и получает фокус. */
+    private boolean pastePath(int f) {
+        int to = ed.pastePath(f, minecraft.keyboardHandler.getClipboard());
+        if (to < 0) return false;
+        updateWidgets();
+        setFocused(fields[to]);
+        return true;
     }
 
     /** Подчёркивание ссылок поверх текста многострочного поля: строки переносятся так же, как в самом поле (MultilineTextField), и идут с шагом 9 пикселей. */
@@ -710,10 +725,9 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             return;
         }
         int tab = ed.tab;
-        if (tab != TAB_SIZE && tab != TAB_STYLE && tab != TAB_INFO) text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
         switch (tab) {
             case TAB_SOURCE: {
-                text(g, I18n.get("minepapers.gui.path." + ed.source), 8, 42);
+                text(g, I18n.get("minepapers.gui.path." + ed.source), 8, 31);
                 text(g, I18n.get("minepapers.gui.interval"), 8, 119);
                 String status = ed.statusText();
                 int y = 133;
@@ -725,14 +739,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 break;
             }
             case TAB_SIZE:
-                text(g, I18n.get("minepapers.gui.tab." + tab), 8, 6);
                 for (int i = 0; i < ROW_LABELS.length; i++) text(g, I18n.get(ROW_LABELS[i]), 8, ROW_Y[i] + 3);
                 text(g, "x", rowFieldX + rowFieldW + 3, ROW_SIZE + 3);
                 g.fill(8, SEPARATOR_Y, WIDTH - 8, SEPARATOR_Y + 1, 0xFF8B8B8B);
                 text(g, I18n.get("minepapers.gui.fit"), 8, 116);
-                break;
-            case TAB_STYLE:
-                text(g, I18n.get("minepapers.gui.style"), 8, 6);
                 break;
             case TAB_INFO:
                 text(g, I18n.get("minepapers.gui.titleLabel"), 8, 6);

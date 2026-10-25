@@ -159,12 +159,12 @@ public class EntityPicture extends Entity {
         }
     }
 
-    /** Картина не движется, не горит и не падает; сервер обновляет свет после смены настроек, клиент держит в памяти картину рядом с игроком (PictureManager.keepAlive). */
+    /** Картина не движется, не горит и не падает; сервер обновляет свет после смены настроек, клиент держит её картинку в памяти, пока сама сущность есть на клиенте - пока загружен её чанк (PictureManager.keepAlive). */
     @Override
     public void tick() {
         if (!level().isClientSide) {
             lights.tick(frame, frame.glowLevel());
-        } else if (level().getNearestPlayer(this, PictureManager.keepAliveRange(frame)) != null) {
+        } else {
             PictureManager.keepAlive(frame);
         }
     }

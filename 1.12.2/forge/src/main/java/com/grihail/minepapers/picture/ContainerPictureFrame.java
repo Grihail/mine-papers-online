@@ -19,7 +19,7 @@ public class ContainerPictureFrame extends Container {
     /** Верх инвентаря игрока в окне; размер окна — в GuiPictureFrame. */
     public static final int INVENTORY_Y = 164;
     /** Слоты материалов — после 36 слотов игрока, списком сверху вниз: x предмета в окне и y первого, шаг строк. */
-    public static final int FIRST_MATERIAL_SLOT = 36, MATERIAL_X = 9, MATERIAL_Y = 19, MATERIAL_STEP = 22;
+    public static final int FIRST_MATERIAL_SLOT = 36, MATERIAL_X = 9, MATERIAL_Y = 8, MATERIAL_STEP = 22;
 
     public final FrameHolder holder;
     /** Стопка картин меняет материалы целиком (ModConfig.stackMaterials сервера; клиент получает его при открытии окна). */

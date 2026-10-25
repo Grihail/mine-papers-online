@@ -55,6 +55,13 @@ final class MinePapersClientHost extends ClientHost {
     }
 
     @Override
+    public String worldId() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.getIntegratedServer() != null) return "local:" + mc.getIntegratedServer().getFolderName();
+        return mc.func_147104_D() != null ? "server:" + mc.func_147104_D().serverIP : "unknown";
+    }
+
+    @Override
     public boolean isPaused() {
         return Minecraft.getMinecraft().isGamePaused();
     }

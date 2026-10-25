@@ -46,8 +46,8 @@ public final class PictureManager {
 
     private static final Logger LOG = LogManager.getLogger("minepapers");
 
-    /** Текстура выгружается из видеопамяти, если её не рисовали столько миллисекунд. */
-    private static final long EVICT_AFTER_MS = 30_000L;
+    /** Текстура, исходник и список источника, которых никто не держал столько миллисекунд, выгружаются. Картина держит своё каждый тик (keepAlive), пока её сущность есть на клиенте, то есть пока загружен её чанк: выгрузился чанк - через пару секунд выгружается и картинка. Свои правила по расстоянию и времени не нужны. */
+    static final long RELEASE_AFTER_MS = 5_000L;
     /** Исходник после декодирования сразу уменьшается до этого размера — больше для стилизации не нужно. */
     private static final int MAX_SOURCE_SIZE = 2048;
     /** Кадры анимации: каждый не больше этого по большей стороне, а все вместе — не больше ANIMATION_PIXELS пикселей (кадров бывают сотни). */
@@ -152,15 +152,7 @@ public final class PictureManager {
         }
     }
 
-    /** Картины не дальше стольких блоков от игрока (от края холста) не выгружаются, даже если их не видно (см. keepAlive). */
-    public static final double KEEP_ALIVE_DISTANCE = 48;
-
-    /** Расстояние от игрока до центра картины, на котором она ещё держится в памяти (см. KEEP_ALIVE_DISTANCE). */
-    public static double keepAliveRange(PictureSettings tile) {
-        return KEEP_ALIVE_DISTANCE + Math.max(tile.getWidthBlocks(), tile.getHeightBlocks()) / 2;
-    }
-
-    /** Картина рядом с игроком (зовёт тик сущности на клиенте, он идёт и когда картина не в кадре): её показанная текстура и список источника не выгружаются. Иначе отвернулся на полминуты — и при повороте назад на месте картины пустой холст, пока она грузится заново. */
+    /** Сущность картины есть на клиенте (зовёт её тик, он идёт и когда картина не в кадре): показанная текстура и список источника не выгружаются. */
     public static void keepAlive(PictureSettings tile) {
         if (tile.clientRenderState instanceof Variant) ((Variant) tile.clientRenderState).touch();
         String key = tile.getSourceKey();
@@ -177,7 +169,7 @@ public final class PictureManager {
         return System.currentTimeMillis() - pausedMillis;
     }
 
-    /** Периодически вызывается из клиентского тика: выгружает давно не используемые текстуры. */
+    /** Периодически вызывается из клиентского тика: выгружает текстуры, которые никто не держит. */
     public static void tick() {
         long real = System.currentTimeMillis();
         if (ClientHost.get().isPaused() || real - lastTick > STALL_MS) pausedMillis += real - lastTick;
@@ -189,12 +181,13 @@ public final class PictureManager {
             if (pictures != null) {
                 for (Picture p : pictures) p.evict(now);
             }
-            // Источник, который давно никто не рисует, забываем целиком — при следующем показе список перечитается.
-            if (now - source.lastUsed > EVICT_AFTER_MS && !source.isLoading()) {
+            // Источник, который никто не держит, забываем целиком — при следующем показе список перечитается.
+            if (now - source.lastUsed > RELEASE_AFTER_MS && !source.isLoading()) {
                 source.release();
                 it.remove();
             }
         }
+        Covers.tick(now);
         for (Iterator<Thumb> it = THUMBS.values().iterator(); it.hasNext();) {
             Thumb thumb = it.next();
             if (now - thumb.lastUsed > THUMB_EVICT_AFTER_MS) {
@@ -464,6 +457,9 @@ public final class PictureManager {
         /** Запускает стилизацию в фоне; вариант не запоминается в картинке (этим занимается вызывающий). @param icon для иконки предмета: только первый кадр, а пиксели сохраняются и после загрузки в видеопамять (для объёмной иконки) */
         Variant newVariant(final ImageStylizer.Layout layout, final boolean icon) {
             final Variant created = new Variant(this, icon);
+            created.layoutKey = layout.key;
+            created.origW = origW;
+            created.origH = origH;
             final int[][] src = frames;
             final int[] ms = delays;
             final int sw = srcW, sh = srcH, ow = origW, oh = origH;
@@ -472,7 +468,7 @@ public final class PictureManager {
             } else {
                 EXECUTOR.submit(() -> {
                     try {
-                        created.result = Styled.of(src, icon ? null : ms, sw, sh, ow, oh, layout);
+                        created.result = Styled.of(src, icon ? null : ms, sw, sh, ow, oh, layout, !icon);
                     } catch (Throwable t) {
                         LOG.warn("Не удалось обработать картинку " + name, t);
                         created.failed = true;
@@ -489,12 +485,12 @@ public final class PictureManager {
         void evict(long now) {
             for (Iterator<Variant> it = variants.values().iterator(); it.hasNext();) {
                 Variant v = it.next();
-                if (now - v.lastUsed > EVICT_AFTER_MS) {
+                if (now - v.lastUsed > RELEASE_AFTER_MS) {
                     v.release();
                     it.remove();
                 }
             }
-            if (now - lastUsed > EVICT_AFTER_MS) {
+            if (now - lastUsed > RELEASE_AFTER_MS) {
                 release();
             }
         }
@@ -515,9 +511,11 @@ public final class PictureManager {
         ImageStylizer.Result[] frames;
         /** Длительности кадров в мс (null, если кадр один). */
         int[] delays;
+        /** Первый кадр в PNG — для кэша кадров на диске (Covers); null, если не просили. */
+        byte[] cover;
 
-        /** @param delays длительности кадров или null — тогда берётся только первый кадр */
-        static Styled of(int[][] src, int[] delays, int sw, int sh, int ow, int oh, ImageStylizer.Layout layout) {
+        /** @param delays длительности кадров или null — тогда берётся только первый кадр @param cover сжать первый кадр в PNG для Covers (у картины в мире; иконке не нужно) */
+        static Styled of(int[][] src, int[] delays, int sw, int sh, int ow, int oh, ImageStylizer.Layout layout, boolean cover) {
             ImageStylizer.Result first = ImageStylizer.process(src[0], sw, sh, ow, oh, layout);
             int n = delays == null || first.empty ? 1 : src.length;
             // Текстуры всех кадров вместе — не больше STYLED_PIXELS: иначе берём каждый k-й кадр, он длится за всех пропущенных.
@@ -532,6 +530,7 @@ public final class PictureManager {
             }
             Styled s = new Styled();
             s.frames = out.toArray(new ImageStylizer.Result[0]);
+            if (cover && !first.empty) s.cover = Covers.encode(first.pixels, first.width, first.height);
             if (s.frames.length > 1) {
                 s.delays = new int[times.size()];
                 for (int i = 0; i < s.delays.length; i++) s.delays[i] = times.get(i);
@@ -542,6 +541,7 @@ public final class PictureManager {
 
     /** Готовые текстуры (по одной на кадр) и прямоугольник на холсте (в блоках от левого нижнего угла холста). */
     public static final class Variant {
+        /** Картинка, из которой сделан вариант; null — кадр с диска (Covers). */
         private final Picture owner;
         private final boolean keepPixels;
         volatile Styled result;
@@ -560,6 +560,10 @@ public final class PictureManager {
         /** Пиксели текстуры (ARGB, строки сверху вниз) — только если просили их сохранить. */
         public int[] pixels;
         long lastUsed;
+        /** Для кэша кадров (Covers): первый кадр в PNG, ключ раскладки и исходный размер картинки, по которым она стилизована. */
+        byte[] cover;
+        String layoutKey;
+        int origW, origH;
 
         Variant(Picture owner, boolean keepPixels) {
             this.owner = owner;
@@ -590,7 +594,22 @@ public final class PictureManager {
         }
 
         public void touch() {
-            lastUsed = owner.lastUsed = now();
+            lastUsed = now();
+            if (owner != null) owner.lastUsed = lastUsed;
+        }
+
+        /** Кадр с диска (Covers): готовая текстура и её место на холсте. */
+        static Variant fromCover(ImageStylizer.Result frame) {
+            Variant v = new Variant(null, false);
+            Styled s = new Styled();
+            s.frames = new ImageStylizer.Result[] { frame };
+            v.result = s;
+            v.lastUsed = now();
+            return v;
+        }
+
+        boolean isCover() {
+            return owner == null;
         }
 
         /** Загружает готовые кадры в видеопамять — не больше UPLOAD_PIXELS_PER_FRAME за вызов (хотя бы один кадр), остальные в следующих кадрах игры. Вариант готов, когда загружены все кадры. */
@@ -614,6 +633,7 @@ public final class PictureManager {
                 pending = new Object[s.frames.length];
                 uploaded = 0;
             }
+            if (s.cover != null) cover = s.cover;
             long budget = UPLOAD_PIXELS_PER_FRAME;
             while (uploaded < pending.length && budget > 0) {
                 ImageStylizer.Result r = s.frames[uploaded];

@@ -87,7 +87,6 @@
   "minepapers.gui.fit.2.tip": "cover: the picture covers the whole canvas\nkeeping its aspect ratio; overflow is cropped.",
   "minepapers.gui.fit.3.tip": "none: original size - 1 picture pixel per\n1 style pixel, centered, overflow is cropped.",
   "minepapers.gui.fit.4.tip": "scale-down: like none, but if the picture does not fit\nit is shrunk like contain.",
-  "minepapers.gui.style": "Style:",
   "minepapers.gui.sharp": "Sharp pixels",
   "minepapers.gui.sharp.tip": "No semi-transparency: a pixel is either fully visible\nor fully transparent, like on maps.\nThe edges of a picture with a transparent background\nstay crisp instead of blending into the wall.",
   "minepapers.gui.mapPalette": "Map palette",
