@@ -9,20 +9,38 @@ import com.grihail.minepapers.picture.PictureFrame;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+//? if >=26.1 {
+/*import java.util.function.Consumer;
 
-/** Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель. Ненастроенные рамки рисуются обычной моделью предмета (см. models/item/picture_frame.json). Рисует в кубе 0..1, как модели предметов item/generated: пластинка между z = 7.5/16 и 8.5/16. */
+import org.joml.Vector3f;
+import org.joml.Vector3fc;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.special.SpecialModelRenderer;
+*///?} else {
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.item.ItemDisplayContext;
+//?}
+
+/** Иконка настроенной рамки: рамка из выбранной текстуры по пропорциям холста и уменьшенная картинка внутри (на сетке 16x16, как у обычных предметов). В руке и на земле — пластинка толщиной в пиксель. Ненастроенные рамки рисуются обычной моделью предмета (см. models/item/picture_frame.json). Рисует в кубе 0..1, как модели предметов item/generated: пластинка между z = 7.5/16 и 8.5/16. С 26.1 - особый рендерер модели предмета (items/picture_frame.json в modern/src26): плоская иконка в инвентаре - его вариант flat. */
+//? if >=26.1 {
+/*public class RenderPictureItem implements SpecialModelRenderer<ItemStack> {
+*///?} else {
 public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
+//?}
 
     private static final int ICON = IconLayout.ICON, RING = IconLayout.RING;
     private static final float THICKNESS = 1f / 16f;
@@ -36,10 +54,60 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
 
     private boolean flat;
     private PoseStack.Pose pose;
+    private VertexSink sink;
+    /** Блестит (с 26.3 блеск рисуют сами типы отрисовки, см. buffer). */
+    private boolean foil;
     private VertexConsumer out;
     private int light;
     private float colorR = 1f, colorG = 1f, colorB = 1f;
 
+    //? if >=26.1 {
+    /*public static final ResourceLocation ID = MinePapers.id("picture_frame");
+
+    /^* Иконка в инвентаре (flat) или пластинка в руке и на земле: выбирает items/picture_frame.json по месту показа. *^/
+    public record Unbaked(boolean flat) implements SpecialModelRenderer.Unbaked<ItemStack> {
+        public static final MapCodec<Unbaked> MAP_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+            Codec.BOOL.optionalFieldOf("flat", false).forGetter(Unbaked::flat)).apply(i, Unbaked::new));
+
+        @Override
+        public SpecialModelRenderer<ItemStack> bake(SpecialModelRenderer.BakingContext context) {
+            return new RenderPictureItem(flat);
+        }
+
+        @Override
+        public MapCodec<Unbaked> type() {
+            return MAP_CODEC;
+        }
+    }
+
+    private RenderPictureItem(boolean flat) {
+        this.flat = flat;
+    }
+
+    @Override
+    public ItemStack extractArgument(ItemStack stack) {
+        return stack.copyWithCount(1);
+    }
+
+    @Override
+    public void submit(ItemStack stack, PoseStack poseStack, SubmitNodeCollector collector, int lightCoords, int overlayCoords,
+                       boolean hasFoil, int outlineColor) {
+        if (stack == null) return;
+        Recorder recorder = new Recorder();
+        draw(stack, poseStack.last(), recorder, lightCoords, hasFoil);
+        recorder.submit(collector, poseStack);
+    }
+
+    @Override
+    public void getExtents(Consumer<Vector3fc> output) {
+        for (float z : new float[] { BACK, FRONT }) {
+            output.accept(new Vector3f(0, 0, z));
+            output.accept(new Vector3f(1, 0, z));
+            output.accept(new Vector3f(0, 1, z));
+            output.accept(new Vector3f(1, 1, z));
+        }
+    }
+    *///?} else {
     public RenderPictureItem() {
         super(Minecraft.getInstance().getBlockEntityRenderDispatcher(), Minecraft.getInstance().getEntityModels());
     }
@@ -47,6 +115,22 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
     @Override
     public void renderByItem(ItemStack stack, ItemDisplayContext context, PoseStack poseStack, MultiBufferSource buffers,
                              int packedLight, int packedOverlay) {
+        flat = context == ItemDisplayContext.GUI;
+        draw(stack, poseStack.last(), buffers::getBuffer, packedLight, stack.hasFoil());
+    }
+    //?}
+
+    /** Буфер для текстуры: непрозрачной с вырезами или полупрозрачной; у блестящей картины с 26.3 - тот же тип с блеском. */
+    private VertexConsumer buffer(ResourceLocation texture, boolean translucent) {
+        RenderType type = translucent ? PictureRenderTypes.translucent(texture) : PictureRenderTypes.cutout(texture);
+        return sink.buffer(foil ? PictureRenderTypes.foil(type, texture, translucent) : type);
+    }
+
+    private VertexConsumer buffer(TextureAtlasSprite sprite) {
+        return buffer(sprite.atlasLocation(), false);
+    }
+
+    private void draw(ItemStack stack, PoseStack.Pose pose, VertexSink sink, int packedLight, boolean foil) {
         CompoundTag settings = ItemPictureFrame.settings(stack);
         if (settings == null) return;
         PictureFrame s = new PictureFrame();
@@ -56,23 +140,23 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         int ring = l.ring, x0 = l.x0, y0 = l.y0, x1 = l.x1, y1 = l.y1, cx0 = l.cx0, cy0 = l.cy0, cx1 = l.cx1, cy1 = l.cy1;
         PictureManager.Variant thumb = l.thumbnail();
 
-        flat = context == ItemDisplayContext.GUI;
-        pose = poseStack.last();
+        this.pose = pose;
+        this.sink = sink;
+        this.foil = foil;
         light = packedLight;
-        RenderType atlas = RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS);
         surfaces.clear();
 
         // 1. Рамка (и торцы пластинки)
         if (ring > 0) {
             FrameSkin skin = FrameSkin.border(s.border);
-            out = buffers.getBuffer(atlas);
+            out = buffer(skin.sprite);
             color(skin.r, skin.g, skin.b);
             for (int face = 0; face < faces(); face++) ring(skin.sprite, face, x0, y0, x1, y1);
             if (!flat) sides(skin.sprite, x0, y0, x1, y1);
         } else if (canvasBlock && !flat) {
             // Холст без рамки: торцы — из самого холста.
             FrameSkin canvas = FrameSkin.canvas(s.canvas);
-            out = buffers.getBuffer(atlas);
+            out = buffer(canvas.sprite);
             color(canvas.r, canvas.g, canvas.b);
             sides(canvas.sprite, x0, y0, x1, y1);
         }
@@ -81,16 +165,16 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         color(1f, 1f, 1f);
         if (thumb != null) {
             if (canvasBlock) {
-                out = buffers.getBuffer(atlas);
                 FrameSkin canvas = FrameSkin.canvas(s.canvas);
+                out = buffer(canvas.sprite);
                 color(canvas.r, canvas.g, canvas.b);
                 for (int face = 0; face < faces(); face++) atlasRect(canvas.sprite, face, cx0, cy0, cx1, cy1);
                 color(1f, 1f, 1f);
             } else if (flat) {
-                out = buffers.getBuffer(RenderType.entityTranslucent(ALPHA_GRID));
+                out = buffer(ALPHA_GRID, true);
                 rect(0, cx0, cy0, cx1, cy1, cx0 / (double) ICON, cy0 / (double) ICON, cx1 / (double) ICON, cy1 / (double) ICON, 0);
             }
-            out = buffers.getBuffer(RenderType.entityTranslucent((ResourceLocation) thumb.getTexture()));
+            out = buffer((ResourceLocation) thumb.getTexture(), true);
             double[] p = l.picture(thumb);
             if (p != null) {
                 if (ring == 0 && !canvasBlock && !flat && thumb.pixels != null) {
@@ -105,7 +189,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         } else {
             // Пока картинки нет — пейзаж с обычной иконки (без рамки — без её деревянной рамки)
             TextureAtlasSprite placeholder = FrameSkin.sprite(FrameSkin.ICON);
-            out = buffers.getBuffer(atlas);
+            out = buffer(placeholder);
             if (ring > 0 || canvasBlock) {
                 for (int face = 0; face < faces(); face++) atlasRect(placeholder, face, cx0, cy0, cx1, cy1);
             } else {
@@ -123,7 +207,7 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         // 3. Скрытая картина NSFW: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
         if (l.hidden) {
             double[] m = l.nsfwMark();
-            out = buffers.getBuffer(RenderType.entityCutoutNoCull(NSFW_MARK));
+            out = buffer(NSFW_MARK, false);
             color(1f, 1f, 1f);
             for (int face = 0; face < faces(); face++) rect(face, m[0], m[1], m[2], m[3], 0, 0, 1, 1, 2);
         }
@@ -131,13 +215,14 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
         int glow = IconLayout.glowMarkKind(PictureFrame.isGlowDust(s.glow.stack()), s.glowLevel());
         if (flat && glow != IconLayout.GLOW_MARK_NONE) {
             double[] m = IconLayout.glowMark(), uv = IconLayout.glowMarkUv(glow);
-            out = buffers.getBuffer(RenderType.entityTranslucent(GLOW_MARKS)); // ореол метки полупрозрачный
+            out = buffer(GLOW_MARKS, true); // ореол метки полупрозрачный
             color(1f, 1f, 1f);
             rect(0, m[0], m[1], m[2], m[3], uv[0], uv[1], uv[2], uv[3], 3);
         }
-        if (stack.hasFoil()) glint(buffers);
+        if (foil && PictureRenderTypes.glint() != null) glint();
         out = null;
-        pose = null;
+        this.pose = null;
+        this.sink = null;
     }
 
     /** Все нарисованные лицевые прямоугольники {сторона, x0, y0, x1, y1, слой}: блеск повторяет их один в один. Проверка глубины у блеска — "равно", и одинаковая глубина гарантирована только у тех же самых вершин; один большой прямоугольник поверх рамки из девяти частей мерцал бы. */
@@ -150,8 +235,8 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
     private static final double GLINT_SPAN = 1.0 / 64;
 
     /** Блеск зачарования (заприваченная картина): свой слой поверх уже нарисованных плоскостей (проверка глубины "равно"), с одними координатами текстуры по всей иконке. Иначе каждая часть (атлас блоков, картинка) получила бы свой масштаб узора. Блеск предметов, а не сущностей (entityGlint — тусклый, как у брони). */
-    private void glint(MultiBufferSource buffers) {
-        out = buffers.getBuffer(RenderType.glint());
+    private void glint() {
+        out = sink.buffer(PictureRenderTypes.glint());
         recording = false;
         double k = GLINT_SPAN / ICON;
         for (double[] r : surfaces) {
@@ -258,7 +343,17 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
 
     /** Пиксели иконки -> куб 0..1: x вправо, y вверх. */
     private void vertex(double x, double y, float z, double u, double v, float nx, float ny, float nz) {
-        //? if >=1.21 {
+        //? if >=26.3 {
+        /*// Узор блеска - по пикселям иконки, как у отдельного слоя блеска до 26.3 (см. glint).
+        double k = GLINT_SPAN / ICON;
+        out.addVertex(pose, (float) (x / ICON), (float) (1 - y / ICON), z)
+            .setColor(colorR, colorG, colorB, 1f)
+            .setUv((float) u, (float) v)
+            .setUv3((float) (x * k), (float) (y * k))
+            .setOverlay(OverlayTexture.NO_OVERLAY)
+            .setLight(light)
+            .setNormal(pose, nx, ny, nz);
+        *///?} else if >=1.21 {
         out.addVertex(pose, (float) (x / ICON), (float) (1 - y / ICON), z)
             .setColor(colorR, colorG, colorB, 1f)
             .setUv((float) u, (float) v)

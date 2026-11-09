@@ -29,6 +29,9 @@ modern/versions/1.20.1-forge/build/libs/MinePapersOnline-1.20.1-forge-<верс�
 modern/versions/1.20.1-fabric/build/libs/MinePapersOnline-1.20.1-fabric-<версия>.jar
 modern/versions/1.21.1-neoforge/build/libs/MinePapersOnline-1.21.1-neoforge-<версия>.jar
 modern/versions/1.21.1-fabric/build/libs/MinePapersOnline-1.21.1-fabric-<версия>.jar
+modern/versions/26.1.2-forge/build/libs/MinePapersOnline-26.1.2-forge-<версия>.jar
+modern/versions/26.2-forge/build/libs/MinePapersOnline-26.2-forge-<версия>.jar
+modern/versions/26.3-forge/build/libs/MinePapersOnline-26.3-forge-<версия>.jar
 ```
 
 Для Fabric в папке mods рядом с модом должен лежать Fabric API.
@@ -80,6 +83,10 @@ Mine Papers Online/
         src/                общий код и ресурсы без движка, с условиями //? для версий и движков; игровые тесты
         versions/<версия>-<движок>/   узел: код движка, его описание мода, gradle.properties с версиями
         forge.gradle, neoforge.gradle, fabric.gradle   сборка узлов каждого движка
+        forgegradle.gradle  сборка узлов Forge 26.x (ForgeGradle 7)
+        forge26/src/        код движка Forge и описание мода — одни на все версии 26.x
+        src26/              ресурсы в формате 26.x (модель предмета, рецепт)
+        mc26.gradle         общее для всех узлов 26.x: замены имён, src26, описания игровых тестов
         stonecutter.gradle  активная версия
 ```
 
@@ -164,6 +171,7 @@ Mine Papers Online/
 - **1.12.2.** Код близок к 1.7.10 (имена MCP, метаданные предметов, старый OpenGL), но: предмет картины — обычный `Item` в пакете `item` (блока картины и классов старых сохранений нет), регистрация событиями `RegistryEvent`, пустая стопка — `ItemStack.EMPTY`, вершины — через `BufferBuilder`, состояние OpenGL — через `GlStateManager`. Свет — свой невидимый блок `BlockPictureLight` с силой в состоянии `level`. Настройки предмета — в NBT под ключом `MinePapersFrame`, как в 1.7.10. Иконку настроенной картины рисует `TileEntityItemStackRenderer` (`RenderPictureItem`): `ClientProxy` даёт настроенным картинам свою модель `RenderPictureItem.Model` со встроенным рендером, она же сообщает, где рисуется предмет (в инвентаре или в мире). Текстуры рамки и холста по умолчанию кладутся в атлас блоков (`FrameSkin.Events`). Поле `GuiTextArea` — как в 1.7.10. В ресурсах есть `pack.mcmeta` с форматом 3: без него Forge 1.12.2 считает мод ресурспаком старого формата и ищет словари под именами `en_US.lang`, а не `en_us.lang`. RetroFuturaGradle для среды разработки берёт Forge 14.23.5.2847; мод работает на нём и на всех более поздних сборках 1.12.2.
 - **1.21.1.** Предмет и рецепт в пакете `item`. Настройки хранятся в компоненте предмета `minepapers:frame`. Свет ставится ванильным блоком `minecraft:light`. Подсказки окна сделаны ванильными `Tooltip`. Свои типы отрисовки в `client/PictureRenderTypes.java`. Место и настройки картины приходят клиенту ванильными данными сущности (`SynchedEntityData`), без данных спавна загрузчика. Всё, что зависит от загрузчика, общий код получает через `Platform` (пакеты, окно с данными для клиента, текущий сервер) и `client/ModClient` (события клиента). Загрузчики — тонкие обёртки: NeoForge — `neoforge/MinePapersNeoForge` и `MinePapersNeoForgeClient` (регистрация, пакеты, события); Fabric — `fabric/MinePapersFabric`, `MinePapersFabricClient` и два миксина, для которых у Fabric API нет событий: клики мышью до ванильной обработки (`MinecraftMixin`) и возврат материалов при крафте (`ResultSlotMixin`).
 - **1.20.1** (то же дерево `modern/`, отличия размечены условиями `//?`). Настройки предмета — в его NBT под ключом `MinePapersFrame`, как в 1.7.10 (компонентов предметов до 1.20.5 нет). Пакеты — те же `ModPacket`, их передаёт канал загрузчика: у Forge — `SimpleChannel`, у Fabric — пакеты по `ResourceLocation`, обработчик переносится в главный поток. Окно рисуется прежними текстурами интерфейса (`widgets.png`, `tabs.png`, `beacon.png`): спрайтов интерфейса до 1.20.2 нет. Папки данных во множественном числе (`recipes`, `structures`, `tags/entity_types`) — их переименовывает сборка, ресурсы лежат в раскладке 1.21. У Forge в ресурсах узла есть `pack.mcmeta`: без него Forge 1.20.1 не подключает данные мода.
+- **26.1.2, 26.2, 26.3 — Forge** (то же дерево, условия `//? if >=26.1`, `>=26.2`, `>=26.3`). Код движка — один на три версии: `modern/forge26/src` (Stonecutter его не обрабатывает, поэтому в нём нет условий; что в 26.x различается — клики и обводка блока — в общем `client/ForgeClientEvents` под `//? if forge && >=26.1`). Узлы `versions/26.*-forge` — только `gradle.properties` с версиями, сборка — `modern/forgegradle.gradle` (ForgeGradle 7, игра без обфускации). То, что в 26.x только переименовали (`ResourceLocation` → `Identifier`, `ClickType` → `ContainerInput`, методы окна `render*` → `extract*` и т.п.), Stonecutter заменяет сам (`modern/mc26.gradle`), в общем коде остаются имена 1.21; поэтому в ветках 26.x тоже пишется `GuiGraphics`. Рендер сущности и предмета с 26.1 не пишет в буферы сам, а отдаёт геометрию в `SubmitNodeCollector`: общий код рисует по-старому в `client/VertexSink`, а `client/Recorder` передаёт записанные вершины игре. Настроенную рамку рисует особый рендерер модели (`RenderPictureItem`, описание — `modern/src26/.../items/picture_frame.json`); своего события для его регистрации у Forge 26 нет, `MinePapersForgeClient` кладёт его в ванильный список. Сущность сохраняется через `ValueOutput` с прежними ключами, синхронизируемые настройки идут строкой SNBT (тега NBT в данных сущности больше нет). Игровые тесты — данные: функции регистрирует отдельный мод тестов `minepapers_tests` (`forge26/src/gametest`), описания `data/minepapers/test_instance` пишет сборка по методам `PictureGameTests`; запуск — `runGametestGameTestServer`.
 
 ## Общий код и адаптеры
 

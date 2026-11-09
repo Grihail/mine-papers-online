@@ -21,7 +21,12 @@ import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.crafting.RecipeSerializer;
+//? if >=26.1 {
+/*import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+*///?} else {
 import net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer;
+//?}
 //? if >=1.20.5 {
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -109,7 +114,12 @@ public final class MinePapers {
     //?}
 
     public static ItemPictureFrame makeFrame() {
+        //? if >=26.1 {
+        /*// С 1.21.2 предмет при создании должен знать свой id.
+        return new ItemPictureFrame(new Item.Properties().setId(ResourceKey.create(Registries.ITEM, id(FRAME_ID))));
+        *///?} else {
         return new ItemPictureFrame(new Item.Properties());
+        //?}
     }
 
     public static EntityType<EntityPicture> makePicture() {
@@ -117,10 +127,18 @@ public final class MinePapers {
             .sized(0.5f, 0.5f)
             .clientTrackingRange(10)
             .updateInterval(Integer.MAX_VALUE)
+            //? if >=26.1 {
+            /*.build(ResourceKey.create(Registries.ENTITY_TYPE, id(PICTURE_ID)));
+            *///?} else {
             .build(MODID + ":" + PICTURE_ID);
+            //?}
     }
 
     public static RecipeSerializer<RecipePictureFrame> makeFrameCopy() {
+        //? if >=26.1 {
+        /*return RecipePictureFrame.SERIALIZER;
+        *///?} else {
         return new SimpleCraftingRecipeSerializer<>(RecipePictureFrame::new);
+        //?}
     }
 }

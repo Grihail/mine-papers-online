@@ -76,13 +76,21 @@ final class MinePapersClientHost extends ClientHost {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int c = argb[y * width + x];
+                //? if >=26.1 {
+                /*img.setPixel(x, y, c); // с 1.21.2 setPixel принимает ARGB
+                *///?} else {
                 // NativeImage хранит ABGR: меняем местами красный и синий.
                 img.setPixelRGBA(x, y, (c & 0xFF00FF00) | (c >> 16 & 0xFF) | (c & 0xFF) << 16);
+                //?}
             }
         }
         // Фильтрация по умолчанию — ближайший пиксель: чёткие пиксели, как у карт и картин.
         ResourceLocation id = MinePapers.id("picture/" + TEXTURES.incrementAndGet());
+        //? if >=26.1 {
+        /*Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(id::toString, img));
+        *///?} else {
         Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(img));
+        //?}
         return id;
     }
 

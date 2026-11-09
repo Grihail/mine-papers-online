@@ -106,7 +106,7 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
     public void clicked(int slotId, int button, ClickType type, Player player) {
         if (type == ClickType.SWAP && holder.isItem() && button == holder.slot()) return;
         if (slotId >= 0 && slotId < slots.size() && isMaterialSlot(slotId)) {
-            if (!player.level().isClientSide && holder.frame.mayEdit(player.getUUID()) && materialsEditable()) {
+            if (!player.level().isClientSide() && holder.frame.mayEdit(player.getUUID()) && materialsEditable()) {
                 int index = slotId - FIRST_MATERIAL_SLOT;
                 if (type == ClickType.PICKUP) new HolderMaterials(holder, player, this).click(index, button == 1);
                 if (type == ClickType.QUICK_MOVE) new HolderMaterials(holder, player, this).takeToInventory(index);
@@ -126,7 +126,7 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
         Slot slot = slots.get(index);
-        if (isMaterialSlot(index) || !slot.hasItem() || player.level().isClientSide
+        if (isMaterialSlot(index) || !slot.hasItem() || player.level().isClientSide()
             || !holder.frame.mayEdit(player.getUUID()) || !materialsEditable()) return ItemStack.EMPTY;
         if (new HolderMaterials(holder, player, this).quickMove(slot.getItem())) slot.setChanged();
         return ItemStack.EMPTY;

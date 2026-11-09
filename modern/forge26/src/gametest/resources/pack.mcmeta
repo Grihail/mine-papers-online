@@ -1,0 +1,7 @@
+{
+  "pack": {
+    "description": "Mine Papers Online tests",
+    "min_format": 101,
+    "max_format": 999
+  }
+}

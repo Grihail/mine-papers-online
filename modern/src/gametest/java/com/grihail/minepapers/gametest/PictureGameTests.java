@@ -1,5 +1,6 @@
 package com.grihail.minepapers.gametest;
 
+import com.grihail.minepapers.Compat;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -7,7 +8,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.item.ItemPictureFrame;
@@ -26,7 +30,9 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
+//? if <26.1 {
 import net.minecraft.gametest.framework.TestFunction;
+//?}
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
@@ -61,32 +67,43 @@ public final class PictureGameTests {
 
     private PictureGameTests() {}
 
-    /** Все тесты класса — для @GameTestGenerator движка. */
-    public static Collection<TestFunction> all() {
-        List<TestFunction> tests = new ArrayList<TestFunction>();
+    /** Все тесты класса: имя (имя метода строчными) -> тест. С 26.1 движок регистрирует их как функции тестов (описания — data/minepapers/test_instance, их пишет сборка, см. mc26.gradle). */
+    public static Map<String, Consumer<GameTestHelper>> functions() {
+        Map<String, Consumer<GameTestHelper>> tests = new TreeMap<String, Consumer<GameTestHelper>>();
         for (Method m : PictureGameTests.class.getDeclaredMethods()) {
             int mod = m.getModifiers();
             if (!Modifier.isPublic(mod) || !Modifier.isStatic(mod) || m.getReturnType() != void.class
                 || m.getParameterCount() != 1 || m.getParameterTypes()[0] != GameTestHelper.class) continue;
-            //? if >=1.20.5 {
-            tests.add(new TestFunction("minepapers", "minepapers." + m.getName().toLowerCase(Locale.ROOT), EMPTY, Rotation.NONE,
-                TIMEOUT_TICKS, 0, true, false, 1, 1, false, helper -> {
-            //?} else {
-            /*tests.add(new TestFunction("minepapers", "minepapers." + m.getName().toLowerCase(Locale.ROOT), EMPTY, Rotation.NONE,
-                TIMEOUT_TICKS, 0, true, 1, 1, helper -> {
-            *///?}
-                    try {
-                        m.invoke(null, helper);
-                    } catch (InvocationTargetException e) {
-                        if (e.getCause() instanceof RuntimeException r) throw r;
-                        throw new RuntimeException(e.getCause());
-                    } catch (IllegalAccessException e) {
-                        throw new IllegalStateException(e);
-                    }
-                }));
+            tests.put(m.getName().toLowerCase(Locale.ROOT), helper -> {
+                try {
+                    m.invoke(null, helper);
+                } catch (InvocationTargetException e) {
+                    if (e.getCause() instanceof RuntimeException r) throw r;
+                    throw new RuntimeException(e.getCause());
+                } catch (IllegalAccessException e) {
+                    throw new IllegalStateException(e);
+                }
+            });
         }
         return tests;
     }
+
+    //? if <26.1 {
+    /** Все тесты класса — для @GameTestGenerator движка. */
+    public static Collection<TestFunction> all() {
+        List<TestFunction> tests = new ArrayList<TestFunction>();
+        for (Map.Entry<String, Consumer<GameTestHelper>> t : functions().entrySet()) {
+            //? if >=1.20.5 {
+            tests.add(new TestFunction("minepapers", "minepapers." + t.getKey(), EMPTY, Rotation.NONE,
+                TIMEOUT_TICKS, 0, true, false, 1, 1, false, t.getValue()));
+            //?} else {
+            /*tests.add(new TestFunction("minepapers", "minepapers." + t.getKey(), EMPTY, Rotation.NONE,
+                TIMEOUT_TICKS, 0, true, 1, 1, t.getValue()));
+            *///?}
+        }
+        return tests;
+    }
+    //?}
     /** Стена (камень) в площадке; картина вешается на её южную грань — в клетку WALL.south(). */
     private static final BlockPos WALL = new BlockPos(2, 1, 2);
 
@@ -171,7 +188,7 @@ public final class PictureGameTests {
 
     private static int count(ServerPlayer player, net.minecraft.world.item.Item item) {
         int n = 0;
-        for (ItemStack s : player.getInventory().items) {
+        for (ItemStack s : Compat.mainItems(player.getInventory())) {
             if (s.is(item)) n += s.getCount();
         }
         return n;
@@ -367,7 +384,9 @@ public final class PictureGameTests {
     }
 
     public static void copyRecipe(GameTestHelper h) {
-        //? if >=1.20.5 {
+        //? if >=26.1 {
+        /*RecipePictureFrame recipe = RecipePictureFrame.INSTANCE;
+        *///?} else if >=1.20.5 {
         RecipePictureFrame recipe = new RecipePictureFrame(CraftingBookCategory.MISC);
         //?} else {
         /*RecipePictureFrame recipe = new RecipePictureFrame(MinePapers.id("frame_copy"), CraftingBookCategory.MISC);
@@ -382,7 +401,7 @@ public final class PictureGameTests {
         grid.add(empty.copy());
         grid.add(empty.copy());
         for (int i = 0; i < 6; i++) grid.add(ItemStack.EMPTY);
-        ItemStack copies = recipe.assemble(grid(grid), h.getLevel().registryAccess());
+        ItemStack copies = assemble(h, recipe, grid);
         eq(h, copies.getCount(), 3, "configured + 2 empty = 3 copies");
         PictureFrame copy = ItemPictureFrame.read(copies);
         eq(h, copy.title, "Copy me", "settings copied");
@@ -391,7 +410,7 @@ public final class PictureGameTests {
         // Заприваченную не копируют.
         frame.owner = UUID.randomUUID();
         grid.set(0, ItemPictureFrame.makeStack(frame));
-        h.assertTrue(recipe.assemble(grid(grid), h.getLevel().registryAccess()).isEmpty(), "locked is not copied");
+        h.assertTrue(assemble(h, recipe, grid).isEmpty(), "locked is not copied");
 
         // Подписанную тоже: ни копировать, ни разобрать. И она блестит, как заприваченная.
         frame.owner = null;
@@ -400,24 +419,33 @@ public final class PictureGameTests {
         ItemStack signed = ItemPictureFrame.makeStack(frame);
         h.assertTrue(signed.hasFoil(), "signed picture glints");
         grid.set(0, signed);
-        h.assertTrue(recipe.assemble(grid(grid), h.getLevel().registryAccess()).isEmpty(), "signed is not copied");
+        h.assertTrue(assemble(h, recipe, grid).isEmpty(), "signed is not copied");
         grid.set(1, ItemStack.EMPTY);
         grid.set(2, ItemStack.EMPTY);
-        h.assertTrue(recipe.assemble(grid(grid), h.getLevel().registryAccess()).isEmpty(), "signed is not taken apart");
+        h.assertTrue(assemble(h, recipe, grid).isEmpty(), "signed is not taken apart");
 
         // Разбор подписанной разрешён настройкой: сначала вынимаются материалы, затем сброс до пустой картины.
         com.grihail.minepapers.ModConfig.disassembleSigned = true;
         try {
-            ItemStack graffiti = recipe.assemble(grid(grid), h.getLevel().registryAccess());
+            ItemStack graffiti = assemble(h, recipe, grid);
             h.assertTrue(ItemPictureFrame.settings(graffiti) != null && ItemPictureFrame.read(graffiti).border.stack().isEmpty(),
                 "allowed: materials are taken out of the signed picture");
             grid.set(0, graffiti);
-            ItemStack reset = recipe.assemble(grid(grid), h.getLevel().registryAccess());
+            ItemStack reset = assemble(h, recipe, grid);
             h.assertTrue(reset.is(MinePapers.FRAME.get()) && ItemPictureFrame.settings(reset) == null, "allowed: signed picture is reset");
         } finally {
             com.grihail.minepapers.ModConfig.disassembleSigned = false;
         }
         h.succeed();
+    }
+
+    /** Результат рецепта для сетки 3x3 из items (с 26.1 рецепту не нужны реестры мира). */
+    private static ItemStack assemble(GameTestHelper h, RecipePictureFrame recipe, List<ItemStack> items) {
+        //? if >=26.1 {
+        /*return recipe.assemble(grid(items));
+        *///?} else {
+        return recipe.assemble(grid(items), h.getLevel().registryAccess());
+        //?}
     }
 
     //? if >=1.20.5 {
@@ -437,9 +465,18 @@ public final class PictureGameTests {
         picture.frame.title = "Saved";
         picture.frame.width = 2;
         picture.settingsChanged();
-        CompoundTag saved = picture.saveWithoutId(new CompoundTag());
         EntityPicture loaded = new EntityPicture(MinePapers.PICTURE.get(), h.getLevel());
+        //? if >=26.1 {
+        /*// С 26.1 сущность сохраняется через ValueOutput/ValueInput — поверх того же тега.
+        var registries = h.getLevel().registryAccess();
+        var out = net.minecraft.world.level.storage.TagValueOutput.createWithContext(net.minecraft.util.ProblemReporter.DISCARDING, registries);
+        picture.saveWithoutId(out);
+        CompoundTag saved = out.buildResult();
+        loaded.load(net.minecraft.world.level.storage.TagValueInput.create(net.minecraft.util.ProblemReporter.DISCARDING, registries, saved));
+        *///?} else {
+        CompoundTag saved = picture.saveWithoutId(new CompoundTag());
         loaded.load(saved);
+        //?}
         eq(h, settings(loaded.frame), settings(picture.frame), "settings");
         eq(h, loaded.getBoundingBox(), picture.getBoundingBox(), "hitbox");
         leave(h, player);

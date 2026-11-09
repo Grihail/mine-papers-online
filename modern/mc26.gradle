@@ -1,0 +1,62 @@
+// Общее для всех узлов Minecraft 26.x (любой движок): подключается из скрипта движка через apply from.
+// Общий код modern/src пишется с именами 1.21; то, что в 26.x только переименовали, Stonecutter заменяет сам, остальное — условия //? if >=26.1.
+
+// С 1.21.11 ResourceLocation называется Identifier (методы те же).
+stonecutter.replacements.string(true) { replace('ResourceLocation', 'Identifier') }
+// Тип клика в окне — ContainerInput (значения те же).
+stonecutter.replacements.string(true) { replace('ClickType', 'ContainerInput') }
+// Util лежит в net.minecraft.util.
+stonecutter.replacements.string(true) { replace('import net.minecraft.Util;', 'import net.minecraft.util.Util;') }
+// С 1.21.6 окна не рисуют, а собирают кадр: те же методы под другими именами (аргументы те же).
+// Поэтому в коде для 26.x тоже пишется GuiGraphics: GuiGraphicsExtractor получился бы заменой из него.
+stonecutter.replacements.string(true) { replace('GuiGraphics', 'GuiGraphicsExtractor') }
+stonecutter.replacements.string(true) { replace('void renderWidget(', 'void extractContents(') }
+stonecutter.replacements.string(true) { replace('g.drawString(', 'g.text(') }
+stonecutter.replacements.string(true) { replace('g.drawCenteredString(', 'g.centeredText(') }
+stonecutter.replacements.string(true) { replace('g.renderComponentTooltip(', 'g.setComponentTooltipForNextFrame(') }
+// Игровые тесты: перенос сущности и урон с ответом "подействовал ли" (hurt с 1.21.2 ничего не возвращает).
+stonecutter.replacements.string(true) { replace('player.moveTo(', 'player.snapTo(') }
+stonecutter.replacements.string(true) { replace('picture.hurt(', 'picture.hurtOrSimulate(') }
+
+// Ресурсы нового формата — в modern/src26/main/resources: модель предмета (items/), рецепт с ингредиентами-строками.
+def src26 = rootProject.file('modern/src26/main/resources')
+sourceSets.main.resources.srcDir src26
+// Модели с родителем builtin/entity в 26.x нет: настроенную рамку рисует items/picture_frame.json.
+sourceSets.main.resources.exclude 'assets/minepapers/models/item/picture_frame_configured.json'
+// Файлы, которые в src26 лежат в новом формате, из общих ресурсов не берутся.
+def replaced26 = fileTree(src26).collect { src26.toPath().relativize(it.toPath()).toString().replace('\\', '/') } as Set
+tasks.named('processResources') {
+    exclude { details -> details.path in replaced26 && !details.file.toPath().startsWith(src26.toPath()) }
+}
+
+// Игровые тесты с 26.1 — данные: на каждую функцию теста (метод PictureGameTests с GameTestHelper) — описание в
+// data/minepapers/test_instance. Их пишет сборка по списку методов, чтобы новые тесты не надо было описывать руками.
+def testSource = rootProject.file('modern/src/gametest/java/com/grihail/minepapers/gametest/PictureGameTests.java')
+def testFunctions = project.property('test_functions_namespace')
+def testInstances = tasks.register('generateTestInstances') {
+    def out = layout.buildDirectory.dir('generated/testInstances')
+    inputs.file testSource
+    inputs.property 'functions', testFunctions
+    outputs.dir out
+    doLast {
+        def dir = new File(out.get().asFile, 'data/minepapers/test_instance')
+        project.delete(out.get().asFile)
+        dir.mkdirs()
+        (testSource.getText('UTF-8') =~ /public\s+static\s+void\s+(\w+)\s*\(\s*GameTestHelper\b/).each { all, String name ->
+            def id = name.toLowerCase(Locale.ROOT)
+            // Функции тестов регистрирует мод тестов движка (у Forge — minepapers_tests).
+            new File(dir, "${id}.json").setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+                type: 'minecraft:function', function: "${testFunctions}:${id}", structure: 'minepapers:empty',
+                environment: 'minecraft:default', max_ticks: 100, setup_ticks: 0, required: true,
+            ])), 'UTF-8')
+        }
+    }
+}
+sourceSets.matching { it.name == 'gametest' }.configureEach { resources.srcDir(testInstances) }
+// Явно: скрипт узла может пересобрать список папок ресурсов, и зависимость от задачи потеряется.
+tasks.matching { it.name == 'processGametestResources' }.configureEach { dependsOn testInstances }
+
+// Все ошибки компиляции сразу, а не первые 100.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-Xmaxerrs', '10000']
+}

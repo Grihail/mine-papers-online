@@ -9,18 +9,32 @@ import com.grihail.minepapers.item.ItemPictureFrame;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+//? if >=26.1 {
+/*import java.util.ArrayList;
 
-/** Текстура рамки или холста: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы), у остальных предметов — их иконка. Не нашли предмет или текстуру — обычная рамка. Все спрайты — из атласа блоков. */
+import net.minecraft.client.color.block.BlockTintSource;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
+import net.minecraft.client.resources.model.sprite.Material;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.world.item.ItemDisplayContext;
+*///?} else {
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.world.inventory.InventoryMenu;
+//?}
+
+/** Текстура рамки или холста: обычная или взятая с предмета. У блока — его боковая грань (с цветом, как у листвы), у остальных предметов — их иконка. Не нашли предмет или текстуру — обычная рамка. Спрайты блоков — из атласа блоков; с 26.1 у предметов свой атлас, поэтому атлас берётся у самого спрайта. */
 public final class FrameSkin extends PictureMesh.Skin {
 
     public static final ResourceLocation BORDER = MinePapers.id("block/frame_border");
@@ -40,7 +54,7 @@ public final class FrameSkin extends PictureMesh.Skin {
 
     @Override
     public Object atlas() {
-        return InventoryMenu.BLOCK_ATLAS;
+        return sprite.atlasLocation();
     }
 
     @Override
@@ -70,8 +84,15 @@ public final class FrameSkin extends PictureMesh.Skin {
         *///?}
     }
 
+    /** Спрайт из атласа блоков (block/...), а с 26.1 спрайты item/... - из атласа предметов. */
     public static TextureAtlasSprite sprite(ResourceLocation id) {
+        //? if >=26.1 {
+        /*boolean item = id.getPath().startsWith("item/");
+        TextureAtlas atlas = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(item ? AtlasIds.ITEMS : AtlasIds.BLOCKS);
+        return atlas.getSprite(id);
+        *///?} else {
         return Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(id);
+        //?}
     }
 
     /** Текстура рамки из её материала. */
@@ -104,6 +125,36 @@ public final class FrameSkin extends PictureMesh.Skin {
         CACHE.clear();
     }
 
+    //? if >=26.1 {
+    /*private static FrameSkin find(String itemId, ResourceLocation fallback) {
+        ItemStack stack = ItemPictureFrame.borderStack(itemId);
+        if (stack.isEmpty()) return new FrameSkin(sprite(fallback), -1);
+        Minecraft mc = Minecraft.getInstance();
+        RandomSource random = RandomSource.create(42);
+        if (stack.getItem() instanceof BlockItem blockItem) {
+            BlockState state = blockItem.getBlock().defaultBlockState();
+            BlockStateModel model = mc.getModelManager().getBlockStateModelSet().get(state);
+            List<BlockStateModelPart> parts = new ArrayList<BlockStateModelPart>();
+            model.collectParts(random, parts);
+            BakedQuad quad = null;
+            for (BlockStateModelPart part : parts) {
+                quad = first(part.getQuads(Direction.NORTH));
+                if (quad != null) break;
+            }
+            for (int i = 0; quad == null && i < parts.size(); i++) quad = first(parts.get(i).getQuads(null));
+            if (quad != null) {
+                BakedQuad.MaterialInfo info = quad.materialInfo();
+                BlockTintSource tint = info.isTinted() ? mc.getBlockColors().getTintSource(state, info.tintIndex()) : null;
+                return new FrameSkin(info.sprite(), tint != null ? tint.color(state) : -1);
+            }
+        }
+        // Не блок: частица его модели - её иконка (цвет кожи и красок модель задаёт сама, здесь он не учитывается).
+        ItemStackRenderState render = new ItemStackRenderState();
+        mc.getItemModelResolver().updateForTopItem(render, stack, ItemDisplayContext.GUI, null, null, 0);
+        Material.Baked particle = render.pickParticleMaterial(random);
+        return new FrameSkin(particle != null ? particle.sprite() : sprite(fallback), -1);
+    }
+    *///?} else {
     private static FrameSkin find(String itemId, ResourceLocation fallback) {
         ItemStack stack = ItemPictureFrame.borderStack(itemId);
         if (stack.isEmpty()) return new FrameSkin(sprite(fallback), -1);
@@ -127,6 +178,7 @@ public final class FrameSkin extends PictureMesh.Skin {
         }
         return new FrameSkin(model.getParticleIcon(), -1);
     }
+    //?}
 
     private static BakedQuad first(List<BakedQuad> quads) {
         return quads.isEmpty() ? null : quads.get(0);

@@ -9,8 +9,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.IntConsumer;
 
-import org.lwjgl.glfw.GLFW;
-
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketPasteMaterials;
 import com.grihail.minepapers.network.PacketSaveFrame;
@@ -20,6 +18,8 @@ import com.grihail.minepapers.picture.Links;
 import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.PictureConfig;
 import com.grihail.minepapers.picture.PictureFrame;
+
+import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.SharedConstants;
@@ -31,10 +31,17 @@ import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.ConfirmScreen;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.resources.language.I18n;
+//? if >=26.1 {
+/*import java.net.URI;
+
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+*///?} else {
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderType;
+//?}
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -100,13 +107,17 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private MultiLineEditBox fDesc;
 
     public GuiPictureFrame(ContainerPictureFrame menu, Inventory inventory, Component title) {
+        //? if >=26.1 {
+        /*super(menu, inventory, title, WIDTH, HEIGHT); // с 1.21.9 размер окна задаётся только здесь
+        *///?} else {
         super(menu, inventory, title);
+        this.imageWidth = WIDTH;
+        this.imageHeight = HEIGHT;
+        //?}
         this.holder = menu.holder;
         this.tile = holder.frame;
         this.ed = new Editor(inventory);
         this.readOnly = ed.readOnly;
-        this.imageWidth = WIDTH;
-        this.imageHeight = HEIGHT;
         this.inventoryLabelY = imageHeight - 94;
     }
 
@@ -114,8 +125,13 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private final class Editor extends FrameEditor {
 
         Editor(Inventory inventory) {
-            super(holder.frame, holder.target, inventory.player.getUUID(), inventory.player.getGameProfile().getName(),
+            //? if >=26.1 {
+            /*super(holder.frame, holder.target, inventory.player.getUUID(), inventory.player.getScoreboardName(),
+                SharedConstants.getCurrentVersion().name());
+            *///?} else {
+            super(holder.frame, holder.target, inventory.player.getUUID(), inventory.player.getScoreboardName(),
                 SharedConstants.getCurrentVersion().getName());
+            //?}
         }
 
         @Override
@@ -219,7 +235,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         btnNext = small(x + 24, y + 89, 14, 14, Component.literal(">"), -1, () -> ed.cycleLocal(1));
         Component open = Component.translatable("minepapers.gui.openFolder");
         btnFolder = small(x + 40, y + 89, font.width(open) + 12, 14, open, -1,
-            () -> Util.getPlatform().openFile(MinePapers.picturesDir.toFile()));
+            () -> ModClient.openFolder(MinePapers.picturesDir.toFile()));
         // Интервал и состояние — внизу вкладки, над инвентарём
         field(F_INTERVAL, x + 128, y + 116, 40, 6);
         btnReload = small(x + 154, y + 131, 14, 14, Component.translatable("minepapers.gui.reload"),
@@ -364,10 +380,27 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         EditBox box = new EditBox(font, x, y, w, 14, Component.empty()) {
             private int anchor;
 
+            //? if >=26.1 {
+            /*// С 1.21.9 перетаскивание по полю само выделяет текст; фильтра у поля нет - число проверяем при вводе.
+            @Override
+            public void insertText(String input) {
+                String before = getValue();
+                super.insertText(input);
+                if (number != null && !number.accepts(getValue())) setValue(before);
+            }
+
+            @Override
+            public boolean keyPressed(KeyEvent event) {
+                int dir = event.key() == InputConstants.KEY_UP ? 1 : event.key() == InputConstants.KEY_DOWN ? -1 : 0;
+                if (number == null || dir == 0 || !canConsumeInput()) return super.keyPressed(event);
+                ed.step(f, dir);
+                return true;
+            }
+            *///?} else {
             @Override
             public void onClick(double mouseX, double mouseY) {
                 super.onClick(mouseX, mouseY);
-                if (!Screen.hasShiftDown()) anchor = getCursorPosition();
+                if (!ModClient.shiftDown()) anchor = getCursorPosition();
             }
 
             @Override
@@ -378,11 +411,12 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
             @Override
             public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-                int dir = keyCode == GLFW.GLFW_KEY_UP ? 1 : keyCode == GLFW.GLFW_KEY_DOWN ? -1 : 0;
+                int dir = keyCode == InputConstants.KEY_UP ? 1 : keyCode == InputConstants.KEY_DOWN ? -1 : 0;
                 if (number == null || dir == 0 || !canConsumeInput()) return super.keyPressed(keyCode, scanCode, modifiers);
                 ed.step(f, dir);
                 return true;
             }
+            //?}
 
             /** Колёсико над полем — и без клика по нему. */
             @Override
@@ -398,13 +432,20 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         };
         box.setMaxLength(maxLength);
         box.setValue(ed.initialText(f));
+        //? if <26.1 {
         if (number != null) box.setFilter(number::accepts);
+        //?}
         fields[f] = box;
         return add(box, fieldTab(f));
     }
 
     /** Многострочное поле f для пути, ссылки или описания: длинный текст переносится, его можно выделять мышью. links — подчёркивать внешние ссылки (описание). */
     private MultiLineEditBox area(int f, int x, int y, int h, boolean links) {
+        //? if >=26.1 {
+        /*// С 1.21.9 скрытое поле мышь не принимает, а наследовать его нельзя: Ctrl+V в поле пути перехватывает окно (keyPressed),
+        // ссылки подчёркивает оно же (underlineDescLinks).
+        MultiLineEditBox a = MultiLineEditBox.builder().setX(x).setY(y).build(font, 160, h, Component.empty());
+        *///?} else {
         // Поля всех источников лежат друг на друге, а ванильное поле принимает мышь и скрытым — отключаем это.
         MultiLineEditBox a = new MultiLineEditBox(font, x, y, 160, h, Component.empty(), Component.empty()) {
             @Override
@@ -443,6 +484,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 *///?}
             }
         };
+        //?}
         // Без ограничения длины: иначе под полем появляется счётчик символов и занимает место.
         a.setValue(ed.initialText(f));
         fields[f] = a;
@@ -567,10 +609,10 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     /** Подпись навсегда — сначала ванильный вопрос "Да / Нет" (Esc — нет). */
     private void confirmSign() {
         confirming = true;
-        minecraft.setScreen(new ConfirmScreen(yes -> {
+        ModClient.setScreen(new ConfirmScreen(yes -> {
             if (yes) ed.sign = true;
             confirming = false;
-            minecraft.setScreen(this);
+            ModClient.setScreen(this);
         }, Component.translatable("minepapers.gui.sign.confirm"), Component.translatable("minepapers.gui.sign.confirm.text", ed.myName)));
     }
 
@@ -594,7 +636,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     }
 
     private void chat(Component text) {
+        //? if >=26.1 {
+        /*minecraft.player.sendSystemMessage(text);
+        *///?} else {
         minecraft.player.displayClientMessage(text, false);
+        //?}
     }
 
     // ---------- Сохранение ----------
@@ -618,21 +664,30 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     // ---------- Ввод ----------
 
+    //? if >=26.1 {
+    /*@Override
+    public boolean keyPressed(KeyEvent event) {
+        Boolean own = ownKey(event.key());
+        if (own != null) return own;
+        // Пока набирают текст, E и цифры не должны закрывать окно и перекладывать предметы.
+        GuiEventListener focused = getFocused();
+        if (focused instanceof EditBox f && f.isVisible() && f.canConsumeInput()) {
+            f.keyPressed(event);
+            return true;
+        }
+        if (focused instanceof MultiLineEditBox a && a.visible && a.isFocused()) {
+            int f = fieldIndex(a);
+            if (f >= 0 && f <= F_IMAGE && event.isPaste() && pastePath(f)) return true;
+            a.keyPressed(event);
+            return true;
+        }
+        return super.keyPressed(event); // E закрывает окно, цифры — обмен с хотбаром
+    }
+    *///?} else {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            onClose(); // сохранение — в removed()
-            return true;
-        }
-        // Enter окно не закрывает: в описании он переносит строку, в остальных полях ничего не делает.
-        if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
-            && !(getFocused() == fDesc && fDesc.visible && fDesc.isFocused())) {
-            return true;
-        }
-        if (keyCode == GLFW.GLFW_KEY_TAB) {
-            focusNext();
-            return true;
-        }
+        Boolean own = ownKey(keyCode);
+        if (own != null) return own;
         // Пока набирают текст, E и цифры не должны закрывать окно и перекладывать предметы.
         GuiEventListener focused = getFocused();
         if (focused instanceof EditBox f && f.isVisible() && f.canConsumeInput()) {
@@ -644,6 +699,25 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers); // E закрывает окно, цифры — обмен с хотбаром
+    }
+    //?}
+
+    /** Клавиши, которые окно обрабатывает само: Esc, Enter, Tab. null — не они. */
+    private Boolean ownKey(int key) {
+        if (key == InputConstants.KEY_ESCAPE) {
+            onClose(); // сохранение — в removed()
+            return true;
+        }
+        // Enter окно не закрывает: в описании он переносит строку, в остальных полях ничего не делает.
+        if ((key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER)
+            && !(getFocused() == fDesc && fDesc.visible && fDesc.isFocused())) {
+            return true;
+        }
+        if (key == InputConstants.KEY_TAB) {
+            focusNext();
+            return true;
+        }
+        return null;
     }
 
     /** Tab переключает только видимые поля ввода. */
@@ -658,15 +732,36 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     }
 
     /** Перетаскивание мыши после клика в поле — выделение текста, по ползунку — его движение, а не раскладка предметов по слотам. */
+    //? if >=26.1 {
+    /*@Override
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        GuiEventListener focused = getFocused();
+        if (isDragging() && event.button() == 0 && dragsWidget(focused) && focused.mouseDragged(event, dragX, dragY)) return true;
+        return super.mouseDragged(event, dragX, dragY);
+    }
+    *///?} else {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         GuiEventListener focused = getFocused();
-        if (isDragging() && button == 0 && focused instanceof AbstractWidget w
-            && (fieldIndex(w) >= 0 || w instanceof GuiWidgets.Slider) && w.visible
-            && focused.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+        if (isDragging() && button == 0 && dragsWidget(focused) && focused.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+    //?}
+
+    //? if >=26.1 {
+    /*// С 1.21.9 окно контейнера отдаёт колесо только предметам в слотах (связкам), а не виджетам: числовые поля и ползунки
+    // меняются колесом, поэтому виджету под мышью отдаём его сами.
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) return true;
+        return getChildAt(mouseX, mouseY).filter(child -> child.mouseScrolled(mouseX, mouseY, scrollX, scrollY)).isPresent();
+    }
+    *///?}
+
+    private boolean dragsWidget(GuiEventListener focused) {
+        return focused instanceof AbstractWidget w && (fieldIndex(w) >= 0 || w instanceof GuiWidgets.Slider) && w.visible;
     }
 
     /** Shift+клик кладёт предмет в слот материала — только когда эти слоты видны. */
@@ -679,8 +774,14 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
 
     // ---------- Отрисовка ----------
 
+    //? if >=26.1 {
+    /*@Override
+    public void extractBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        super.extractBackground(g, mouseX, mouseY, partialTick); // затемнение мира
+    *///?} else {
     @Override
     protected void renderBg(GuiGraphics g, float partialTick, int mouseX, int mouseY) {
+    //?}
         if (readOnly) {
             GuiWidgets.panel(g, leftPos, topPos, imageWidth, imageHeight);
             return;
@@ -703,7 +804,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     }
 
     @Override
+    //? if >=26.1 {
+    /*protected void extractLabels(GuiGraphics g, int mouseX, int mouseY) {
+    *///?} else {
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
+    //?}
         g.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, GuiWidgets.TEXT, false);
         if (readOnly) {
             // Чужая заприваченная картина: заголовок и под ним описание, только для чтения.
@@ -763,10 +868,12 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                             ? I18n.get("minepapers.gui.glow.self") : I18n.get("minepapers.gui.glow.level", PictureFrame.lightOf(glow)),
                             30, ty + 8, GuiWidgets.HINT, false);
                     }
+                    //? if <26.1 {
                     if (!ed.materialUsed(i)) {
                         g.fill(RenderType.guiOverlay(), ContainerPictureFrame.MATERIAL_X, ty - 1, ContainerPictureFrame.MATERIAL_X + 16,
                             ty + 15, 0xB0C6C6C6);
                     }
+                    //?}
                 }
                 if (!menu.materialsEditable()) {
                     int y = ContainerPictureFrame.MATERIAL_Y + materials.length * ContainerPictureFrame.MATERIAL_STEP + 2;
@@ -784,6 +891,30 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         g.drawString(font, s, x, y, GuiWidgets.TEXT, false);
     }
 
+    //? if >=26.1 {
+    /*@Override
+    public void extractRenderState(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(g, mouseX, mouseY, partialTick); // подсказки виджетов и предметов — отложенные, их рисует игра
+        // Поверх предметов в слотах — новый слой (с 1.21.6 надписи окна рисуются раньше предметов).
+        g.nextStratum();
+        if (!readOnly && ed.tab == TAB_FRAME) {
+            for (int i = 0; i < tile.materials().length; i++) {
+                if (ed.materialUsed(i)) continue;
+                int ty = topPos + ContainerPictureFrame.MATERIAL_Y + 1 + i * ContainerPictureFrame.MATERIAL_STEP;
+                g.fill(leftPos + ContainerPictureFrame.MATERIAL_X, ty - 1, leftPos + ContainerPictureFrame.MATERIAL_X + 16, ty + 15, 0xB0C6C6C6);
+            }
+        }
+        // Ссылки в описании: поле нельзя наследовать, поэтому подчёркиваем поверх него, с его прокруткой.
+        if (!readOnly && fDesc.visible) {
+            g.enableScissor(fDesc.getX() + 1, fDesc.getY() + 1, fDesc.getX() + fDesc.getWidth() - 1, fDesc.getY() + fDesc.getHeight() - 1);
+            underlineLinks(g, fDesc.getValue(), fDesc.getX() + 4, fDesc.getY() + 4 - (int) Math.round(fDesc.scrollAmount()), fDesc.getWidth() - 8);
+            g.disableScissor();
+        }
+        if (!readOnly && ed.tab == TAB_SIZE) sizeLabelTooltip(g, mouseX, mouseY);
+        Style link = linkAt(mouseX, mouseY);
+        if (link != null) g.componentHoverEffect(font, link, mouseX, mouseY);
+    }
+    *///?} else {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         //? if <1.20.2 {
@@ -795,6 +926,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         Style link = linkAt(mouseX, mouseY);
         if (link != null) g.renderComponentHoverEffect(font, link, mouseX, mouseY);
     }
+    //?}
 
     // ---------- Ссылки в описании ----------
 
@@ -809,10 +941,23 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         for (int[] s : Links.find(text)) {
             result.append(text.substring(at, s[0]));
             String url = text.substring(s[0], s[1]);
+            //? if >=26.1 {
+            /*ClickEvent click;
+            try {
+                click = new ClickEvent.OpenUrl(URI.create(url));
+            } catch (IllegalArgumentException e) {
+                click = null; // не ссылка для браузера — просто подчёркнутый текст
+            }
+            ClickEvent open = click;
+            HoverEvent hover = new HoverEvent.ShowText(Component.literal(url));
+            *///?} else {
+            ClickEvent open = new ClickEvent(ClickEvent.Action.OPEN_URL, url);
+            HoverEvent hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(url));
+            //?}
             result.append(Component.literal(url).withStyle(style -> style.withUnderlined(true)
-                .withColor(GuiWidgets.HOVER)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(url)))));
+                .withColor(GuiWidgets.HOVER & 0xFFFFFF)
+                .withClickEvent(open)
+                .withHoverEvent(hover)));
             at = s[1];
         }
         return result.append(text.substring(at));
@@ -823,16 +968,45 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (!readOnly) return null;
         int row = (int) Math.floor((mouseY - topPos - descY) / 10);
         if (row < 0 || row >= descLines.size() || mouseY - topPos - descY - row * 10 >= 9) return null;
-        Style style = font.getSplitter().componentStyleAtWidth(descLines.get(row), (int) (mouseX - leftPos - 8));
+        Style style = styleAt(descLines.get(row), mouseX - leftPos - 8);
         return style != null && style.getClickEvent() != null ? style : null;
     }
 
+    /** Стиль символа строки на расстоянии x от её начала (null — мимо текста): ширина считается по символам, как рисует шрифт. */
+    private Style styleAt(FormattedCharSequence line, double x) {
+        if (x < 0) return null;
+        float[] at = { 0 };
+        Style[] hit = { null };
+        line.accept((index, style, codepoint) -> {
+            float w = font.width(FormattedCharSequence.codepoint(codepoint, style));
+            if (x < at[0] + w) {
+                hit[0] = style;
+                return false;
+            }
+            at[0] += w;
+            return true;
+        });
+        return hit[0];
+    }
+
+    //? if >=26.1 {
+    /*@Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        Style link = event.button() == 0 ? linkAt(event.x(), event.y()) : null;
+        if (link != null) {
+            defaultHandleClickEvent(link.getClickEvent(), minecraft, this); // ванильный вопрос "Открыть ссылку?"
+            return true;
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
+    *///?} else {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         Style link = button == 0 ? linkAt(mouseX, mouseY) : null;
         if (link != null && handleComponentClicked(link)) return true;
         return super.mouseClicked(mouseX, mouseY, button);
     }
+    //?}
 
     /** Ванильная подсказка виджета. */
     /** Подсказка подписи ряда на вкладке размера: как работает параметр. */

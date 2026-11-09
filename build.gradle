@@ -4,6 +4,7 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.148' apply false
     id 'net.neoforged.moddev.legacyforge' version '2.0.148' apply false
     id 'fabric-loom' version '1.15.5' apply false
+    id 'net.minecraftforge.gradle' version '7.0.40' apply false
 }
 
 /** Сравнение версий Minecraft по числам: "1.7.10" < "1.13" < "1.21.1". */
@@ -57,7 +58,8 @@ configure(subprojects.findAll { it.name ==~ /\d.*-.*/ }) {
     dependencies {
         // Остальные пять jar (imageio-core, imageio-metadata, common-image, common-io, common-lang) приходят как её зависимости.
         webp 'com.twelvemonkeys.imageio:imageio-webp:3.15.3'
-        proguard 'com.guardsquare:proguard-base:7.6.1'
+        // 7.10 читает классы JDK 25 (на нём собираются версии 26.x); 7.6 — только до JDK 23.
+        proguard 'com.guardsquare:proguard-base:7.10.0'
     }
 
     // ProGuard оставляет от библиотек WebP только читатель WebP и то, что ему нужно (~500 КБ -> ~90 КБ), и переносит классы в пакет com.grihail.minepapers.lib. Правила - в common/proguard/webp.pro, таблица имён (для разбора стека) - в build/webp/mapping.txt.
@@ -140,8 +142,15 @@ configure(subprojects.findAll { it.name ==~ /\d.*-.*/ }) {
         filteringCharset = 'UTF-8'
         inputs.property 'version', project.version
         inputs.property 'mcversion', mcVersion
+        // Значения для файлов Forge 26.x — из gradle.properties узла; читаются при сборке. У остальных версий их нет и они не используются.
+        def nodeKeys = ['forge_major', 'mc_upper', 'pack_max', 'pack_min']
+        def nodeValues = { nodeKeys.collectEntries { [(it): project.findProperty(it) ?: ''] } }
+        nodeKeys.each { key -> inputs.property(key, providers.provider { project.findProperty(key) ?: '' }) }
         filesMatching(['mcmod.info', 'version.properties', 'META-INF/neoforge.mods.toml', 'META-INF/mods.toml', 'fabric.mod.json']) {
-            expand 'version': project.version, 'mcversion': mcVersion
+            expand(['version': project.version, 'mcversion': mcVersion] + nodeValues())
+        }
+        if (mcVersion.tokenize('.')[0].toInteger() >= 26) {
+            filesMatching('pack.mcmeta') { expand(nodeValues()) }
         }
 
         from(rootProject.file('common/resources')) {

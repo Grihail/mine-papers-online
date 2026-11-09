@@ -5,6 +5,9 @@ import com.grihail.minepapers.MinePapers;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+//? if >=26.1 {
+/*import net.minecraft.nbt.NbtOps;
+*///?}
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -79,7 +82,9 @@ public class PictureFrame extends PictureSettings {
             if (cache == null) {
                 HolderLookup.Provider registries = registries();
                 if (registries == null) return ItemStack.EMPTY;
-                //? if >=1.20.5 {
+                //? if >=26.1 {
+                /*cache = ItemStack.OPTIONAL_CODEC.parse(registries.createSerializationContext(NbtOps.INSTANCE), tag).result().orElse(ItemStack.EMPTY);
+                *///?} else if >=1.20.5 {
                 cache = ItemStack.parseOptional(registries, tag);
                 //?} else {
                 /*cache = ItemStack.of(tag);
@@ -98,7 +103,9 @@ public class PictureFrame extends PictureSettings {
                 return;
             }
             ItemStack one = stack.copyWithCount(1);
-            //? if >=1.20.5 {
+            //? if >=26.1 {
+            /*tag = (CompoundTag) ItemStack.CODEC.encodeStart(registries.createSerializationContext(NbtOps.INSTANCE), one).getOrThrow();
+            *///?} else if >=1.20.5 {
             tag = (CompoundTag) one.save(registries);
             //?} else {
             /*tag = one.save(new CompoundTag());
@@ -114,11 +121,11 @@ public class PictureFrame extends PictureSettings {
 
         /** Только этот материал из настроек settings. */
         public void read(CompoundTag settings) {
-            item = settings.getString(key);
+            item = NbtTag.string(settings, key);
             cache = null;
             if (settings.contains(stackTag())) {
-                tag = settings.getCompound(stackTag()).copy();
-                item = tag.getString("id"); // текстура известна и без реестров
+                tag = NbtTag.compound(settings, stackTag()).copy();
+                item = NbtTag.string(tag, "id"); // текстура известна и без реестров
             } else {
                 tag = null;
             }

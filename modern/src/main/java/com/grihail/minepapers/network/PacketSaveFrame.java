@@ -47,6 +47,6 @@ public record PacketSaveFrame(int target, CompoundTag settings) implements ModPa
             frame.writeSettings(materials);
             frame.readSettings(msg.settings);
             for (PictureFrame.Material m : frame.materials()) m.read(materials);
-        }, player.getUUID(), player.getGameProfile().getName());
+        }, player.getUUID(), player.getScoreboardName());
     }
 }

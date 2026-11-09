@@ -1,5 +1,6 @@
 package com.grihail.minepapers.picture;
 
+import com.grihail.minepapers.Compat;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.item.ItemPictureFrame;
 
@@ -44,7 +45,7 @@ public final class FrameHolder {
     /** Картина-предмет в руке hand. */
     public static int targetOf(Player player, InteractionHand hand) {
         Inventory inv = player.getInventory();
-        return PictureTarget.ofSlot(hand == InteractionHand.MAIN_HAND ? inv.selected : Inventory.SLOT_OFFHAND);
+        return PictureTarget.ofSlot(hand == InteractionHand.MAIN_HAND ? Compat.selectedSlot(inv) : Inventory.SLOT_OFFHAND);
     }
 
     private static ItemStack stack(Player player, int target) {

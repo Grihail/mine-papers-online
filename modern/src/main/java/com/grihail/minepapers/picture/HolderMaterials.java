@@ -1,5 +1,6 @@
 package com.grihail.minepapers.picture;
 
+import com.grihail.minepapers.Compat;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.item.ItemPictureFrame;
 
@@ -144,17 +145,17 @@ public final class HolderMaterials extends MaterialSlots<ItemStack> {
 
     @Override
     protected void addToInventory(ItemStack stack) {
-        if (!player.getInventory().add(stack)) player.drop(stack, false);
+        if (!player.getInventory().add(stack)) Compat.drop(player, stack);
     }
 
     @Override
     protected int inventorySize() {
-        return player.getInventory().items.size();
+        return Compat.mainItems(player.getInventory()).size();
     }
 
     @Override
     protected ItemStack inventoryItem(int slot) {
-        return player.getInventory().items.get(slot);
+        return Compat.mainItems(player.getInventory()).get(slot);
     }
 
     @Override

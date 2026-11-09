@@ -1,5 +1,6 @@
 package com.grihail.minepapers.item;
 
+import com.grihail.minepapers.Compat;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.picture.PictureFrame;
@@ -20,7 +21,14 @@ import net.minecraft.world.level.Level;
 /** Рецепты без формы, как копирование карт (заприваченные и подписанные картины не копируются, а разбираются, только если это разрешено в config/minepapers.json): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. onCrafted). */
 public class RecipePictureFrame extends CustomRecipe {
 
-    //? if >=1.20.5 {
+    //? if >=26.1 {
+    /*// С 26.1 у особых рецептов нет категории в конструкторе, а сериализатор - запись из кодеков (без полей: рецепт один).
+    public static final RecipePictureFrame INSTANCE = new RecipePictureFrame();
+    public static final RecipeSerializer<RecipePictureFrame> SERIALIZER = new RecipeSerializer<>(
+        com.mojang.serialization.MapCodec.unit(INSTANCE), net.minecraft.network.codec.StreamCodec.unit(INSTANCE));
+
+    public RecipePictureFrame() {}
+    *///?} else if >=1.20.5 {
     public RecipePictureFrame(CraftingBookCategory category) {
         super(category);
     }
@@ -69,7 +77,15 @@ public class RecipePictureFrame extends CustomRecipe {
     }
     *///?}
 
-    //? if >=1.20.5 {
+    //? if >=26.1 {
+    /*@Override
+    public boolean matches(CraftingInput input, Level level) {
+        return !assemble(input).isEmpty();
+    }
+
+    @Override
+    public ItemStack assemble(CraftingInput input) {
+    *///?} else if >=1.20.5 {
     @Override
     public boolean matches(CraftingInput input, Level level) {
         return !assemble(input, level.registryAccess()).isEmpty();
@@ -110,22 +126,24 @@ public class RecipePictureFrame extends CustomRecipe {
         return copy;
     }
 
+    //? if <26.1 {
     @Override
     public boolean canCraftInDimensions(int width, int height) {
         return width * height >= 1;
     }
+    //?}
 
     @Override
-    public RecipeSerializer<?> getSerializer() {
+    public RecipeSerializer<RecipePictureFrame> getSerializer() {
         return MinePapers.FRAME_COPY.get();
     }
 
     /** Картина ушла в крафт (сброс, копирование, чужой рецепт) — блоки из её слотов материалов возвращаются в инвентарь (нет места — выпадают рядом), а не пропадают и не размножаются. Движок вызывает это, когда игрок забрал результат крафта из сетки grid, до того как ингредиенты списаны: каждый крафт тратит по одной картине из ячейки. */
     public static void onCrafted(Player player, Container grid) {
-        if (player.level().isClientSide) return;
+        if (player.level().isClientSide()) return;
         for (int i = 0; i < grid.getContainerSize(); i++) {
             for (ItemStack stored : ItemPictureFrame.storedMaterials(grid.getItem(i))) {
-                if (!player.getInventory().add(stored)) player.drop(stored, false);
+                if (!player.getInventory().add(stored)) Compat.drop(player, stored);
             }
         }
     }

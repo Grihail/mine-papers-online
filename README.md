@@ -10,6 +10,7 @@ A Minecraft picture frame for your own images: a file from your PC, a folder sli
 | 1.12.2 | Forge |
 | 1.20.1 | Forge, Fabric |
 | 1.21.1 | NeoForge, Fabric |
+| 26.1.2, 26.2, 26.3 | Forge |
 
 Fabric needs Fabric API.
 

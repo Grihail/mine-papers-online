@@ -1,0 +1,36 @@
+{
+  "model": {
+    "type": "minecraft:condition",
+    "property": "minecraft:has_component",
+    "component": "minepapers:frame",
+    "on_false": {
+      "type": "minecraft:model",
+      "model": "minepapers:item/picture_frame"
+    },
+    "on_true": {
+      "type": "minecraft:select",
+      "property": "minecraft:display_context",
+      "cases": [
+        {
+          "when": "gui",
+          "model": {
+            "type": "minecraft:special",
+            "base": "minepapers:item/picture_frame_special",
+            "model": {
+              "type": "minepapers:picture_frame",
+              "flat": true
+            }
+          }
+        }
+      ],
+      "fallback": {
+        "type": "minecraft:special",
+        "base": "minepapers:item/picture_frame_special",
+        "model": {
+          "type": "minepapers:picture_frame",
+          "flat": false
+        }
+      }
+    }
+  }
+}

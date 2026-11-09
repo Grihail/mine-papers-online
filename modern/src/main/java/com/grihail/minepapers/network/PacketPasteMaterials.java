@@ -1,5 +1,6 @@
 package com.grihail.minepapers.network;
 
+import com.grihail.minepapers.picture.NbtTag;
 import java.util.List;
 
 import com.grihail.minepapers.MinePapers;
@@ -58,7 +59,7 @@ public record PacketPasteMaterials(int target, CompoundTag materials) implements
         for (int i = 0; i < has.length; i++) {
             String key = PictureConfig.MATERIALS[i];
             has[i] = msg.materials.contains(key);
-            String id = msg.materials.getString(key);
+            String id = NbtTag.string(msg.materials, key);
             items[i] = id.isEmpty() ? null : new PictureConfig.Item(id, -1);
         }
         List<PictureConfig.Item> missing = new HolderMaterials(holder, player).paste(has, items);

@@ -1,0 +1,16 @@
+modLoader = "javafml"
+loaderVersion = "[64,)"
+license = "LGPL-3.0"
+
+# Только для запуска игровых тестов (runGametestGameTestServer), в jar мода не попадает.
+[[mods]]
+modId = "minepapers_tests"
+version = "1"
+displayName = "Mine Papers Online tests"
+
+[[dependencies.minepapers_tests]]
+modId = "minepapers"
+mandatory = true
+versionRange = "[0,)"
+ordering = "AFTER"
+side = "BOTH"

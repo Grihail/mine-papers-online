@@ -22,8 +22,16 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
+//? if >=26.1 {
+/*import com.mojang.serialization.MapCodec;
+import net.minecraft.nbt.TagParser;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+*///?} else {
+import net.minecraft.world.level.GameRules;
+//?}
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LightBlock;
@@ -36,8 +44,38 @@ import net.minecraft.world.phys.Vec3;
 /** Картина — сущность, как ванильные картины и рамки: не занимает клеток, поэтому блоки и другие картины могут стоять вплотную и в той же клетке. Хитбокс — весь холст, сквозь него можно пройти. Опора не нужна: картина держится, даже если убрать блок за ней. Место и настройки синхронизируются с клиентами через SynchedEntityData — ванильно, без данных спавна движка. */
 public class EntityPicture extends Entity {
 
+    //? if >=26.1 {
+    /*// С 26.1 у данных сущности нет тега NBT; свой тип пришлось бы регистрировать у каждого движка, поэтому тег идёт строкой SNBT.
+    private static final EntityDataAccessor<String> SETTINGS =
+        SynchedEntityData.defineId(EntityPicture.class, EntityDataSerializers.STRING);
+    private static final String NO_SETTINGS = "";
+
+    private void setSynced(CompoundTag tag) {
+        entityData.set(SETTINGS, tag.toString());
+    }
+
+    private CompoundTag synced() {
+        String s = entityData.get(SETTINGS);
+        if (s.isEmpty()) return new CompoundTag();
+        try {
+            return TagParser.parseCompoundFully(s);
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+            return new CompoundTag();
+        }
+    }
+    *///?} else {
     private static final EntityDataAccessor<CompoundTag> SETTINGS =
         SynchedEntityData.defineId(EntityPicture.class, EntityDataSerializers.COMPOUND_TAG);
+    private static final CompoundTag NO_SETTINGS = new CompoundTag();
+
+    private void setSynced(CompoundTag tag) {
+        entityData.set(SETTINGS, tag);
+    }
+
+    private CompoundTag synced() {
+        return entityData.get(SETTINGS);
+    }
+    //?}
     /** Прочность как у деревянного блока. */
     public static final float HARDNESS = 0.5f;
 
@@ -62,11 +100,11 @@ public class EntityPicture extends Entity {
     @Override
     //? if >=1.20.5 {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        builder.define(SETTINGS, new CompoundTag());
+        builder.define(SETTINGS, NO_SETTINGS);
     }
     //?} else {
     /*protected void defineSynchedData() {
-        entityData.define(SETTINGS, new CompoundTag());
+        entityData.define(SETTINGS, NO_SETTINGS);
     }
     *///?}
 
@@ -83,11 +121,11 @@ public class EntityPicture extends Entity {
     /** Настройки изменились: пересчитать хитбокс и (на сервере) разослать игрокам вместе с местом картины и обновить свет. */
     public void settingsChanged() {
         refresh();
-        if (!level().isClientSide) {
+        if (!level().isClientSide()) {
             CompoundTag tag = new CompoundTag();
             frame.writePlacement(tag);
             frame.writeSettings(tag);
-            entityData.set(SETTINGS, tag);
+            setSynced(tag);
             lights.markDirty();
         }
     }
@@ -118,7 +156,7 @@ public class EntityPicture extends Entity {
     /** Картину сломали или убрали — убираем и её свет. Выгрузка чанка и переход в другое измерение сюда не относятся. */
     @Override
     public void remove(RemovalReason reason) {
-        if (!level().isClientSide && reason.shouldDestroy()) lights.clear(frame);
+        if (!level().isClientSide() && reason.shouldDestroy()) lights.clear(frame);
         super.remove(reason);
     }
 
@@ -140,17 +178,24 @@ public class EntityPicture extends Entity {
         refresh();
     }
 
+    //? if >=26.1 {
+    /*@Override
+    protected AABB makeBoundingBox(Vec3 position) {
+        return frame == null ? super.makeBoundingBox(position) : FrameGeometry.canvasBox(frame);
+    }
+    *///?} else {
     @Override
     protected AABB makeBoundingBox() {
         return frame == null ? super.makeBoundingBox() : FrameGeometry.canvasBox(frame);
     }
+    //?}
 
     /** Клиент подхватывает новые настройки с сервера. */
     @Override
     public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
         super.onSyncedDataUpdated(key);
-        if (SETTINGS.equals(key) && level().isClientSide) {
-            CompoundTag tag = entityData.get(SETTINGS);
+        if (SETTINGS.equals(key) && level().isClientSide()) {
+            CompoundTag tag = synced();
             if (!tag.isEmpty()) {
                 frame.readPlacement(tag);
                 frame.readSettings(tag);
@@ -162,7 +207,7 @@ public class EntityPicture extends Entity {
     /** Картина не движется, не горит и не падает; сервер обновляет свет после смены настроек, клиент держит её картинку в памяти, пока сама сущность есть на клиенте - пока загружен её чанк (PictureManager.keepAlive). */
     @Override
     public void tick() {
-        if (!level().isClientSide) {
+        if (!level().isClientSide()) {
             lights.tick(frame, frame.glowLevel());
         } else {
             PictureManager.keepAlive(frame);
@@ -182,7 +227,11 @@ public class EntityPicture extends Entity {
 
     @Override
     public PushReaction getPistonPushReaction() {
+        //? if >=26.3 {
+        /*return PushReaction.IGNORE_ENTITY;
+        *///?} else {
         return PushReaction.IGNORE;
+        //?}
     }
 
     /** По картине можно кликнуть, но коллизии у неё нет: сквозь неё проходят. */
@@ -199,26 +248,40 @@ public class EntityPicture extends Entity {
 
     // ---------- Взаимодействие ----------
 
+    //? if >=26.1 {
+    /*@Override
+    public InteractionResult interact(Player player, InteractionHand hand, Vec3 location) {
+        // Окно с инвентарём открывает сервер, см. PacketOpenFrame.
+        if (level().isClientSide()) MinePapers.platform.sendToServer(new PacketOpenFrame(getId()));
+        return InteractionResult.SUCCESS;
+    }
+    *///?} else {
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
         // Окно с инвентарём открывает сервер, см. PacketOpenFrame.
-        if (level().isClientSide) MinePapers.platform.sendToServer(new PacketOpenFrame(getId()));
-        return InteractionResult.sidedSuccess(level().isClientSide);
+        if (level().isClientSide()) MinePapers.platform.sendToServer(new PacketOpenFrame(getId()));
+        return InteractionResult.sidedSuccess(level().isClientSide());
     }
+    //?}
 
     /** Удар игрока. В выживании картину "копают" (см. client.PictureControls), поэтому удар ничего не делает; в творческом режиме ломается сразу, как блок. */
     @Override
     public boolean skipAttackInteraction(Entity attacker) {
-        if (level().isClientSide && attacker instanceof Player player && player.isCreative()) {
+        if (level().isClientSide() && attacker instanceof Player player && player.isCreative()) {
             MinePapers.platform.sendToServer(new PacketBreakPicture(getId(), PacketBreakPicture.FINISH));
         }
         return true;
     }
 
     /** Взрывы ломают картину с дропом, как ломали блок; остальной урон не действует. */
+    //? if >=26.1 {
+    /*@Override
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+    *///?} else {
     @Override
     public boolean hurt(DamageSource source, float amount) {
-        if (level().isClientSide || isRemoved() || !source.is(DamageTypeTags.IS_EXPLOSION)) return false;
+    //?}
+        if (level().isClientSide() || isRemoved() || !source.is(DamageTypeTags.IS_EXPLOSION)) return false;
         breakPicture(true);
         return true;
     }
@@ -230,9 +293,15 @@ public class EntityPicture extends Entity {
         SoundType sound = SoundType.WOOD;
         server.playSound(null, getX(), getY(), getZ(), sound.getBreakSound(), SoundSource.BLOCKS,
             (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
+        //? if >=26.1 {
+        /*if (drop && server.getGameRules().get(GameRules.BLOCK_DROPS)) {
+            spawnAtLocation(server, ItemPictureFrame.makeStack(frame));
+        }
+        *///?} else {
         if (drop && server.getGameRules().getBoolean(GameRules.RULE_DOBLOCKDROPS)) {
             spawnAtLocation(ItemPictureFrame.makeStack(frame));
         }
+        //?}
     }
 
     /** Доля поломки за тик — та же формула, что у деревянного блока прочностью HARDNESS: топор быстрее, в воде и в прыжке медленнее. */
@@ -248,16 +317,45 @@ public class EntityPicture extends Entity {
 
     // ---------- Сохранение и отправка клиентам ----------
 
+    //? if >=26.1 {
+    /*// С 26.1 сущность сохраняется через ValueInput/ValueOutput; ключи те же, что раньше, - картины из старых миров читаются.
+    private static final MapCodec<CompoundTag> WHOLE_TAG = MapCodec.assumeMapUnsafe(CompoundTag.CODEC);
+
+    @Override
+    protected void readAdditionalSaveData(ValueInput input) {
+        readSaved(input.read(WHOLE_TAG).orElseGet(CompoundTag::new));
+    }
+
+    @Override
+    protected void addAdditionalSaveData(ValueOutput output) {
+        CompoundTag tag = new CompoundTag();
+        writeSaved(tag);
+        output.store(WHOLE_TAG, tag);
+    }
+    *///?} else {
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
-        frame.readPlacement(tag);
-        frame.readSettings(tag.getCompound("Settings"));
-        lights.load(tag.getIntArray("Lights"));
-        settingsChanged();
+        readSaved(tag);
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        writeSaved(tag);
+    }
+    //?}
+
+    private void readSaved(CompoundTag tag) {
+        frame.readPlacement(tag);
+        frame.readSettings(NbtTag.compound(tag, "Settings"));
+        //? if >=26.1 {
+        /*lights.load(tag.getIntArray("Lights").orElse(new int[0]));
+        *///?} else {
+        lights.load(tag.getIntArray("Lights"));
+        //?}
+        settingsChanged();
+    }
+
+    private void writeSaved(CompoundTag tag) {
         frame.writePlacement(tag);
         CompoundTag settings = new CompoundTag();
         frame.writeSettings(settings);

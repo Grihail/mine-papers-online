@@ -9,13 +9,19 @@ import com.grihail.minepapers.picture.PictureFrame;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+//? if >=26.1 {
+/*import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+*///?} else {
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+//?}
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.SoundType;
@@ -72,7 +78,7 @@ public class PictureControls {
 
         if (mc.player.isCreative() && creativeDelay == 0) {
             MinePapers.platform.sendToServer(new PacketBreakPicture(hit.getEntity().getId(), PacketBreakPicture.FINISH));
-            mc.player.swing(InteractionHand.MAIN_HAND);
+            ModClient.swing();
             creativeDelay = CREATIVE_BREAK_DELAY;
         }
         return true;
@@ -90,7 +96,7 @@ public class PictureControls {
         Minecraft mc = Minecraft.getInstance();
         if (creativeDelay > 0) creativeDelay--;
         EntityPicture aimed = null;
-        if (mc.level != null && mc.player != null && mc.screen == null && mc.mouseHandler.isMouseGrabbed()
+        if (mc.level != null && mc.player != null && ModClient.screen() == null && mc.mouseHandler.isMouseGrabbed()
             && mc.options.keyAttack.isDown() && !mc.player.isCreative()) {
             EntityHitResult hit = pick(1f);
             if (hit != null) aimed = (EntityPicture) hit.getEntity();
@@ -104,7 +110,7 @@ public class PictureControls {
         if (breaking == null) return;
 
         progress += breaking.breakRate(mc.player);
-        mc.player.swing(InteractionHand.MAIN_HAND);
+        ModClient.swing();
         if (ticks++ % 4 == 0) {
             SoundType sound = SoundType.WOOD;
             mc.getSoundManager().play(new SimpleSoundInstance(sound.getHitSound(), SoundSource.BLOCKS,
@@ -125,23 +131,61 @@ public class PictureControls {
 
     // ---------- Обводка и контур будущей картины ----------
 
+    //? if >=26.1 {
+    /*/^* Что рисовать вместо обводки блока под прицелом (с 26.1 движок спрашивает об этом при сборе кадра, а рисует позже). *^/
+    public interface Highlight {
+        void draw(PoseStack poseStack, VertexSink sink);
+    }
+
+    /^* Перед блоком висит картина — ничего (обводку блока за ней не рисуем); с картиной в руке — обводка блока и контур будущей картины; иначе null — ванильная обводка. *^/
+    public Highlight onHighlightBlock(Vec3 cam, BlockHitResult target) {
+        if (aimed != null) return (poseStack, sink) -> {};
+        PictureFrame ghost = ghost(cam, target);
+        if (ghost == null) return null;
+        Minecraft mc = Minecraft.getInstance();
+        boolean canPlace = !FrameGeometry.isBlocked(mc.level, ghost, null);
+        BlockPos pos = target.getBlockPos();
+        VoxelShape shape = mc.level.getBlockState(pos).getShape(mc.level, pos, CollisionContext.of(mc.getCameraEntity()));
+        return (poseStack, sink) -> {
+            // Ванильную обводку движок в этом случае не рисует — повторяем её: рёбра формы блока.
+            VertexConsumer lines = sink.buffer(PictureRenderTypes.lines());
+            PoseStack.Pose pose = poseStack.last();
+            double dx = pos.getX() - cam.x, dy = pos.getY() - cam.y, dz = pos.getZ() - cam.z;
+            shape.forAllEdges((x0, y0, z0, x1, y1, z1) -> {
+                float nx = (float) (x1 - x0), ny = (float) (y1 - y0), nz = (float) (z1 - z0);
+                float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+                lines.addVertex(pose, (float) (x0 + dx), (float) (y0 + dy), (float) (z0 + dz)).setColor(0f, 0f, 0f, 0.4f)
+                    .setNormal(pose, nx / len, ny / len, nz / len).setLineWidth(2f);
+                lines.addVertex(pose, (float) (x1 + dx), (float) (y1 + dy), (float) (z1 + dz)).setColor(0f, 0f, 0f, 0.4f)
+                    .setNormal(pose, nx / len, ny / len, nz / len).setLineWidth(2f);
+            });
+            drawGhost(poseStack, sink, cam, ghost, canPlace);
+        };
+    }
+    *///?} else {
     /** Обводка блока под прицелом (движок вызывает перед ванильной). Перед блоком висит картина — ванильную обводку блока за ней не рисуем; иначе, с картиной в руке, — контур будущей картины. @return true — ванильную обводку не рисовать */
     public boolean onHighlightBlock(PoseStack poseStack, MultiBufferSource buffers, Vec3 cam, BlockHitResult target) {
         if (aimed != null) return true;
+        PictureFrame ghost = ghost(cam, target);
+        if (ghost == null) return false;
+        boolean canPlace = !FrameGeometry.isBlocked(Minecraft.getInstance().level, ghost, null);
+        drawGhost(poseStack, buffers::getBuffer, cam, ghost, canPlace);
+        return false;
+    }
+    //?}
+
+    /** Будущая картина у блока под прицелом, если в руке картина; иначе null. */
+    private static PictureFrame ghost(Vec3 cam, BlockHitResult target) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || target.getType() != HitResult.Type.BLOCK) return false;
+        if (mc.player == null || mc.level == null || target.getType() != HitResult.Type.BLOCK) return null;
         ItemStack stack = mc.player.getMainHandItem();
         if (!stack.is(MinePapers.FRAME.get())) stack = mc.player.getOffhandItem();
-        if (!stack.is(MinePapers.FRAME.get())) return false;
+        if (!stack.is(MinePapers.FRAME.get())) return null;
         // Блок дальше, чем можно дотянуться: его координаты не мировые (движущиеся конструкции других модов хранят
         // блоки в своей области и рисуют их со сдвигом и поворотом). Где он на экране, отсюда не узнать — контур не рисуем.
         double far = ModClient.reach() + 2;
-        if (target.getBlockPos().getCenter().distanceToSqr(cam) > far * far) return false;
-        PictureFrame ghost = ItemPictureFrame.ghostAt(mc.level, target.getBlockPos(), target.getDirection(),
-            mc.player.getYRot(), stack);
-        boolean canPlace = !FrameGeometry.isBlocked(mc.level, ghost, null);
-        drawGhost(poseStack, buffers, cam, ghost, canPlace);
-        return false;
+        if (Vec3.atCenterOf(target.getBlockPos()).distanceToSqr(cam) > far * far) return null;
+        return ItemPictureFrame.ghostAt(mc.level, target.getBlockPos(), target.getDirection(), mc.player.getYRot(), stack);
     }
 
     /** Начало отрисовки мира, до сущностей: картину под прицелом ищем один раз за кадр (её обводку рисует RenderPicture). */
@@ -151,12 +195,15 @@ public class PictureControls {
     }
 
     /** Контур будущей картины (он же её хитбокс); красный — если сюда поставить нельзя. Виден сквозь блоки. */
-    private static void drawGhost(PoseStack poseStack, MultiBufferSource buffers, Vec3 cam, PictureFrame ghost,
-                                  boolean canPlace) {
+    private static void drawGhost(PoseStack poseStack, VertexSink sink, Vec3 cam, PictureFrame ghost, boolean canPlace) {
         float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 200.0));
         float alpha = 0.6f + 0.35f * pulse;
         AABB canvas = FrameGeometry.canvasBox(ghost).inflate(0.002).move(-cam.x, -cam.y, -cam.z);
         float gb = canPlace ? 1f : 0.3f;
-        LevelRenderer.renderLineBox(poseStack, buffers.getBuffer(PictureRenderTypes.GHOST_LINES), canvas, 1f, gb, gb, alpha);
+        //? if >=26.1 {
+        /*PictureRenderTypes.lineBox(sink.buffer(PictureRenderTypes.GHOST_LINES), poseStack.last(), canvas, 1f, gb, gb, alpha, 2.5f);
+        *///?} else {
+        LevelRenderer.renderLineBox(poseStack, sink.buffer(PictureRenderTypes.GHOST_LINES), canvas, 1f, gb, gb, alpha);
+        //?}
     }
 }

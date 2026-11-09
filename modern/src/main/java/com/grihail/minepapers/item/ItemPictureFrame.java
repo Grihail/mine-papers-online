@@ -3,6 +3,7 @@ package com.grihail.minepapers.item;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.grihail.minepapers.Compat;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
@@ -24,7 +25,9 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+//? if <26.1 {
 import net.minecraft.world.InteractionResultHolder;
+//?}
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -77,11 +80,11 @@ public class ItemPictureFrame extends Item {
     /** Картина запривачена (в настройках есть владелец). */
     /** Подписанная картина: подпись уникальна и навсегда — её не копируют и не сбрасывают. */
     public static boolean isSigned(CompoundTag settings) {
-        return settings != null && settings.hasUUID("Signer");
+        return Compat.uuid(settings, "Signer") != null;
     }
 
     public static boolean isLocked(CompoundTag settings) {
-        return settings != null && settings.hasUUID("Owner");
+        return Compat.uuid(settings, "Owner") != null;
     }
 
     /** Заприваченная и подписанная картины блестят, как зачарованный предмет. */
@@ -117,7 +120,7 @@ public class ItemPictureFrame extends Item {
         setSettings(stack, settings);
     }
 
-    //? if forge {
+    //? if forge && <26.1 {
     /*// Forge до 1.21: свой рендерер предмета задаёт сам предмет (настроенная рамка — модель picture_frame_configured, builtin/entity).
     @Override
     public void initializeClient(java.util.function.Consumer<net.minecraftforge.client.extensions.common.IClientItemExtensions> consumer) {
@@ -135,12 +138,20 @@ public class ItemPictureFrame extends Item {
 
     /** ПКМ не по блоку — окно настройки этой картины, как у висящей. Окно с инвентарём открывает сервер. */
     @Override
+    //? if >=26.1 {
+    /*public InteractionResult use(Level level, Player player, InteractionHand hand) {
+    *///?} else {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    //?}
         if (player instanceof ServerPlayer sp) {
             FrameHolder holder = FrameHolder.of(sp, FrameHolder.targetOf(sp, hand));
             if (holder != null) ContainerPictureFrame.open(sp, holder);
         }
-        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide);
+        //? if >=26.1 {
+        /*return InteractionResult.SUCCESS;
+        *///?} else {
+        return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide());
+        //?}
     }
 
     /** Будущая картина при клике по грани side блока pos, с настройками из предмета. Лежит ровно на этой грани — на настоящей поверхности блока (полублок, ковёр, боковина забора), а не на границе клетки. На полу и потолке верх картинки — в ту сторону, куда смотрит игрок (yaw). */
@@ -178,7 +189,7 @@ public class ItemPictureFrame extends Item {
         BlockPos at = new BlockPos(ghost.x, ghost.y, ghost.z);
         if (player != null && !player.mayUseItemAt(at, side, stack)) return InteractionResult.FAIL;
         if (FrameGeometry.isBlocked(level, ghost, null)) return InteractionResult.FAIL;
-        if (!level.isClientSide) {
+        if (!level.isClientSide()) {
             EntityPicture picture = new EntityPicture(level, ghost);
             level.addFreshEntity(picture);
             SoundType sound = SoundType.WOOD;
@@ -187,15 +198,33 @@ public class ItemPictureFrame extends Item {
             level.gameEvent(player, GameEvent.ENTITY_PLACE, picture.position());
         }
         if (player == null || !player.getAbilities().instabuild) stack.shrink(1);
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        //? if >=26.1 {
+        /*return InteractionResult.SUCCESS;
+        *///?} else {
+        return InteractionResult.sidedSuccess(level.isClientSide());
+        //?}
     }
 
     @Override
-    //? if >=1.20.5 {
+    //? if >=26.1 {
+    /*public void appendHoverText(ItemStack stack, TooltipContext context, net.minecraft.world.item.component.TooltipDisplay display,
+                                java.util.function.Consumer<Component> builder, TooltipFlag flag) {
+        List<Component> lines = new ArrayList<Component>();
+        tooltip(stack, lines);
+        lines.forEach(builder);
+    }
+    *///?} else if >=1.20.5 {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
+        tooltip(stack, lines);
+    }
     //?} else {
     /*public void appendHoverText(ItemStack stack, Level level, List<Component> lines, TooltipFlag flag) {
+        tooltip(stack, lines);
+    }
     *///?}
+
+    /** Подсказка настроенной картины: какие настройки в ней сохранены. */
+    private static void tooltip(ItemStack stack, List<Component> lines) {
         CompoundTag settings = settings(stack);
         if (settings == null) return;
         PictureFrame s = new PictureFrame();
@@ -253,7 +282,7 @@ public class ItemPictureFrame extends Item {
 
     /** Предмет, с которого взята текстура материала (рамки или холста); пустой — обычный материал. */
     public static ItemStack borderStack(String itemId) {
-        return new ItemStack(BuiltInRegistries.ITEM.get(MinePapers.parse(itemId)));
+        return new ItemStack(Compat.item(MinePapers.parse(itemId)));
     }
 
 }

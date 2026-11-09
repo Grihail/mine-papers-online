@@ -1,0 +1,70 @@
+plugins {
+    id 'net.minecraftforge.gradle'
+}
+
+// Узел Stonecutter на Forge 26.x (versions/<версия>-forge): ForgeGradle 7, игра без обфускации. Общий код и ресурсы (modern/src)
+// Stonecutter подключает сам, обработав условия //? для версии узла. Код движка, mods.toml и pack.mcmeta у всех 26.x одни —
+// в modern/forge26/src (без условий версий: что в 26.x различается, лежит в общем коде под //? if forge && ...); в папке узла —
+// только gradle.properties с версиями.
+stonecutter.constants.match('forge', 'fabric', 'neoforge', 'forge')
+// Функции игровых тестов регистрирует мод тестов minepapers_tests (forge26/src/gametest).
+ext.test_functions_namespace = 'minepapers_tests'
+apply from: rootProject.file('modern/mc26.gradle')
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(property('java_version') as int)
+    }
+}
+
+// Игровые тесты (общие — modern/src/gametest, обёртка Forge — forge26/src/gametest): в jar мода не попадают, их запускает сервер runGameTestServer.
+def forge26 = rootProject.file('modern/forge26/src')
+sourceSets {
+    main {
+        java.srcDir new File(forge26, 'main/java')
+        resources.srcDir new File(forge26, 'main/resources')
+    }
+    gametest {
+        java.srcDir new File(forge26, 'gametest/java')
+        resources.srcDir new File(forge26, 'gametest/resources')
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+}
+
+configurations {
+    gametestImplementation.extendsFrom implementation
+    gametestAnnotationProcessor.extendsFrom annotationProcessor
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${stonecutter.current.version}-${property('forge_version')}")
+    annotationProcessor "net.minecraftforge:eventbus-validator:${property('eventbus_validator_version')}"
+}
+
+minecraft {
+    runs {
+        configureEach {
+            workingDir = layout.projectDirectory.dir('run')
+            systemProperty 'eventbus.api.strictRuntimeChecks', 'true'
+            systemProperty 'forge.enabledGameTestNamespaces', 'minepapers'
+        }
+        register('client')
+        register('server') {
+            args '--nogui'
+        }
+        // Сервер прогоняет все тесты мода и выходит; упал хоть один — сборка с ошибкой. ForgeGradle сам делает запуск для каждого
+        // набора исходников: с тестами — runGametestGameTestServer (тесты там — отдельный мод minepapers_tests, см. forge26/src/gametest).
+        register('gameTestServer')
+    }
+}
+
+rootProject.tasks.named('gameTest') {
+    dependsOn tasks.named('runGametestGameTestServer')
+}
