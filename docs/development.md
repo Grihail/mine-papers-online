@@ -380,3 +380,23 @@ If code is the same for two or more versions and does not use the game API, it m
 - Vanilla mechanics are used wherever possible: light blocks, wood sounds, drop rules, widget tooltips, vanilla window textures.
 - The code does not guard in advance against every possible error. Limits stay where they define game rules (canvas size, position, resolution) or protect the server from foreign clients (the server accepts only the files it asked for, and no more than 16 MB). Other errors are fixed when they show up.
 - Notable changes go into [CHANGELOG.md](../CHANGELOG.md) under `[Unreleased]`. On release the section gets the version number.
+
+## Releasing
+
+Releases go to CurseForge through its Upload API: the [curseforge.yml](../.github/workflows/curseforge.yml) workflow builds every version and [curseforge_publish.py](../.github/scripts/curseforge_publish.py) uploads the jars. If a check fails (tag, CHANGELOG section, jars, game versions on CurseForge), nothing is uploaded.
+
+Once: create the project on CurseForge, get a token on the [tokens page](https://authors.curseforge.com/#/settings/api-tokens) and add it to the repository:
+
+```
+gh secret set CURSEFORGE_TOKEN
+gh variable set CURSEFORGE_PROJECT_ID --body <project ID>
+```
+
+To release:
+
+1. Bump `mod_version` in `gradle.properties` and rename the `[Unreleased]` section of CHANGELOG.md to the version number.
+2. Commit and push a tag: `git tag v1.6.0`, `git push origin main v1.6.0`.
+
+A version with `alpha`, `beta` or `-rc` in its number is published as alpha or beta, others as a release.
+
+Actions -> Publish to CurseForge -> Run workflow does the same by hand: with `dry_run` (on by default) it only builds and checks. If some files failed to upload, the log gives the value for the `only` field: a run with the tag in `ref`, `dry_run` off and that `only` uploads just those. A plain Re-run would upload every file again.

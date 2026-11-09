@@ -1,0 +1,67 @@
+# Публикация на CurseForge: пуш тега v<mod_version> собирает все версии и загружает их jar.
+# Ручной запуск (Actions -> Run workflow) - пробный прогон без загрузки или повторная загрузка отдельных целей.
+name: Publish to CurseForge
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag to publish (any branch works for a dry run)
+        required: true
+        default: main
+      dry_run:
+        description: Build and check only, upload nothing
+        type: boolean
+        default: true
+      only:
+        description: Targets to upload, e.g. 26.2-forge,26.3-neoforge (empty = all)
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: curseforge-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      # JDK всех версий игры; последний, 25, становится JAVA_HOME для самого Gradle.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            8
+            17
+            21
+            25
+
+      # gradlew лежит в git без флага исполняемого файла, поэтому запуск через bash.
+      - name: Build all versions
+        run: bash ./gradlew build --no-daemon -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_17_X64,JAVA_HOME_21_X64,JAVA_HOME_25_X64
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: jars
+          path: |
+            1.*/forge/build/libs/MinePapersOnline-*.jar
+            modern/versions/*/build/libs/MinePapersOnline-*.jar
+            !**/*-dev.jar
+
+      - name: Upload to CurseForge
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          TAG: ${{ inputs.ref || github.ref_name }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          ONLY: ${{ inputs.only }}
+        run: python3 .github/scripts/curseforge_publish.py
