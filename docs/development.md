@@ -32,6 +32,9 @@ modern/versions/1.21.1-fabric/build/libs/MinePapersOnline-1.21.1-fabric-<version
 modern/versions/26.1.2-forge/build/libs/MinePapersOnline-26.1.2-forge-<version>.jar
 modern/versions/26.2-forge/build/libs/MinePapersOnline-26.2-forge-<version>.jar
 modern/versions/26.3-forge/build/libs/MinePapersOnline-26.3-forge-<version>.jar
+modern/versions/26.1.2-neoforge/build/libs/MinePapersOnline-26.1.2-neoforge-<version>.jar
+modern/versions/26.2-neoforge/build/libs/MinePapersOnline-26.2-neoforge-<version>.jar
+modern/versions/26.3-neoforge/build/libs/MinePapersOnline-26.3-neoforge-<version>.jar
 ```
 
 On Fabric, Fabric API must be in the mods folder next to the mod.
@@ -85,6 +88,7 @@ Mine Papers Online/
         forge.gradle, neoforge.gradle, fabric.gradle   build of each loader's nodes
         forgegradle.gradle  build of the Forge 26.x nodes (ForgeGradle 7)
         forge26/src/        Forge loader code and mod description, one for all 26.x versions
+        neoforge26/src/, neoforge26.gradle   the same for NeoForge 26.x (outline differences: client/NeoForgeClientEvents)
         src26/              resources in the 26.x format (item model, recipe)
         mc26.gradle         shared by all 26.x nodes: name replacements, src26, game test descriptions
         stonecutter.gradle  the active version

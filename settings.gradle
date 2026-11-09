@@ -49,6 +49,7 @@ stonecutter {
         }
         // Forge 26.x собирается другим плагином (ForgeGradle 7), поэтому у него свой скрипт.
         ['26.1.2', '26.2', '26.3'].each { mc -> version("${mc}-forge", mc).buildscript('forgegradle.gradle') }
+        ['26.1.2', '26.2', '26.3'].each { mc -> version("${mc}-neoforge", mc).buildscript('neoforge26.gradle') }
         vcsVersion = '1.21.1-neoforge'
         kotlinController = false
     }

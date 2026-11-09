@@ -1,0 +1,60 @@
+plugins {
+    id 'net.neoforged.moddev'
+}
+
+// Узел Stonecutter на NeoForge 26.x (versions/<версия>-neoforge). Общий код (modern/src) Stonecutter подключает сам; код движка, описание
+// мода и pack.mcmeta у всех 26.x одни - в modern/neoforge26/src (без условий версий); в папке узла - только gradle.properties с версиями.
+stonecutter.constants.match('neoforge', 'fabric', 'neoforge', 'forge')
+// Функции игровых тестов регистрирует сам мод (обёртка в neoforge26/src/gametest).
+ext.test_functions_namespace = 'minepapers'
+apply from: rootProject.file('modern/mc26.gradle')
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(property('java_version') as int)
+    }
+}
+
+def neoforge26 = rootProject.file('modern/neoforge26/src')
+sourceSets {
+    main {
+        java.srcDir new File(neoforge26, 'main/java')
+        resources.srcDir new File(neoforge26, 'main/resources')
+    }
+    gametest {
+        java.srcDir new File(neoforge26, 'gametest/java')
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+neoForge {
+    version = property('neoforge_version')
+    addModdingDependenciesTo(sourceSets.gametest)
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+        }
+        // Сервер прогоняет все тесты мода и выходит; упал хоть один - сборка с ошибкой.
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametest
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'minepapers'
+        }
+    }
+
+    mods {
+        minepapers {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.gametest
+        }
+    }
+}
+
+rootProject.tasks.named('gameTest') {
+    dependsOn tasks.named('runGameTestServer')
+}

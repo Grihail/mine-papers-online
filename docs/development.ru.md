@@ -32,6 +32,9 @@ modern/versions/1.21.1-fabric/build/libs/MinePapersOnline-1.21.1-fabric-<вер�
 modern/versions/26.1.2-forge/build/libs/MinePapersOnline-26.1.2-forge-<версия>.jar
 modern/versions/26.2-forge/build/libs/MinePapersOnline-26.2-forge-<версия>.jar
 modern/versions/26.3-forge/build/libs/MinePapersOnline-26.3-forge-<версия>.jar
+modern/versions/26.1.2-neoforge/build/libs/MinePapersOnline-26.1.2-neoforge-<версия>.jar
+modern/versions/26.2-neoforge/build/libs/MinePapersOnline-26.2-neoforge-<версия>.jar
+modern/versions/26.3-neoforge/build/libs/MinePapersOnline-26.3-neoforge-<версия>.jar
 ```
 
 Для Fabric в папке mods рядом с модом должен лежать Fabric API.
@@ -85,6 +88,7 @@ Mine Papers Online/
         forge.gradle, neoforge.gradle, fabric.gradle   сборка узлов каждого движка
         forgegradle.gradle  сборка узлов Forge 26.x (ForgeGradle 7)
         forge26/src/        код движка Forge и описание мода — одни на все версии 26.x
+        neoforge26/src/, neoforge26.gradle   то же для NeoForge 26.x (различия обводки: client/NeoForgeClientEvents)
         src26/              ресурсы в формате 26.x (модель предмета, рецепт)
         mc26.gradle         общее для всех узлов 26.x: замены имён, src26, описания игровых тестов
         stonecutter.gradle  активная версия

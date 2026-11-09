@@ -10,7 +10,7 @@
 | 1.12.2 | Forge |
 | 1.20.1 | Forge, Fabric |
 | 1.21.1 | NeoForge, Fabric |
-| 26.1.2, 26.2, 26.3 | Forge |
+| 26.1.2, 26.2, 26.3 | Forge, NeoForge |
 
 Для Fabric нужен Fabric API.
 
