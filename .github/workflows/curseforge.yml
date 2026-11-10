@@ -35,7 +35,7 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.ref }}
 
-      # JDK всех версий игры; последний, 25, становится JAVA_HOME для самого Gradle.
+      # JDK всех версий игры.
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -43,11 +43,17 @@ jobs:
             8
             17
             21
-            25
+      # JDK 25 - от Oracle, как при локальной сборке: в Temurin 24+ нет папки jmods, а без неё не работает shrinkWebp (ProGuard).
+      # Ставится последним, поэтому становится JAVA_HOME для самого Gradle.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: oracle
+          java-version: 25
 
       # gradlew лежит в git без флага исполняемого файла, поэтому запуск через bash.
+      # Gradle берёт только JDK, поставленные выше: свои JDK раннера (Temurin 25 без jmods) не ищутся.
       - name: Build all versions
-        run: bash ./gradlew build --no-daemon -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_17_X64,JAVA_HOME_21_X64,JAVA_HOME_25_X64
+        run: bash ./gradlew build --no-daemon -Porg.gradle.java.installations.auto-detect=false -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64,JAVA_HOME_17_X64,JAVA_HOME_21_X64,JAVA_HOME_25_X64
 
       - uses: actions/upload-artifact@v7
         with:
