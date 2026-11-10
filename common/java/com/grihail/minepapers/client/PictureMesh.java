@@ -25,7 +25,7 @@ public abstract class PictureMesh {
     /** Текстура рамки или холста: спрайт в атласе и цвет блока (листва и трава в атласе серые — их красит цвет). */
     public abstract static class Skin {
         public final float r, g, b;
-        /** Обычное стекло мода (textures/block/frame_glass.png): растягивается по проёму — углы и кайма по краю, без повторов. У текстур блоков false: они лежат плиткой по блокам, как холст. */
+        /** Обычное стекло мода (textures/block/frame_glass.png): растягивается по проёму — углы и кайма по краю, без повторов. У текстур блоков false: они лежат как соединённые блоки (см. connected). */
         public boolean stretched;
 
         protected Skin(int color) {
@@ -160,7 +160,7 @@ public abstract class PictureMesh {
                 if (glassSkin.stretched) {
                     glass(glassSkin, u0 + in, v0 + in, u1 - in, v1 - in, gd);
                 } else {
-                    canvas(glassSkin, u0 + in, v0 + in, u1 - in, v1 - in, gd); // блок в слоте стекла — своей текстурой, плиткой по блокам
+                    connected(glassSkin, u0 + in, v0 + in, u1 - in, v1 - in, gd); // блок в слоте стекла — как соединённые блоки
                 }
                 setTint(1f, 1f, 1f);
             }
@@ -414,6 +414,24 @@ public abstract class PictureMesh {
         front(icon, u0 + rim, v0 + c, u0 + c, v1 - c, d, 8.25, 8.25, 8.75, 8.75);
         front(icon, u1 - c, v0 + c, u1 - rim, v1 - c, d, 8.25, 8.25, 8.75, 8.75);
         front(icon, u0 + c, v0 + c, u1 - c, v1 - c, d, 8.25, 8.25, 8.75, 8.75);
+    }
+
+    /** Блок в прямоугольнике, как соединённые блоки (стекло с соединяющейся текстурой): кайма — крайние пиксели текстуры, только по краю прямоугольника; внутри повторяется середина текстуры без каймы (пиксели 1..15). Отсчёт — от левого верхнего угла прямоугольника, поэтому швов и сдвигов нет при любом размере, в том числе не кратном блоку. */
+    private void connected(Skin icon, double u0, double v0, double u1, double v1, double d) {
+        double rim = Math.min(PX, Math.min((u1 - u0) / 2, (v1 - v0) / 2));
+        double px = rim * 16, far = 16 - px;
+        // Углы
+        front(icon, u0, v1 - rim, u0 + rim, v1, d, 0, 0, px, px);
+        front(icon, u1 - rim, v1 - rim, u1, v1, d, far, 0, 16, px);
+        front(icon, u0, v0, u0 + rim, v0 + rim, d, 0, far, px, 16);
+        front(icon, u1 - rim, v0, u1, v0 + rim, d, far, far, 16, 16);
+        // Края
+        tiledFront(icon, u0 + rim, v1 - rim, u1 - rim, v1, d, 1, 1, 14, 0, 0, 16);
+        tiledFront(icon, u0 + rim, v0, u1 - rim, v0 + rim, d, 1, 1, 14, far, 0, 16);
+        tiledFront(icon, u0, v0 + rim, u0 + rim, v1 - rim, d, 0, 0, 16, 1, 1, 14);
+        tiledFront(icon, u1 - rim, v0 + rim, u1, v1 - rim, d, far, 0, 16, 1, 1, 14);
+        // Середина
+        tiledFront(icon, u0 + rim, v0 + rim, u1 - rim, v1 - rim, d, 1, 1, 14, 1, 1, 14);
     }
 
     /** Лицевой прямоугольник (плоскость d), текстура — пиксели (pu0, pv0)-(pu1, pv1) спрайта. */
