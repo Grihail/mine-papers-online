@@ -61,7 +61,8 @@ public class RenderPicture extends Render<EntityPicture> {
 
         mesh.world = world;
         mesh.draw(tile, shown, tile.selfGlow(), tile.usesCanvas() ? FrameSkin.canvas(tile.canvas) : FrameSkin.plainCanvas(),
-            FrameSkin.border(tile.border));
+            FrameSkin.border(tile.border),
+            tile.glass ? FrameSkin.glass(tile.pane) : null);
         mesh.world = null;
 
         GlStateManager.disableBlend();

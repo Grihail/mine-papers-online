@@ -45,6 +45,10 @@ final class GuiWidgets {
     static final int NSFW_U = 80, NSFW_ON_U = 96, NSFW_V = 64;
     /** Виды дизеринга 16x16 — градиент, продизеренный каждым видом, по порядку PictureFrame.DITHER_*. */
     static final int DITHER_ICON_U = 112, DITHER_ICON_V = 64;
+    /** Пазл 16x16 — триптих с общей картинкой, в ряду вписывания (FIT_ICON_V) сразу за ними. */
+    static final int PUZZLE_ICON_U = 80;
+    /** Стекло 16x16 — картинка с бликами стекла, в ряду вписывания (FIT_ICON_V) за пазлом. */
+    static final int GLASS_ICON_U = 96;
     static final int ICON_RELOAD_U = 64, CHECK_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48,
         LOOK_ICON_V = 64;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
@@ -314,6 +318,87 @@ final class GuiWidgets {
                 mc.fontRenderer.drawStringWithShadow(displayString, x + (w - tw) / 2, y + (h - 8) / 2,
                     hovered ? 0xFFFFA0 : 0xE0E0E0);
             }
+        }
+    }
+
+    /** Выпадающий список с иконками 16x16 (из ряда iconV, по порядку значений): закрытый — ванильная кнопка с иконкой, коротким названием выбранного значения (label до " - ") и стрелкой; открытый — пункты той же ширины над кнопкой. Открытый список окно рисует последним (drawList), поверх подписей и предметов, и отдаёт ему клики (click) до всего остального. Полное название и пояснение пункта — в подсказке. */
+    static class Dropdown extends Small {
+
+        static final int ROW = 18;
+        final int count, iconV;
+        final IntFunction<String> label;
+        int value;
+        boolean open;
+
+        Dropdown(int id, int x, int y, int w, int count, int iconV, IntFunction<String> label) {
+            super(id, x, y, w, 20, "", -1);
+            this.count = count;
+            this.iconV = iconV;
+            this.label = label;
+        }
+
+        /** Короткое название пункта: до " - " ("Cover - заполнить с обрезкой" -> "Cover"). */
+        String shortLabel(int i) {
+            String full = label.apply(i);
+            int cut = full.indexOf(" - ");
+            return cut > 0 ? full.substring(0, cut) : full;
+        }
+
+        /** Пункт открытого списка под мышью или -1. */
+        int itemAt(int mouseX, int mouseY) {
+            if (!open || mouseX < xPosition || mouseX >= xPosition + width) return -1;
+            int top = yPosition - count * ROW;
+            if (mouseY < top || mouseY >= yPosition) return -1;
+            return (mouseY - top) / ROW;
+        }
+
+        /** Клик, пока список открыт: выбирает пункт (true — значение сменилось) и закрывает список. */
+        boolean click(int mouseX, int mouseY) {
+            int item = itemAt(mouseX, mouseY);
+            open = false;
+            if (item < 0 || item == value) return false;
+            value = item;
+            return true;
+        }
+
+        @Override
+        void draw(Minecraft mc, boolean hovered) {
+            super.draw(mc, hovered);
+            int x = xPosition, y = yPosition;
+            icon(x + 2, y + 2, value * 16, iconV, 16, 16);
+            mc.fontRenderer.drawStringWithShadow(shortLabel(value), x + 21, y + 6, hovered ? 0xFFFFA0 : 0xE0E0E0);
+            // Стрелка: вниз — закрыт, вверх — открыт (список раскрывается вверх).
+            int ax = x + width - 10, ay = y + 8;
+            for (int i = 0; i < 3; i++) {
+                int row = open ? ay + i : ay + 2 - i;
+                drawRect(ax + i, row, ax + 5 - i, row + 1, 0xFFE0E0E0);
+            }
+        }
+
+        /** Открытый список — поверх всего окна; фон и рамка как у ванильной подсказки. */
+        void drawList(Minecraft mc, int mouseX, int mouseY) {
+            if (!open || !visible) return;
+            int x = xPosition, w = width, bottom = yPosition - 1, top = bottom - count * ROW;
+            GL11.glPushMatrix();
+            GL11.glTranslatef(0, 0, 400); // выше предметов в слотах
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            int bg = 0xF0100010, light = 0x505000FF, dark = 0x5028007F;
+            drawRect(x + 1, top - 1, x + w - 1, bottom + 1, bg);
+            drawRect(x, top, x + w, bottom, bg);
+            drawGradientRect(x + 1, top, x + 2, bottom, light, dark);
+            drawGradientRect(x + w - 2, top, x + w - 1, bottom, light, dark);
+            drawRect(x + 1, top, x + w - 1, top + 1, light);
+            drawRect(x + 1, bottom - 1, x + w - 1, bottom, dark);
+            int hover = itemAt(mouseX, mouseY);
+            for (int i = 0; i < count; i++) {
+                int ry = top + i * ROW;
+                if (i == hover) drawRect(x + 2, ry + 1, x + w - 2, ry + ROW - 1, 0x60FFFFFF);
+                icon(x + 3, ry + 1, i * 16, iconV, 16, 16);
+                int color = i == hover ? 0xFFFFA0 : i == value ? 0xFFFFFF : 0xA0A0A0;
+                mc.fontRenderer.drawStringWithShadow(shortLabel(i), x + 22, ry + 5, color);
+            }
+            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GL11.glPopMatrix();
         }
     }
 

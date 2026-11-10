@@ -97,7 +97,8 @@ public class MinePapers {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        GameRegistry.addShapelessRecipe(new ItemStack(frame), Items.item_frame, Items.painting);
+        // Новая рамка — по рецепту из config/minepapers.json (по умолчанию: рамка, картина, книга с пером, стеклянная панель).
+        GameRegistry.addRecipe(RecipePictureFrame.frameRecipe());
         // Копирование настроенной рамки и сброс настроек
         RecipeSorter.register(MODID + ":frame_copy", RecipePictureFrame.class, RecipeSorter.Category.SHAPELESS,
             "after:minecraft:shapeless");

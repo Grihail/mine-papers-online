@@ -13,7 +13,7 @@ import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.PictureFrame;
 
-import net.minecraft.block.SoundType;
+import net.minecraft.init.SoundEvents;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
@@ -100,9 +100,7 @@ public class ItemPictureFrame extends Item {
         if (!world.isRemote) {
             EntityPicture picture = new EntityPicture(world, ghost);
             world.spawnEntity(picture);
-            SoundType sound = SoundType.WOOD;
-            world.playSound(null, picture.posX, picture.posY, picture.posZ, sound.getPlaceSound(), SoundCategory.BLOCKS,
-                (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
+            world.playSound(null, picture.posX, picture.posY, picture.posZ, SoundEvents.ENTITY_ITEMFRAME_PLACE, SoundCategory.BLOCKS, 1f, 1f);
         }
         stack.shrink(1);
         return EnumActionResult.SUCCESS;
@@ -171,6 +169,7 @@ public class ItemPictureFrame extends Item {
             Numbers.blocks(s.getWidthBlocks()), Numbers.blocks(s.getHeightBlocks())));
         part(lines, "minepapers.tooltip.border", "minepapers.gui.frameShape." + s.getFrameShape(), s.usesBorder() ? s.border : null);
         part(lines, "minepapers.tooltip.canvas", "minepapers.gui.canvasKind." + s.getCanvasKind(), s.usesCanvas() ? s.canvas : null);
+        if (s.glass) part(lines, "minepapers.tooltip.glass", "minepapers.gui.glass.1", s.pane);
         if (PictureFrame.isGlowDust(s.glow.stack)) {
             lines.add(TextFormatting.GRAY + I18n.format("minepapers.tooltip.glow.self"));
         } else if (s.glowLevel() > 0) {

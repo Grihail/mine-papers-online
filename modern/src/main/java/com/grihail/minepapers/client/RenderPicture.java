@@ -149,7 +149,8 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
         mesh.pose = poseStack.last();
         mesh.sink = sink;
         mesh.draw(tile, shown, tile.selfGlow(), tile.usesCanvas() ? FrameSkin.canvas(tile.canvas) : FrameSkin.plainCanvas(),
-            FrameSkin.border(tile.border));
+            FrameSkin.border(tile.border),
+            tile.glass ? FrameSkin.glass(tile.pane) : null);
         mesh.level = null;
         mesh.pose = null;
         mesh.sink = null;
@@ -201,6 +202,9 @@ public class RenderPicture extends EntityRenderer<EntityPicture> {
                     break;
                 case DECAL:
                     out = sink.buffer(PictureRenderTypes.decal((ResourceLocation) texture));
+                    break;
+                case GLASS:
+                    out = sink.buffer(PictureRenderTypes.translucent((ResourceLocation) texture));
                     break;
                 default:
                     out = sink.buffer(PictureRenderTypes.cutout(NSFW_MARK));

@@ -52,6 +52,19 @@ public class CanvasGeometry {
         return c > 0 ? t : c < 0 ? 1 - t : 0;
     }
 
+    /** Обратно к toBlock: точка {x, y, z} относительно угла клетки рамки -> {u, v, d} в координатах стены. */
+    public static double[] toWall(int facing, int rotation, double[] p) {
+        int[][] a = AXES[facing][rotation & 3];
+        double[] w = new double[3];
+        for (int axis = 0; axis < 3; axis++) {
+            for (int i = 0; i < 3; i++) {
+                if (a[axis][i] > 0) w[axis] = p[i];
+                if (a[axis][i] < 0) w[axis] = 1 - p[i];
+            }
+        }
+        return w;
+    }
+
     /** Параллелепипед из координат стены в координаты клетки {min..., max...}. */
     public static double[] box(int facing, int rotation, double u0, double v0, double d0, double u1, double v1, double d1) {
         double[] a = toBlock(facing, rotation, u0, v0, d0), b = toBlock(facing, rotation, u1, v1, d1);
@@ -73,6 +86,14 @@ public class CanvasGeometry {
             v0 + f.getHeightBlocks(), f.getDepth());
         double[] o = origin(f);
         return new double[] { o[0] + b[0], o[1] + b[1], o[2] + b[2], o[0] + b[3], o[1] + b[4], o[2] + b[5] };
+    }
+
+    /** Где появляется предмет сломанной картины (низ предмета, в мировых координатах): перед серединой холста, на четверть блока от его лицевой стороны. Из середины самой картины (она вплотную к стене) ванильный предмет выталкивало из блока стены в случайную сторону, и он улетал. */
+    public static double[] dropPos(PictureSettings f) {
+        double[] b = canvasBounds(f);
+        int[] n = normal(f);
+        double out = f.getDepth() / 2 + 0.25;
+        return new double[] { (b[0] + b[3]) / 2 + n[0] * out, (b[1] + b[4]) / 2 + n[1] * out - 0.125, (b[2] + b[5]) / 2 + n[2] * out };
     }
 
     /** Где висит подпись с заголовком (верх её строки), в мировых координатах: под картиной по центру, чуть впереди стены; у картины на полу — над ней. */

@@ -122,9 +122,8 @@ public class MinePapers {
 
         @SubscribeEvent
         public static void recipes(RegistryEvent.Register<IRecipe> event) {
-            // Рамка из ванильной рамки и картины; копирование настроенной рамки и сброс настроек.
-            event.getRegistry().register(new ShapelessOreRecipe(null, new ItemStack(frame), Items.ITEM_FRAME, Items.PAINTING)
-                .setRegistryName(id("picture_frame")));
+            // Новая рамка — по рецепту из config/minepapers.json (по умолчанию: рамка, картина, книга с пером, стеклянная панель); копирование настроенной рамки и сброс настроек.
+            event.getRegistry().register(RecipePictureFrame.frameRecipe().setRegistryName(id("picture_frame")));
             event.getRegistry().register(new RecipePictureFrame().setRegistryName(id("frame_copy")));
         }
     }

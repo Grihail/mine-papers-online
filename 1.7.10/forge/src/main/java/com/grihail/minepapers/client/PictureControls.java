@@ -7,13 +7,13 @@ import org.lwjgl.opengl.GL11;
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.block.ItemPictureFrame;
 import com.grihail.minepapers.network.PacketBreakPicture;
+import com.grihail.minepapers.picture.PictureSounds;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
-import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -120,10 +120,9 @@ public class PictureControls {
         progress += breaking.breakRate(mc.thePlayer);
         mc.thePlayer.swingItem();
         if (ticks++ % 4 == 0) {
-            Block.SoundType sound = MinePapers.frame.stepSound;
-            mc.getSoundHandler().playSound(new PositionedSoundRecord(new ResourceLocation(sound.getStepResourcePath()),
-                (sound.getVolume() + 1f) / 8f, sound.getPitch() * 0.5f,
-                (float) breaking.posX, (float) breaking.posY, (float) breaking.posZ));
+            // Своего звука удара у рамки нет — тихий щелчок рамки (PictureSounds.HIT).
+            mc.getSoundHandler().playSound(new PositionedSoundRecord(new ResourceLocation(PictureSounds.HIT),
+                0.5f, 1f, (float) breaking.posX, (float) breaking.posY, (float) breaking.posZ));
         }
         if (progress >= 1f) {
             MinePapers.network.sendToServer(new PacketBreakPicture(breaking.getEntityId(), PacketBreakPicture.FINISH));

@@ -6,6 +6,7 @@ import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
@@ -18,7 +19,7 @@ import net.minecraft.world.item.crafting.CustomRecipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.Level;
 
-/** Рецепты без формы, как копирование карт (заприваченные и подписанные картины не копируются, а разбираются, только если это разрешено в config/minepapers.json): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. onCrafted). */
+/** Новая рамка по рецепту из config/minepapers.json (newFrame) и рецепты без формы, как копирование карт (заприваченные и подписанные картины не копируются, а разбираются, только если это разрешено в config/minepapers.json): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. onCrafted). */
 public class RecipePictureFrame extends CustomRecipe {
 
     //? if >=26.1 {
@@ -66,6 +67,22 @@ public class RecipePictureFrame extends CustomRecipe {
         return configured;
     }
 
+    /** Сетка — рецепт новой рамки из config/minepapers.json (ModConfig.recipe): предметы по id из реестра, в том числе из других модов. Рецепт в конфиге, а не в данных, поэтому его нет в книге рецептов. */
+    //? if >=1.20.5 {
+    private static boolean newFrame(CraftingInput input) {
+        int w = input.width(), h = input.height();
+    //?} else {
+    /*private static boolean newFrame(net.minecraft.world.inventory.CraftingContainer input) {
+        int w = input.getWidth(), h = input.getHeight();
+    *///?}
+        String[] ids = new String[w * h];
+        for (int i = 0; i < ids.length; i++) {
+            ItemStack stack = input.getItem(i);
+            ids[i] = stack.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        }
+        return ModConfig.recipe.matches(ids, w, h);
+    }
+
     /** Сетка крафта: с 1.20.5 — CraftingInput, раньше — сам контейнер верстака. */
     //? if >=1.20.5 {
     private static int size(CraftingInput input) {
@@ -102,6 +119,7 @@ public class RecipePictureFrame extends CustomRecipe {
     @Override
     public ItemStack assemble(net.minecraft.world.inventory.CraftingContainer input, net.minecraft.core.RegistryAccess registries) {
     *///?}
+        if (newFrame(input)) return new ItemStack(MinePapers.FRAME.get());
         int[] empty = new int[1];
         ItemStack configured = find(input, empty);
         if (configured == null) return ItemStack.EMPTY;

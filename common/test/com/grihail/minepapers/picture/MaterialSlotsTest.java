@@ -43,13 +43,13 @@ class MaterialSlotsTest {
     /** Картина-предмет в инвентаре: стопка и её материалы. */
     static final class Picture {
         Stack stack;
-        final String[] materials = new String[3];
+        final String[] materials = new String[PictureConfig.MATERIALS.length];
     }
 
     /** Висящая картина (held == null) или стопка картин-предметов (frame — "frame"); игрок с инвентарём из 36 слотов. */
     static final class Slots extends MaterialSlots<Stack> {
         final PictureSettings settings = new PictureSettings();
-        final Stack[] window = new Stack[3];
+        final Stack[] window = new Stack[PictureConfig.MATERIALS.length];
         final Stack[] inventory = new Stack[36];
         final List<Stack> received = new ArrayList<>();
         /** Стопки картин-предметов: первая — та, что в руке; отделившиеся добавляются (с материалами в Picture). */
@@ -147,7 +147,7 @@ class MaterialSlotsTest {
         @Override
         protected void settingsChanged() {
             changes++;
-            if (!pictures.isEmpty()) System.arraycopy(ids(window), 0, held0().materials, 0, 3);
+            if (!pictures.isEmpty()) System.arraycopy(ids(window), 0, held0().materials, 0, PictureConfig.MATERIALS.length);
         }
 
         @Override
@@ -162,7 +162,7 @@ class MaterialSlotsTest {
                 // Отделившаяся стопка: настройки — как у той, от которой она отделилась.
                 p = new Picture();
                 p.stack = stack;
-                System.arraycopy(held0().materials, 0, p.materials, 0, 3);
+                System.arraycopy(held0().materials, 0, p.materials, 0, PictureConfig.MATERIALS.length);
                 pictures.add(p);
             }
             p.materials[index] = isEmpty(material) ? null : material.id;
@@ -178,7 +178,7 @@ class MaterialSlotsTest {
         @Override
         protected void reload() {
             String[] m = held0().materials;
-            for (int i = 0; i < 3; i++) window[i] = m[i] != null ? new Stack(m[i], 1) : null;
+            for (int i = 0; i < PictureConfig.MATERIALS.length; i++) window[i] = m[i] != null ? new Stack(m[i], 1) : null;
         }
 
         @Override
@@ -389,12 +389,13 @@ class MaterialSlotsTest {
     void quickMoveFillsFirstEmptyAcceptingSlot() {
         Slots s = Slots.stack(4);
         s.held0().materials[0] = "planks";
+        s.held0().materials[MaterialSlots.GLASS] = "glass";
         s.reload();
         Stack stone = new Stack("stone", 10);
         assertTrue(s.quickMove(stone));
         assertEquals(6, stone.count);
         assertEquals("stone", s.held0().materials[1]);
-        assertFalse(s.quickMove(stone)); // свечение камень не примет
+        assertFalse(s.quickMove(stone)); // свечение камень не примет, стекло уже занято
         Stack glow = new Stack("glowstone", 2);
         assertTrue(s.quickMove(glow));
         assertEquals(0, glow.count);

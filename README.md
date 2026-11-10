@@ -29,6 +29,7 @@ Craft the frame from an item frame and a painting. Right-click a hanging picture
 | `titleNeedsSneak` | `true` | Show the title only while holding Shift. |
 | `disassembleSigned` | `false` | Allow taking signed pictures apart in crafting. |
 | `disassembleLocked` | `false` | Allow taking locked pictures apart in crafting. |
+| `maxImageMb` | `16` | The heaviest picture that can be uploaded to the server, in MB (1 to 256). A heavier GIF loses its animation. |
 
 ## Building
 

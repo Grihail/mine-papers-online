@@ -39,7 +39,7 @@ public class ContainerPictureFrame extends Container {
         PictureFrame.Material[] materials = holder.frame.materials();
         for (int i = 0; i < materials.length; i++) {
             addSlotToContainer(new MaterialSlot(new MaterialInventory(holder, materials[i]), MATERIAL_X,
-                MATERIAL_Y + i * MATERIAL_STEP));
+                MATERIAL_Y + MaterialSlots.ROW[i] * MATERIAL_STEP));
         }
     }
 

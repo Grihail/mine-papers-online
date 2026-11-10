@@ -54,6 +54,14 @@ public final class FrameSkin extends PictureMesh.Skin {
         return of(m.item, m.meta, plainCanvas());
     }
 
+    /** Текстура стекла из его материала (блок — его текстурой, плиткой); пусто — обычное стекло мода, растянутое по проёму. */
+    public static FrameSkin glass(PictureFrame.Material m) {
+        if (!m.item.isEmpty()) return of(m.item, m.meta, standard());
+        FrameSkin plain = new FrameSkin(MinePapers.frame.glassIcon, TextureMap.locationBlocksTexture, 0xFFFFFF);
+        plain.stretched = true;
+        return plain;
+    }
+
     /** Обычный холст — frame_canvas. */
     public static FrameSkin plainCanvas() {
         return new FrameSkin(MinePapers.frame.canvasIcon, TextureMap.locationBlocksTexture, 0xFFFFFF);

@@ -8,7 +8,6 @@ public final class SharedImage {
 
     public static final int HASH_BYTES = 20;
     public static final int HEX_CHARS = HASH_BYTES * 2;
-    public static final int MAX_BYTES = 16 * 1024 * 1024;
     public static final int HEADER_BYTES = 12;
     /** Сколько хешей помещается в один пакет списка. */
     public static final int MAX_HASHES = 1024;

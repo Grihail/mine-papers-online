@@ -340,7 +340,7 @@ Example JSON that the copy button puts on the clipboard:
 | `<game folder>/minepapers-cache/covers/` | The last shown frame of every picture (`Covers`). The file name is the SHA-1 of the world, dimension and picture place. Frames not shown for 30 days are deleted. |
 | `<world folder>/minepapers/` | Pictures uploaded to the server. The file name is the SHA-1 in hex. |
 
-A picture file on the server starts with a 12-byte header: `MPI1`, then the original width and height of the picture. Then comes the image file itself. The original size is needed because large pictures are scaled down before sending, while fitting is calculated from the original size. A picture is at most 16 MB.
+A picture file on the server starts with a 12-byte header: `MPI1`, then the original width and height of the picture. Then comes the image file itself. The original size is needed because large pictures are scaled down before sending, while fitting is calculated from the original size. The weight limit comes from the `maxImageMb` setting (16 MB by default); the client gets it from the server when the picture window opens.
 
 ## Network packets
 
@@ -378,7 +378,7 @@ If code is the same for two or more versions and does not use the game API, it m
 - All player-visible text (translations, window labels, tooltips, chat) uses plain punctuation: `-` instead of an em dash, `x` instead of the multiplication sign, plain quotes, `...` instead of a single ellipsis character. The only exceptions are the direction arrows (↔ ↕ ◀ ▶ ▲ ▼) in the tooltips of the size tab number fields and the "•" bullets of the service list in the online folder tooltip. Japanese and Chinese translations may use the native punctuation of those languages.
 - Code comments are written in Russian.
 - Vanilla mechanics are used wherever possible: light blocks, wood sounds, drop rules, widget tooltips, vanilla window textures.
-- The code does not guard in advance against every possible error. Limits stay where they define game rules (canvas size, position, resolution) or protect the server from foreign clients (the server accepts only the files it asked for, and no more than 16 MB). Other errors are fixed when they show up.
+- The code does not guard in advance against every possible error. Limits stay where they define game rules (canvas size, position, resolution) or protect the server from foreign clients (the server accepts only the files it asked for, and no heavier than `maxImageMb`). Other errors are fixed when they show up.
 - Notable changes go into [CHANGELOG.md](../CHANGELOG.md) under `[Unreleased]`. On release the section gets the version number.
 
 ## Releasing

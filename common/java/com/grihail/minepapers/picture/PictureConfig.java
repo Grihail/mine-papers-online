@@ -27,7 +27,7 @@ public final class PictureConfig {
     public static final String[] CANVASES = { "none", "block", "picture" };
     public static final String[] STYLES = { "original", "map", "map-dither", "map-soft-dither" };
     public static final String[] DITHER_MODES = { "diffusion", "ordered" };
-    public static final String[] MATERIALS = { "frame", "canvas", "glow" };
+    public static final String[] MATERIALS = { "frame", "canvas", "glow", "glass" };
     /** Что светится — по порядку PictureSettings.GLOW_*. */
     public static final String[] GLOW_PARTS = { "picture", "frame", "all" };
 
@@ -36,6 +36,10 @@ public final class PictureConfig {
     public String title, description;
     /** Пометка NSFW (18+). */
     public Boolean nsfw;
+    /** Номер группы пазла: 0 — нет (PictureSettings.puzzle). */
+    public Integer puzzle;
+    /** Стеклянная панель поверх картины (PictureSettings.glass). */
+    public Boolean glass;
     public Integer source;
     public String path;
     public Integer interval;
@@ -84,6 +88,7 @@ public final class PictureConfig {
         if (title != null) root.addProperty("title", title);
         if (description != null) root.addProperty("description", description);
         if (nsfw != null) root.addProperty("nsfw", nsfw);
+        if (puzzle != null) root.addProperty("puzzle", puzzle);
 
         JsonObject src = new JsonObject();
         if (source != null) src.addProperty("type", name(SOURCES, source));
@@ -125,6 +130,7 @@ public final class PictureConfig {
         if (frame != null) root.addProperty("frame", name(FRAMES, frame));
         if (moldingWidth != null) root.addProperty("moldingWidth", moldingWidth);
         if (canvas != null) root.addProperty("canvas", name(CANVASES, canvas));
+        if (glass != null) root.addProperty("glass", glass);
         if (style != null) root.addProperty("style", name(STYLES, style));
         if (sharpPixels != null) root.addProperty("sharpPixels", sharpPixels);
         if (mapPalette != null) root.addProperty("mapPalette", mapPalette);
@@ -171,6 +177,8 @@ public final class PictureConfig {
             c.title = string(root, "title");
             c.description = string(root, "description");
             c.nsfw = bool(root, "nsfw");
+            c.puzzle = integer(root, "puzzle");
+            c.glass = bool(root, "glass");
             JsonObject src = object(root, "source");
             if (src != null) {
                 c.source = value(src, "type", SOURCES);

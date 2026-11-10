@@ -1,5 +1,8 @@
 package com.grihail.minepapers.picture;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -47,6 +50,30 @@ public final class FrameGeometry extends CanvasGeometry {
             }
         }
         return false;
+    }
+
+    /** Группа пазла картины frame (PuzzleGroup) — соседи ищутся среди картин мира; null — картина сама по себе. */
+    public static PuzzleGroup puzzle(Level level, PictureFrame frame) {
+        return PuzzleGroup.of(frame, b -> {
+            List<PictureSettings> found = new ArrayList<PictureSettings>();
+            AABB box = new AABB(b[0], b[1], b[2], b[3], b[4], b[5]);
+            for (EntityPicture other : level.getEntitiesOfClass(EntityPicture.class, box.inflate(SEARCH_MARGIN))) {
+                if (!other.isRemoved() && canvasBox(other.frame).intersects(box)) found.add(other.frame);
+            }
+            return found;
+        });
+    }
+
+    /** Другие куски группы пазла картины self (PuzzleGroup.sameGroup) среди картин мира. */
+    public static List<EntityPicture> puzzleMembers(Level level, EntityPicture self) {
+        List<EntityPicture> found = new ArrayList<EntityPicture>();
+        if (self.frame.puzzle == 0) return found;
+        double[] b = PuzzleGroup.searchBox(self.frame);
+        AABB box = new AABB(b[0], b[1], b[2], b[3], b[4], b[5]);
+        for (EntityPicture other : level.getEntitiesOfClass(EntityPicture.class, box.inflate(SEARCH_MARGIN))) {
+            if (other != self && !other.isRemoved() && PuzzleGroup.sameGroup(self.frame, other.frame)) found.add(other);
+        }
+        return found;
     }
 
     /** Другая картина, чей холст пересекается с холстом candidate, или null. Касаться краями можно. @param self сама картина, если меняются её настройки (с собой не сравниваем); null — при установке новой */

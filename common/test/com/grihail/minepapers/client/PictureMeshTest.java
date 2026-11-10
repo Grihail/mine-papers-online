@@ -81,7 +81,7 @@ class PictureMeshTest {
                     s.height = size[1];
                     s.moldingWidth = 3;
                     Recorder r = new Recorder();
-                    r.draw(s, null, 0, SKIN, SKIN);
+                    r.draw(s, null, 0, SKIN, SKIN, SKIN);
                     String what = "look " + look + " facing " + facing + " size " + size[0] + "x" + size[1];
                     assertFalse(r.vertices.isEmpty(), what);
                     assertEquals(0, r.vertices.size() % 4, what + ": quads only");
@@ -106,7 +106,7 @@ class PictureMeshTest {
         s.mode = PictureSettings.MODE_PANEL;
         s.glowPart = PictureSettings.GLOW_ALL;
         Recorder r = new Recorder();
-        r.draw(s, null, 12, SKIN, SKIN);
+        r.draw(s, null, 12, SKIN, SKIN, SKIN);
         assertEquals(PictureMesh.ATLAS, (int) r.kinds.get(0));
         double[] first = r.vertices.get(0);
         assertEquals(0.8f * 0x80 / 255f, first[5], 1e-6, "tint of the material, shaded like a south block face");
@@ -125,7 +125,7 @@ class PictureMeshTest {
             s.mode = PictureSettings.MODE_PANEL;
             s.glowPart = part;
             Recorder r = new Recorder();
-            r.draw(s, null, 12, SKIN, SKIN);
+            r.draw(s, null, 12, SKIN, SKIN, SKIN);
             for (int i = 0; i < r.lights.size(); i++) {
                 int canvasOrFrame = r.parts.get(i) == 1 ? 0 : 1;
                 assertEquals(expected[part][canvasOrFrame] << 4, r.lights.get(i) & 0xFFFF, "glow part " + part + ", vertex " + i);
@@ -142,7 +142,7 @@ class PictureMeshTest {
             s.mode = PictureSettings.MODE_DECAL; // без холста: только лицевой прямоугольник-заглушка
             s.facing = facing;
             Recorder r = new Recorder();
-            r.draw(s, null, 0, SKIN, SKIN);
+            r.draw(s, null, 0, SKIN, SKIN, SKIN);
             assertEquals(expected[facing] * 0x80 / 255f, r.vertices.get(0)[5], 1e-6, "facing " + facing);
         }
     }
@@ -152,7 +152,7 @@ class PictureMeshTest {
         PictureSettings s = new PictureSettings();
         s.mode = PictureSettings.MODE_DECAL;
         Recorder r = new Recorder();
-        r.draw(s, null, 0, SKIN, SKIN);
+        r.draw(s, null, 0, SKIN, SKIN, SKIN);
         assertEquals(4, r.vertices.size(), "one placeholder quad, no edges");
     }
 }

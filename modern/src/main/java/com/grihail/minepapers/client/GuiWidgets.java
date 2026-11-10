@@ -75,6 +75,10 @@ final class GuiWidgets {
     /** Виды дизеринга 16x16 — градиент, продизеренный каждым видом, по порядку PictureFrame.DITHER_*. */
     static final int DITHER_ICON_U = 112, DITHER_ICON_V = 64;
     static final int ICON_RELOAD_U = 64, CHECK_V = 16, FIT_ICON_V = 32, SOURCE_ICON_V = 48, LOOK_ICON_V = 64;
+    /** Пазл 16x16 — триптих с общей картинкой, в ряду вписывания (FIT_ICON_V) сразу за ними. */
+    static final int PUZZLE_ICON_U = 80;
+    /** Стекло 16x16 — картинка с бликами стекла, в ряду вписывания (FIT_ICON_V) за пазлом. */
+    static final int GLASS_ICON_U = 96;
     /** Иконки вкладок по порядку (v = 0): первые четыре подряд, "Описание" — после копировать/вставить. */
     static final int[] TAB_ICON_U = { 0, 16, 32, 48, 160 };
 
@@ -292,6 +296,82 @@ final class GuiWidgets {
             beaconButton(g, getX(), getY(), active, checked, isHovered());
             icon(g, getX() + 3, getY() + 3, iconU, iconV, 16, 16);
             if (!active) g.fill(getX() + 3, getY() + 3, getX() + 19, getY() + 19, 0xA0303030);
+        }
+    }
+
+    /** Выпадающий список с иконками 16x16 (из ряда iconV, по порядку значений): закрытый — ванильная кнопка с иконкой, коротким названием выбранного значения (label до " - ") и стрелкой, нажатие открывает и закрывает его (action); открытый — пункты той же ширины над кнопкой. Открытый список окно рисует последним (drawList), поверх подписей и предметов, и отдаёт ему клики (click) до всего остального. Полное название и пояснение пункта — в подсказке. */
+    static class Dropdown extends Widget {
+
+        static final int ROW = 18;
+        final int count, iconV;
+        final IntFunction<String> label;
+        int value;
+        boolean open;
+
+        Dropdown(int x, int y, int w, int count, int iconV, IntFunction<String> label, Runnable action) {
+            super(x, y, w, 22, Component.empty(), action);
+            this.count = count;
+            this.iconV = iconV;
+            this.label = label;
+        }
+
+        /** Короткое название пункта: до " - " ("Cover - заполнить с обрезкой" -> "Cover"). */
+        String shortLabel(int i) {
+            String full = label.apply(i);
+            int cut = full.indexOf(" - ");
+            return cut > 0 ? full.substring(0, cut) : full;
+        }
+
+        /** Пункт открытого списка под мышью или -1. */
+        int itemAt(double mouseX, double mouseY) {
+            if (!open || mouseX < getX() || mouseX >= getX() + width) return -1;
+            int top = getY() - count * ROW;
+            if (mouseY < top || mouseY >= getY()) return -1;
+            return (int) (mouseY - top) / ROW;
+        }
+
+        /** Клик, пока список открыт: выбирает пункт (true — значение сменилось) и закрывает список. */
+        boolean click(double mouseX, double mouseY) {
+            int item = itemAt(mouseX, mouseY);
+            open = false;
+            if (item < 0 || item == value) return false;
+            value = item;
+            return true;
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            int x = getX(), y = getY();
+            button(g, x, y, width, height, active, isHovered() && !open);
+            icon(g, x + 3, y + 3, value * 16, iconV, 16, 16);
+            g.drawString(font(), shortLabel(value), x + 22, y + 7, isHovered() && !open ? 0xFFFFFFA0 : 0xFFE0E0E0);
+            // Стрелка: вниз — закрыт, вверх — открыт (список раскрывается вверх).
+            int ax = x + width - 10, ay = y + 9;
+            for (int i = 0; i < 3; i++) {
+                int row = open ? ay + i : ay + 2 - i;
+                g.fill(ax + i, row, ax + 5 - i, row + 1, 0xFFE0E0E0);
+            }
+        }
+
+        /** Открытый список; фон и рамка как у ванильной подсказки. Окно рисует его поверх всего (выше предметов в слотах). */
+        void drawList(GuiGraphics g, int mouseX, int mouseY) {
+            if (!open || !visible) return;
+            int x = getX(), w = width, bottom = getY() - 1, top = bottom - count * ROW;
+            int bg = 0xF0100010, light = 0x505000FF, dark = 0x5028007F;
+            g.fill(x + 1, top - 1, x + w - 1, bottom + 1, bg);
+            g.fill(x, top, x + w, bottom, bg);
+            g.fillGradient(x + 1, top, x + 2, bottom, light, dark);
+            g.fillGradient(x + w - 2, top, x + w - 1, bottom, light, dark);
+            g.fill(x + 1, top, x + w - 1, top + 1, light);
+            g.fill(x + 1, bottom - 1, x + w - 1, bottom, dark);
+            int hover = itemAt(mouseX, mouseY);
+            for (int i = 0; i < count; i++) {
+                int ry = top + i * ROW;
+                if (i == hover) g.fill(x + 2, ry + 1, x + w - 2, ry + ROW - 1, 0x60FFFFFF);
+                icon(g, x + 3, ry + 1, i * 16, iconV, 16, 16);
+                int color = i == hover ? 0xFFFFFFA0 : i == value ? 0xFFFFFFFF : 0xFFA0A0A0;
+                g.drawString(font(), shortLabel(i), x + 22, ry + 5, color);
+            }
         }
     }
 

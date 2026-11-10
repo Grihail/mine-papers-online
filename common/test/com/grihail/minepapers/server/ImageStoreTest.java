@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.network.SharedImage;
 import com.grihail.minepapers.picture.PictureSettings;
 
@@ -68,6 +69,19 @@ class ImageStoreTest {
     @AfterEach
     void reset() {
         ImageStore.reset();
+        ModConfig.maxImageMb = 16;
+    }
+
+    @Test
+    void uploadsHeavierThanConfigLimitAreRejected() {
+        ModConfig.maxImageMb = 1;
+        byte[] a = image(1024 * 1024 + 1000, 6);
+        ImageStore.offer(PLAYER, "p", WORLD, 1, "local:cats", SharedImage.sha1(a));
+        upload(a);
+        assertNull(shared, "heavier than the limit");
+        ModConfig.maxImageMb = 2;
+        upload(a);
+        assertNotNull(shared, "fits the raised limit");
     }
 
     private static byte[] image(int size, int seed) {

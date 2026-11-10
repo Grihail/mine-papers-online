@@ -15,9 +15,12 @@ import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.Links;
+import com.grihail.minepapers.picture.MaterialSlots;
 import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.PictureConfig;
+import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.PictureFrame;
+import com.grihail.minepapers.picture.PuzzleGroup;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
@@ -50,6 +53,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
@@ -77,11 +81,15 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private GuiWidgets.Lock btnLock;
     private GuiWidgets.Sign btnSign;
     private GuiWidgets.Nsfw btnNsfw;
+    /** Пазл (PuzzleGroup) — справа от ряда вписывания: кнопка включает его с самым маленьким свободным номером группы, в поле справа от неё номер можно вписать свой. */
+    private GuiWidgets.Toggle btnPuzzle;
+    private EditBox puzzleBox;
 
     private final List<GuiWidgets.Tab> tabs = new ArrayList<GuiWidgets.Tab>();
     /** Источник и вписывание — ряды кнопок с картинками; название и пояснение — в подсказке. */
     private final List<GuiWidgets.Toggle> sourceButtons = new ArrayList<GuiWidgets.Toggle>();
-    private final List<GuiWidgets.Toggle> fitButtons = new ArrayList<GuiWidgets.Toggle>();
+    /** Вписывание — выпадающий список (пять кнопок в ряд не оставляли места пазлу). */
+    private GuiWidgets.Dropdown fitList;
     /** Вид дизеринга на вкладке "Стиль" — кнопки с иконками, по порядку PictureFrame.DITHER_*. */
     private final List<GuiWidgets.Toggle> ditherButtons = new ArrayList<GuiWidgets.Toggle>();
     /** Рамка и холст — ряды кнопок справа от их слотов на вкладке "Рамка". */
@@ -89,6 +97,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private final List<GuiWidgets.Toggle> canvasButtons = new ArrayList<GuiWidgets.Toggle>();
     /** Что светится — ряд кнопок справа от слота свечения: всё, только рамка, только картинка (value — PictureFrame.GLOW_*). */
     private final List<GuiWidgets.Toggle> glowButtons = new ArrayList<GuiWidgets.Toggle>();
+    /** Стекло — ряд кнопок справа от его слота: крест (нет) и стекло (value 0 или 1). */
+    private final List<GuiWidgets.Toggle> glassButtons = new ArrayList<GuiWidgets.Toggle>();
     private GuiWidgets.Slider slColors, slDither, slPpb;
     /** Вкладка, на которой лежит виджет (у самих вкладок записи нет — они видны всегда). */
     private final Map<AbstractWidget, Integer> widgetTab = new HashMap<AbstractWidget, Integer>();
@@ -96,6 +106,8 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbImagePx, cbSharp, cbMapPalette;
 
     /** Вкладка размера — ряды по одной настройке: подпись, одно или два поля, галочка "px". Верх полей рядов по порядку ROW_*; между отступом и масштабом — разделитель на SEPARATOR_Y: выше — область картинки на холсте, ниже — сама картинка в ней. */
+    /** Вертикальный разделитель в нижнем ряду вкладки размера: слева — список вписывания, справа — пазл. */
+    private static final int PUZZLE_SEPARATOR_X = 113;
     private static final int ROW_SIZE = 6, ROW_OFFSET = 22, ROW_PAD = 38, SEPARATOR_Y = 55, ROW_ZOOM = 59, ROW_IMAGE = 75;
     private static final String[] ROW_LABELS = SIZE_ROW_LABELS;
     private static final int[] ROW_Y = { ROW_SIZE, ROW_OFFSET, ROW_PAD, ROW_ZOOM, ROW_IMAGE };
@@ -183,11 +195,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         super.init();
         tabs.clear();
         sourceButtons.clear();
-        fitButtons.clear();
         ditherButtons.clear();
         frameButtons.clear();
         canvasButtons.clear();
         glowButtons.clear();
+        glassButtons.clear();
         widgetTab.clear();
 
         int x = leftPos, y = topPos;
@@ -266,16 +278,20 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             String arrows = FrameEditor.fieldArrows(f);
             if (arrows != null) fields[f].setTooltip(Tooltip.create(Component.literal(arrows)));
         }
-        for (int i = 0; i < PictureFrame.FIT_COUNT; i++) {
-            int value = i;
-            // Внизу вкладки, над инвентарём
-            fitButtons.add(add(new GuiWidgets.Toggle(x + 8 + i * 24, y + 127, i, i * 16, GuiWidgets.FIT_ICON_V,
-                Component.translatable("minepapers.gui.fit." + i), () -> {
-                    ed.fitMode = value;
-                    updateWidgets();
-                }), TAB_SIZE));
-            fitButtons.get(i).setTooltip(tip("minepapers.gui.fit." + i, "minepapers.gui.fit." + i + ".tip"));
-        }
+        // Внизу вкладки, над инвентарём; список раскрывается вверх
+        fitList = add(new GuiWidgets.Dropdown(x + 8, y + 127, 100, PictureFrame.FIT_COUNT, GuiWidgets.FIT_ICON_V,
+            i -> I18n.get("minepapers.gui.fit." + i), () -> {
+                fitList.open = !fitList.open;
+                updateWidgets();
+            }), TAB_SIZE);
+        // За вертикальным разделителем (PUZZLE_SEPARATOR_X) — кнопка пазла и справа от неё номер группы.
+        btnPuzzle = add(new GuiWidgets.Toggle(x + PUZZLE_SEPARATOR_X + 5, y + 127, 0, GuiWidgets.PUZZLE_ICON_U, GuiWidgets.FIT_ICON_V,
+            Component.translatable("minepapers.gui.puzzle"), () -> {
+                ed.togglePuzzle(freePuzzleNumber());
+                puzzleBox.setValue(ed.puzzle != 0 ? String.valueOf(ed.puzzle) : "");
+                updateWidgets();
+            }), TAB_SIZE);
+        puzzleBox = puzzleBox(x + PUZZLE_SEPARATOR_X + 30, y + 131, WIDTH - 8 - PUZZLE_SEPARATOR_X - 30);
 
         // Стиль: резкие пиксели и палитра карт, под ними ползунки — число цветов (с палитрой не действует), сила дизеринга и пикселей на блок
         cbSharp = add(new GuiWidgets.Check(x + 8, y + 7, Component.translatable("minepapers.gui.sharp"), ed.sharp, () -> {
@@ -317,12 +333,25 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             updateWidgets();
         });
         molding.setTooltip(tip("minepapers.gui.frameShape.2", "minepapers.gui.frameShape.2.tip"));
+        // Строки: стекло — вторая, холст — третья, свечение — четвёртая (MaterialSlots.ROW).
+        int glassY = lookY + MaterialSlots.ROW[MaterialSlots.GLASS] * ContainerPictureFrame.MATERIAL_STEP;
+        for (int i = 0; i < 2; i++) {
+            boolean on = i == 1;
+            String key = "minepapers.gui.glass." + i;
+            GuiWidgets.Toggle t = add(new GuiWidgets.Toggle(x + LOOK_X + i * 24, glassY, i, on ? GuiWidgets.GLASS_ICON_U : GuiWidgets.NONE_ICON_U,
+                on ? GuiWidgets.FIT_ICON_V : GuiWidgets.NONE_ICON_V, Component.translatable(key), () -> {
+                    ed.glass = on;
+                    updateWidgets();
+                }), TAB_FRAME);
+            t.setTooltip(tip(key, key + ".tip"));
+            glassButtons.add(t);
+        }
         lookButtons(canvasButtons, "minepapers.gui.canvasKind.", PictureFrame.CANVAS_COUNT, 1, x,
-            lookY + ContainerPictureFrame.MATERIAL_STEP, ed::chooseCanvas);
+            lookY + MaterialSlots.ROW[MaterialSlots.CANVAS] * ContainerPictureFrame.MATERIAL_STEP, ed::chooseCanvas);
         for (int i = 0; i < PictureFrame.GLOW_PART_COUNT; i++) {
             int value = PictureFrame.GLOW_PART_COUNT - 1 - i;
             String key = "minepapers.gui.glowPart." + value;
-            GuiWidgets.Toggle t = add(new GuiWidgets.Toggle(x + LOOK_X + i * 24, lookY + 2 * ContainerPictureFrame.MATERIAL_STEP, value,
+            GuiWidgets.Toggle t = add(new GuiWidgets.Toggle(x + LOOK_X + i * 24, lookY + MaterialSlots.ROW[MaterialSlots.GLOW] * ContainerPictureFrame.MATERIAL_STEP, value,
                 GuiWidgets.GLOW_ICON_U + i * 16, GuiWidgets.LOOK_ICON_V, Component.translatable(key), () -> {
                     ed.glowPart = value;
                     updateWidgets();
@@ -437,6 +466,71 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         //?}
         fields[f] = box;
         return add(box, fieldTab(f));
+    }
+
+    /** Поле номера группы пазла: только цифры, стрелки вверх и вниз в поле и колёсико над ним меняют номер на 1. Пустое номер не меняет — пазл выключает кнопка. */
+    private EditBox puzzleBox(int x, int y, int w) {
+        EditBox box = new EditBox(font, x, y, w, 14, Component.empty()) {
+            //? if >=26.1 {
+            /*@Override
+            public void insertText(String input) {
+                String before = getValue();
+                super.insertText(input);
+                if (!getValue().matches("\\d*")) setValue(before);
+            }
+
+            @Override
+            public boolean keyPressed(KeyEvent event) {
+                int dir = event.key() == InputConstants.KEY_UP ? 1 : event.key() == InputConstants.KEY_DOWN ? -1 : 0;
+                if (dir == 0 || !canConsumeInput()) return super.keyPressed(event);
+                stepPuzzle(dir);
+                return true;
+            }
+            *///?} else {
+            @Override
+            public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+                int dir = keyCode == InputConstants.KEY_UP ? 1 : keyCode == InputConstants.KEY_DOWN ? -1 : 0;
+                if (dir == 0 || !canConsumeInput()) return super.keyPressed(keyCode, scanCode, modifiers);
+                stepPuzzle(dir);
+                return true;
+            }
+            //?}
+
+            @Override
+            //? if >=1.20.2 {
+            public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+            //?} else {
+            /*public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+            *///?}
+                if (scrollY == 0 || !isMouseOver(mouseX, mouseY)) return false;
+                stepPuzzle(scrollY > 0 ? 1 : -1);
+                return true;
+            }
+        };
+        box.setMaxLength(6);
+        //? if <26.1 {
+        box.setFilter(v -> v.matches("\\d*"));
+        //?}
+        box.setValue(ed.puzzle != 0 ? String.valueOf(ed.puzzle) : "");
+        box.setResponder(v -> {
+            if (!v.isEmpty() && Integer.parseInt(v) > 0) ed.puzzle = Integer.parseInt(v);
+        });
+        return add(box, TAB_SIZE);
+    }
+
+    /** Номер группы на 1 больше или меньше (стрелки, колёсико), не меньше 1. */
+    private void stepPuzzle(int dir) {
+        ed.puzzle = Math.max(1, ed.puzzle + dir);
+        puzzleBox.setValue(String.valueOf(ed.puzzle));
+    }
+
+    /** Самый маленький номер группы, которого нет у загруженных картин с тем же приватом, что будет у этой. */
+    private int freePuzzleNumber() {
+        List<PictureFrame> pictures = new ArrayList<PictureFrame>();
+        for (Entity e : minecraft.level.entitiesForRendering()) {
+            if (e instanceof EntityPicture p && p.frame != tile) pictures.add(p.frame);
+        }
+        return PuzzleGroup.freeNumber(pictures, ed.lockOwner());
     }
 
     /** Многострочное поле f для пути, ссылки или описания: длинный текст переносится, его можно выделять мышью. links — подчёркивать внешние ссылки (описание). */
@@ -578,11 +672,23 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             btnSign.setTooltip(tip("minepapers.gui.sign", "minepapers.gui.sign.tip"));
         }
         for (GuiWidgets.Toggle t : sourceButtons) t.checked = t.value == ed.source;
-        for (GuiWidgets.Toggle t : fitButtons) t.checked = t.value == ed.fitMode;
+        fitList.value = ed.fitMode;
+        if (!fitList.visible) fitList.open = false;
+        // Пока список открыт, подсказка кнопки не мешает выбирать.
+        fitList.setTooltip(fitList.open ? null : tip("minepapers.gui.fit." + ed.fitMode, "minepapers.gui.fit." + ed.fitMode + ".tip"));
+        btnPuzzle.checked = ed.puzzle != 0;
+        // Под пояснением — сколько картин сейчас в группе этой картины.
+        MutableComponent puzzleTip = Component.translatable("minepapers.gui.puzzle").append("\n")
+            .append(Component.translatable("minepapers.gui.puzzle.tip").withStyle(ChatFormatting.GRAY));
+        if (tile.clientPuzzle != null) {
+            puzzleTip.append("\n").append(Component.translatable("minepapers.gui.puzzle.pieces", tile.clientPuzzle.pieces).withStyle(ChatFormatting.GREEN));
+        }
+        btnPuzzle.setTooltip(Tooltip.create(puzzleTip));
         for (GuiWidgets.Toggle t : ditherButtons) t.checked = t.value == ed.ditherMode;
         for (GuiWidgets.Toggle t : frameButtons) t.checked = t.value == ed.frameShape;
         for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.value == ed.canvasKind;
         for (GuiWidgets.Toggle t : glowButtons) t.checked = t.value == ed.glowPart;
+        for (GuiWidgets.Toggle t : glassButtons) t.checked = (t.value == 1) == ed.glass;
         cbSharp.checked = ed.sharp;
         cbMapPalette.checked = ed.mapPalette;
         slColors.setInt(ed.colors);
@@ -603,6 +709,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         int f = fieldIndex(w);
         if (f >= 0) return ed.fieldShown(f);
         if (w == btnPrev || w == btnNext || w == btnFolder) return ed.source == PictureFrame.SOURCE_LOCAL;
+        if (w == puzzleBox) return ed.puzzle != 0;
         return true;
     }
 
@@ -631,6 +738,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
             chat(Component.translatable("minepapers.chat.badConfig").withStyle(ChatFormatting.RED));
             return;
         }
+        puzzleBox.setValue(ed.puzzle != 0 ? String.valueOf(ed.puzzle) : "");
         updateWidgets();
         if (c.anyMaterial() && menu.materialsEditable()) MinePapers.platform.sendToServer(PacketPasteMaterials.of(holder.target, c));
     }
@@ -798,7 +906,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (ed.tab == TAB_FRAME) {
             for (int i = 0; i < tile.materials().length; i++) {
                 GuiWidgets.slot(g, leftPos + ContainerPictureFrame.MATERIAL_X - 1,
-                    topPos + ContainerPictureFrame.MATERIAL_Y - 1 + i * ContainerPictureFrame.MATERIAL_STEP);
+                    topPos + ContainerPictureFrame.MATERIAL_Y - 1 + MaterialSlots.ROW[i] * ContainerPictureFrame.MATERIAL_STEP);
             }
         }
     }
@@ -847,6 +955,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 for (int i = 0; i < ROW_LABELS.length; i++) text(g, I18n.get(ROW_LABELS[i]), 8, ROW_Y[i] + 3);
                 text(g, "x", rowFieldX + rowFieldW + 3, ROW_SIZE + 3);
                 g.fill(8, SEPARATOR_Y, WIDTH - 8, SEPARATOR_Y + 1, 0xFF8B8B8B);
+                g.fill(PUZZLE_SEPARATOR_X, 127, PUZZLE_SEPARATOR_X + 1, 149, 0xFF8B8B8B);
                 text(g, I18n.get("minepapers.gui.fit"), 8, 116);
                 break;
             case TAB_INFO:
@@ -857,7 +966,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
                 // Список материалов: слот и что это (какой блок в слоте — в подсказке самого блока), у свечения — сила света. Слот, ненужный выбранному виду, бледный: его блок вернётся при закрытии окна.
                 PictureFrame.Material[] materials = tile.materials();
                 for (int i = 0; i < materials.length; i++) {
-                    int ty = ContainerPictureFrame.MATERIAL_Y + 1 + i * ContainerPictureFrame.MATERIAL_STEP;
+                    int ty = ContainerPictureFrame.MATERIAL_Y + 1 + MaterialSlots.ROW[i] * ContainerPictureFrame.MATERIAL_STEP;
                     String label = I18n.get("minepapers.gui.row." + materials[i].key.toLowerCase(Locale.ROOT));
                     if (!materials[i].light) {
                         text(g, label, 30, ty + 3);
@@ -900,10 +1009,11 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         if (!readOnly && ed.tab == TAB_FRAME) {
             for (int i = 0; i < tile.materials().length; i++) {
                 if (ed.materialUsed(i)) continue;
-                int ty = topPos + ContainerPictureFrame.MATERIAL_Y + 1 + i * ContainerPictureFrame.MATERIAL_STEP;
+                int ty = topPos + ContainerPictureFrame.MATERIAL_Y + 1 + MaterialSlots.ROW[i] * ContainerPictureFrame.MATERIAL_STEP;
                 g.fill(leftPos + ContainerPictureFrame.MATERIAL_X, ty - 1, leftPos + ContainerPictureFrame.MATERIAL_X + 16, ty + 15, 0xB0C6C6C6);
             }
         }
+        if (!readOnly) fitListOnTop(g, mouseX, mouseY);
         // Ссылки в описании: поле нельзя наследовать, поэтому подчёркиваем поверх него, с его прокруткой.
         if (!readOnly && fDesc.visible) {
             g.enableScissor(fDesc.getX() + 1, fDesc.getY() + 1, fDesc.getX() + fDesc.getWidth() - 1, fDesc.getY() + fDesc.getHeight() - 1);
@@ -921,12 +1031,38 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
         /*renderBackground(g); // с 1.20.2 затемнение рисует сам super.render
         *///?}
         super.render(g, mouseX, mouseY, partialTick);
+        if (!readOnly && fitList.open) {
+            g.pose().pushPose();
+            g.pose().translate(0, 0, 400); // выше предметов в слотах
+            fitListOnTop(g, mouseX, mouseY);
+            g.pose().popPose();
+        }
         renderTooltip(g, mouseX, mouseY);
         if (!readOnly && ed.tab == TAB_SIZE) sizeLabelTooltip(g, mouseX, mouseY);
         Style link = linkAt(mouseX, mouseY);
         if (link != null) g.renderComponentHoverEffect(font, link, mouseX, mouseY);
     }
     //?}
+
+    /** Открытый список вписывания и подсказка пункта под мышью. */
+    private void fitListOnTop(GuiGraphics g, int mouseX, int mouseY) {
+        if (!fitList.open) return;
+        fitList.drawList(g, mouseX, mouseY);
+        int item = fitList.itemAt(mouseX, mouseY);
+        if (item < 0) return;
+        List<Component> lines = new ArrayList<Component>();
+        lines.add(Component.translatable("minepapers.gui.fit." + item));
+        for (String line : I18n.get("minepapers.gui.fit." + item + ".tip").split("\n")) lines.add(Component.literal(line).withStyle(ChatFormatting.GRAY));
+        g.renderComponentTooltip(font, lines, mouseX, mouseY);
+    }
+
+    /** Клик, пока список вписывания открыт: всё уходит ему — выбрать пункт или закрыть список. */
+    private boolean fitListClick(double mouseX, double mouseY) {
+        if (!fitList.open) return false;
+        if (fitList.click(mouseX, mouseY)) ed.fitMode = fitList.value;
+        updateWidgets();
+        return true;
+    }
 
     // ---------- Ссылки в описании ----------
 
@@ -992,6 +1128,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     //? if >=26.1 {
     /*@Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (fitListClick(event.x(), event.y())) return true;
         Style link = event.button() == 0 ? linkAt(event.x(), event.y()) : null;
         if (link != null) {
             defaultHandleClickEvent(link.getClickEvent(), minecraft, this); // ванильный вопрос "Открыть ссылку?"
@@ -1002,6 +1139,7 @@ public class GuiPictureFrame extends AbstractContainerScreen<ContainerPictureFra
     *///?} else {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (fitListClick(mouseX, mouseY)) return true;
         Style link = button == 0 ? linkAt(mouseX, mouseY) : null;
         if (link != null && handleComponentClicked(link)) return true;
         return super.mouseClicked(mouseX, mouseY, button);

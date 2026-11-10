@@ -1,5 +1,11 @@
 package com.grihail.minepapers.network;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.HolderMaterials;
 import com.grihail.minepapers.picture.PictureFrame;
@@ -43,12 +49,31 @@ public class PacketSaveFrame implements IMessage {
         FrameHolder holder = ServerImages.changeable(player, msg.target);
         if (holder == null || msg.settings == null) return;
         PictureFrame frame = holder.frame;
+        int oldPuzzle = frame.puzzle;
+        UUID oldOwner = frame.owner;
         new HolderMaterials(holder, player).save(() -> {
             NBTTagCompound materials = new NBTTagCompound();
             frame.writeSettings(materials);
             frame.readSettings(msg.settings);
             for (PictureFrame.Material m : frame.materials()) m.read(materials);
         }, player.getUniqueID(), player.getCommandSenderName());
+        if (holder.picture != null) syncPuzzle(holder.picture, player, frame.puzzle != oldPuzzle || !Objects.equals(frame.owner, oldOwner));
+    }
+
+    /** Общие настройки группы пазла (PictureSettings.copyPuzzleSettings). Картина только что вошла в группу (joined) — берёт их у группы; иначе её настройки расходятся по остальным кускам, которые игрок может менять. */
+    private static void syncPuzzle(EntityPicture picture, EntityPlayerMP player, boolean joined) {
+        List<EntityPicture> members = FrameGeometry.puzzleMembers(picture.worldObj, picture);
+        if (members.isEmpty()) return;
+        if (joined) {
+            picture.frame.copyPuzzleSettings(members.get(0).frame);
+            picture.settingsChanged();
+            return;
+        }
+        for (EntityPicture other : members) {
+            if (!other.frame.mayEdit(player.getUniqueID())) continue;
+            other.frame.copyPuzzleSettings(picture.frame);
+            other.settingsChanged();
+        }
     }
 
     public static class Handler implements IMessageHandler<PacketSaveFrame, IMessage> {

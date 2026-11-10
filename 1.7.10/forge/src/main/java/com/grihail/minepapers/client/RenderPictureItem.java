@@ -146,6 +146,22 @@ public class RenderPictureItem implements IItemRenderer {
             }
         }
 
+        // 2б. Стекло поверх картинки, как в мире: обычное стекло мода или текстура блока из слота стекла — на весь холст.
+        if (s.glass) {
+            FrameSkin glass = FrameSkin.glass(s.pane);
+            mc.getTextureManager().bindTexture(glass.atlas);
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            t.startDrawingQuads();
+            t.setColorOpaque_F(glass.r, glass.g, glass.b);
+            for (int face = 0; face < faces(); face++) {
+                rect(face, cx0, cy0, cx1, cy1, glass.icon.getInterpolatedU(0), glass.icon.getInterpolatedV(0),
+                    glass.icon.getInterpolatedU(16), glass.icon.getInterpolatedV(16), 2);
+            }
+            t.draw();
+            if (!blend) GL11.glDisable(GL11.GL_BLEND);
+        }
+
         // 3. Скрытая картина NSFW: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
         if (l.hidden) {
             double[] m = l.nsfwMark();

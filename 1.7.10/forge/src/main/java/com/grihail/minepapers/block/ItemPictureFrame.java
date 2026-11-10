@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.grihail.minepapers.CommonProxy;
 import com.grihail.minepapers.MinePapers;
+import com.grihail.minepapers.picture.PictureSounds;
 import com.grihail.minepapers.picture.Numbers;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
@@ -75,9 +76,7 @@ public class ItemPictureFrame extends ItemBlock {
         if (!world.isRemote) {
             EntityPicture picture = new EntityPicture(world, ghost);
             world.spawnEntityInWorld(picture);
-            Block.SoundType sound = field_150939_a.stepSound;
-            world.playSoundEffect(picture.posX, picture.posY, picture.posZ, sound.func_150496_b(),
-                (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
+            PictureSounds.place(world, picture.posX, picture.posY, picture.posZ);
         }
         stack.stackSize--;
         return true;
@@ -155,6 +154,7 @@ public class ItemPictureFrame extends ItemBlock {
             Numbers.blocks(s.getWidthBlocks()), Numbers.blocks(s.getHeightBlocks())));
         part(lines, "minepapers.tooltip.border", "minepapers.gui.frameShape." + s.getFrameShape(), s.usesBorder() ? s.border : null);
         part(lines, "minepapers.tooltip.canvas", "minepapers.gui.canvasKind." + s.getCanvasKind(), s.usesCanvas() ? s.canvas : null);
+        if (s.glass) part(lines, "minepapers.tooltip.glass", "minepapers.gui.glass.1", s.pane);
         if (PictureFrame.isGlowDust(s.glow.stack)) {
             lines.add(EnumChatFormatting.GRAY + StatCollector.translateToLocal("minepapers.tooltip.glow.self"));
         } else if (s.glowLevel() > 0) {

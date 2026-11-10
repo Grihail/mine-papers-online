@@ -18,6 +18,7 @@ import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.network.SharedImage;
 import com.grihail.minepapers.picture.PictureSettings;
 
@@ -93,7 +94,7 @@ public final class ImageStore {
         if (peer == null || !peer.allowedUploads.contains(hex)) return;
         Partial p = peer.uploads.get(hex);
         if (p == null) {
-            if (total > SharedImage.MAX_BYTES) return;
+            if (total > ModConfig.maxImageBytes()) return;
             p = new Partial(total);
             peer.uploads.put(hex, p);
         }

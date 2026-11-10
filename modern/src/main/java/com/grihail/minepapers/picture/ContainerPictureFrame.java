@@ -2,6 +2,7 @@ package com.grihail.minepapers.picture;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.ModConfig;
+import com.grihail.minepapers.client.ImageSync;
 import com.grihail.minepapers.server.ServerImages;
 
 import net.minecraft.network.chat.Component;
@@ -42,19 +43,20 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
         }
         PictureFrame.Material[] materials = holder.frame.materials();
         for (int i = 0; i < materials.length; i++) {
-            addSlot(new MaterialSlot(new MaterialContainer(holder, materials[i]), MATERIAL_X, MATERIAL_Y + i * MATERIAL_STEP));
+            addSlot(new MaterialSlot(new MaterialContainer(holder, materials[i]), MATERIAL_X, MATERIAL_Y + MaterialSlots.ROW[i] * MATERIAL_STEP));
         }
     }
 
-    /** Что сервер сообщает клиенту при открытии окна: какую картину настраивают (PictureTarget) и можно ли менять материалы стопке. */
-    public record OpenData(int target, boolean stackMaterials) {
+    /** Что сервер сообщает клиенту при открытии окна: какую картину настраивают (PictureTarget), можно ли менять материалы стопке и лимит веса картинки. */
+    public record OpenData(int target, boolean stackMaterials, int maxImageMb) {
         public void write(FriendlyByteBuf buf) {
             buf.writeVarInt(target);
             buf.writeBoolean(stackMaterials);
+            buf.writeVarInt(maxImageMb);
         }
 
         public static OpenData read(FriendlyByteBuf buf) {
-            return new OpenData(buf.readVarInt(), buf.readBoolean());
+            return new OpenData(buf.readVarInt(), buf.readBoolean(), buf.readVarInt());
         }
     }
 
@@ -63,11 +65,12 @@ public class ContainerPictureFrame extends AbstractContainerMenu {
         boolean stackMaterials = ModConfig.stackMaterials;
         MinePapers.platform.openMenu(player, new SimpleMenuProvider(
             (id, inventory, p) -> new ContainerPictureFrame(id, inventory, holder, stackMaterials),
-            Component.translatable("minepapers.gui.title")), new OpenData(holder.target, stackMaterials));
+            Component.translatable("minepapers.gui.title")), new OpenData(holder.target, stackMaterials, ModConfig.maxImageMb));
     }
 
     /** На клиенте: картину находим по номеру, который сервер прислал при открытии окна. */
     public static ContainerPictureFrame fromData(int id, Inventory inventory, OpenData data) {
+        ImageSync.setServerImageMb(data.maxImageMb());
         return new ContainerPictureFrame(id, inventory, FrameHolder.of(inventory.player, data.target()), data.stackMaterials());
     }
 

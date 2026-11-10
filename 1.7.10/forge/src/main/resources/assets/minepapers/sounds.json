@@ -1,0 +1,28 @@
+{
+  "picture.place": {
+    "category": "block",
+    "sounds": [
+      "minepapers:picture/place1",
+      "minepapers:picture/place2",
+      "minepapers:picture/place3",
+      "minepapers:picture/place4"
+    ]
+  },
+  "picture.break": {
+    "category": "block",
+    "sounds": [
+      "minepapers:picture/break1",
+      "minepapers:picture/break2",
+      "minepapers:picture/break3"
+    ]
+  },
+  "picture.hit": {
+    "category": "block",
+    "sounds": [
+      "minepapers:picture/rotate_item1",
+      "minepapers:picture/rotate_item2",
+      "minepapers:picture/rotate_item3",
+      "minepapers:picture/rotate_item4"
+    ]
+  }
+}

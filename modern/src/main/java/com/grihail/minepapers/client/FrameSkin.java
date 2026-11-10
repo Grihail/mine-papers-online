@@ -39,6 +39,8 @@ public final class FrameSkin extends PictureMesh.Skin {
 
     public static final ResourceLocation BORDER = MinePapers.id("block/frame_border");
     public static final ResourceLocation CANVAS = MinePapers.id("block/frame_canvas");
+    /** Обычное стекло поверх картины — своё, растягивается по проёму (PictureMesh.Skin.stretched). */
+    public static final ResourceLocation GLASS = MinePapers.id("block/frame_glass");
     /** Обычная иконка предмета — пейзаж в деревянной рамке. */
     public static final ResourceLocation ICON = MinePapers.id("item/picture_frame");
 
@@ -103,6 +105,14 @@ public final class FrameSkin extends PictureMesh.Skin {
     /** Текстура холста из его материала (обычная — frame_canvas). */
     public static FrameSkin canvas(PictureFrame.Material m) {
         return of(m.item, CANVAS);
+    }
+
+    /** Текстура стекла из его материала (блок — его текстурой, плиткой); пусто — обычное стекло мода, растянутое по проёму. */
+    public static FrameSkin glass(PictureFrame.Material m) {
+        if (!m.item.isEmpty()) return of(m.item, BORDER);
+        FrameSkin plain = of("", GLASS);
+        plain.stretched = true;
+        return plain;
     }
 
     /** Обычный холст — frame_canvas. */

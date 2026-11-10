@@ -14,7 +14,9 @@ import com.grihail.minepapers.ModConfig;
 public abstract class MaterialSlots<S> {
 
     /** Номера материалов — по порядку PictureFrame.materials() и PictureConfig.MATERIALS. */
-    public static final int BORDER = 0, CANVAS = 1, GLOW = 2;
+    public static final int BORDER = 0, CANVAS = 1, GLOW = 2, GLASS = 3;
+    /** Строка слота материала (по его номеру) на вкладке "Рамка": рамка, стекло, холст, свечение — стекло добавилось последним материалом, а лежит между рамкой и холстом. */
+    public static final int[] ROW = { 0, 2, 3, 1 };
 
     // ---------- Стопка предметов ----------
 
@@ -249,6 +251,7 @@ public abstract class MaterialSlots<S> {
         if (frame.mayEdit(player) && MaterialStack.editable(ModConfig.stackMaterials, pictures())) {
             if (!frame.usesBorder()) returnMaterial(BORDER);
             if (!frame.usesCanvas()) returnMaterial(CANVAS);
+            if (!frame.usesGlass()) returnMaterial(GLASS);
         }
         settingsChanged();
     }

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.grihail.minepapers.picture.PictureSettings;
+import com.grihail.minepapers.picture.PuzzleGroup;
 
 /** Готовит текстуру под конкретный холст: вписывание по правилам CSS object-fit (от центра), пикселизация до N пикселей на блок, перевод в палитру карт Minecraft или постеризация — заданное число цветов — с дизерингом и, для резких пикселей, прозрачность без полутонов. Работает в фоновом потоке, OpenGL не трогает. */
 public final class ImageStylizer {
@@ -41,7 +42,8 @@ public final class ImageStylizer {
             this.canvasW = canvasW;
             this.canvasH = canvasH;
             this.padding = padding;
-            this.zoom = tile.getZoomBlocks();
+            // У пазла масштаб ограничен общим прямоугольником группы, а не холстом куска.
+            this.zoom = tile.clientPuzzle != null ? tile.getZoomBlocks(canvasW, canvasH) : tile.getZoomBlocks();
             this.imageX = tile.getImageXBlocks();
             this.imageY = tile.getImageYBlocks();
             this.fit = fit;
@@ -70,8 +72,13 @@ public final class ImageStylizer {
             return new Layout(w, h, tile.getPaddingBlocks(), tile.fitMode, iconPixels / Math.max(w, h), tile.pixelsPerBlock, tile);
         }
 
-        /** Размер холста в блоках: 0 по одной из сторон = подобрать по пропорциям картинки. */
+        /** Размер холста в блоках: 0 по одной из сторон = подобрать по пропорциям картинки. У картины, собранной в пазл (PictureSettings.clientPuzzle), холст — общий прямоугольник группы. */
         public static Layout of(PictureSettings tile, int imageW, int imageH) {
+            PuzzleGroup g = tile.clientPuzzle;
+            if (g != null) {
+                return new Layout(g.width(), g.height(), tile.getPaddingBlocks(g.width(), g.height()), tile.fitMode, tile.pixelsPerBlock,
+                    tile.pixelsPerBlock, tile);
+            }
             double w = tile.getWidthBlocks();
             double h = tile.getHeightBlocks();
             double aspect = (double) imageH / imageW;

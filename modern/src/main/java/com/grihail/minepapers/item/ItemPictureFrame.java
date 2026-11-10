@@ -21,6 +21,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -34,7 +35,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -192,9 +192,7 @@ public class ItemPictureFrame extends Item {
         if (!level.isClientSide()) {
             EntityPicture picture = new EntityPicture(level, ghost);
             level.addFreshEntity(picture);
-            SoundType sound = SoundType.WOOD;
-            level.playSound(null, picture.getX(), picture.getY(), picture.getZ(), sound.getPlaceSound(),
-                SoundSource.BLOCKS, (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
+            level.playSound(null, picture.getX(), picture.getY(), picture.getZ(), SoundEvents.ITEM_FRAME_PLACE, SoundSource.BLOCKS, 1f, 1f);
             level.gameEvent(player, GameEvent.ENTITY_PLACE, picture.position());
         }
         if (player == null || !player.getAbilities().instabuild) stack.shrink(1);
@@ -245,6 +243,7 @@ public class ItemPictureFrame extends Item {
             .withStyle(ChatFormatting.GRAY));
         part(lines, "minepapers.tooltip.border", "minepapers.gui.frameShape." + s.getFrameShape(), s.usesBorder() ? s.border : null);
         part(lines, "minepapers.tooltip.canvas", "minepapers.gui.canvasKind." + s.getCanvasKind(), s.usesCanvas() ? s.canvas : null);
+        if (s.glass) part(lines, "minepapers.tooltip.glass", "minepapers.gui.glass.1", s.pane);
         int glow = s.glowLevel();
         if (PictureFrame.isGlowDust(s.glow.stack())) {
             lines.add(Component.translatable("minepapers.tooltip.glow.self").withStyle(ChatFormatting.GRAY));

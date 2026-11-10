@@ -195,9 +195,16 @@ public class PictureSettings {
     public int mode = MODE_REALISTIC;
     /** Ширина багета в пикселях (у видов с багетом). */
     public int moldingWidth = DEFAULT_MOLDING;
+    /** Стеклянная панель поверх картины (вкладка "Рамка", строка стекла): по умолчанию — ванильное стекло, в слот стекла можно положить любой блок. */
+    public boolean glass;
+
+    /** Номер группы пазла (PuzzleGroup): 0 — нет. Номер общий — к группе может подключиться любой, вписав его; у заприваченной картины — только среди картин её владельца. Картины одной группы на одной стене показывают одну общую картинку, вписанную в их общий прямоугольник, — каждая свой кусок; настройки картинки у них общие (copyPuzzleSettings). */
+    public int puzzle;
 
     /** Клиентский кэш последнего нарисованного варианта картинки (см. client.RenderPicture). На сервере не используется. */
     public Object clientRenderState;
+    /** Группа пазла, в которую на клиенте собралась эта картина (PuzzleGroup), или null — картина сама по себе. На сервере не используется. */
+    public PuzzleGroup clientPuzzle;
 
     /** Сторона (0..5), в которую смотрит картина. */
     public int getFacing() {
@@ -206,6 +213,36 @@ public class PictureSettings {
 
     public int getRotation() {
         return rotation & 3;
+    }
+
+    /** Настройки, общие у всей группы пазла, — из картины from: источник и слайдшоу, отступ, масштаб, сдвиг и вписывание картинки, стиль, вид рамки и холста, стекло, свечение, пометка 18+. Размер и смещение холста (место куска), заголовок, описание, замок, подпись и материалы у каждой картины свои. */
+    public void copyPuzzleSettings(PictureSettings from) {
+        source = from.source;
+        files = from.files;
+        localPath = from.localPath;
+        yandexUrl = from.yandexUrl;
+        folderPath = from.folderPath;
+        imageUrl = from.imageUrl;
+        interval = from.interval;
+        padding = from.padding;
+        paddingInPixels = from.paddingInPixels;
+        zoom = from.zoom;
+        zoomInPixels = from.zoomInPixels;
+        imageX = from.imageX;
+        imageY = from.imageY;
+        imageInPixels = from.imageInPixels;
+        fitMode = from.fitMode;
+        glowPart = from.glowPart;
+        pixelsPerBlock = from.pixelsPerBlock;
+        sharpPixels = from.sharpPixels;
+        mapPalette = from.mapPalette;
+        colors = from.colors;
+        dither = from.dither;
+        ditherMode = from.ditherMode;
+        mode = from.mode;
+        moldingWidth = from.moldingWidth;
+        glass = from.glass;
+        nsfw = from.nsfw;
     }
 
     /** Своё зерно случайного порядка слайдшоу у каждой рамки (одинаковое у всех игроков). */
@@ -280,8 +317,13 @@ public class PictureSettings {
 
     /** Отступ в блоках; картинке остаётся хотя бы пиксель холста. */
     public float getPaddingBlocks() {
+        return getPaddingBlocks(getWidthBlocks(), getHeightBlocks());
+    }
+
+    /** Отступ для холста w x h блоков (у пазла — общего прямоугольника группы). */
+    public float getPaddingBlocks(double w, double h) {
         float p = paddingInPixels ? padding / 16f : padding;
-        float max = (Math.min(getWidthBlocks(), getHeightBlocks()) - PIXEL) / 2;
+        float max = (float) (Math.min(w, h) - PIXEL) / 2;
         return Math.max(0, Math.min(p, max));
     }
 
@@ -296,8 +338,13 @@ public class PictureSettings {
 
     /** Масштаб в блоках (см. zoom); уменьшить картинку можно только так, чтобы от неё остался хотя бы пиксель — как и с отступом. */
     public float getZoomBlocks() {
+        return getZoomBlocks(getWidthBlocks(), getHeightBlocks());
+    }
+
+    /** Масштаб для холста w x h блоков (у пазла — общего прямоугольника группы). */
+    public float getZoomBlocks(double w, double h) {
         float z = zoomInPixels ? zoom / 16f : zoom;
-        float inner = Math.min(getWidthBlocks(), getHeightBlocks()) - 2 * getPaddingBlocks();
+        float inner = (float) Math.min(w, h) - 2 * getPaddingBlocks(w, h);
         return Math.max(z, (PIXEL - inner) / 2);
     }
 
@@ -385,6 +432,11 @@ public class PictureSettings {
         return getCanvasKind() == CANVAS_BLOCK;
     }
 
+    /** Нужен ли блок стекла: стекло включено. */
+    public boolean usesGlass() {
+        return glass;
+    }
+
     // ---------- NBT ----------
 
     /** NBT-тег глазами общего кода: у каждой версии свой класс тега, версия оборачивает его в этот адаптер. Отсутствующий ключ читается как 0, "" или пустой массив — как в ванильных тегах. */
@@ -455,6 +507,8 @@ public class PictureSettings {
             tag.putString("SignerName", signerName);
         }
         if (nsfw) tag.putInt("Nsfw", 1);
+        if (puzzle != 0) tag.putInt("Puzzle", puzzle);
+        if (glass) tag.putInt("Glazed", 1);
         tag.putInt("Fit", fitMode);
         if (glowPart != GLOW_PICTURE) tag.putInt("GlowPart", glowPart);
         tag.putInt("PPB", pixelsPerBlock);
@@ -522,6 +576,8 @@ public class PictureSettings {
         signerName = tag.getString("SignerName");
 
         nsfw = tag.getInt("Nsfw") != 0;
+        puzzle = Math.max(0, tag.getInt("Puzzle"));
+        glass = tag.getInt("Glazed") != 0;
         fitMode = tag.contains("Fit") ? tag.getInt("Fit") : FIT_COVER;
         glowPart = range(tag.getInt("GlowPart"), 0, GLOW_PART_COUNT - 1);
         pixelsPerBlock = tag.contains("PPB") ? range(tag.getInt("PPB"), MIN_PPB, MAX_PPB) : 128;

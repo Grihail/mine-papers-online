@@ -9,7 +9,7 @@ import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.PictureFrame;
 
-import net.minecraft.block.SoundType;
+import net.minecraft.init.SoundEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -117,9 +117,8 @@ public class PictureControls {
         progress += breaking.breakRate(mc.player);
         mc.player.swingArm(EnumHand.MAIN_HAND);
         if (ticks++ % 4 == 0) {
-            SoundType sound = SoundType.WOOD;
-            mc.getSoundHandler().playSound(new PositionedSoundRecord(sound.getHitSound(), SoundCategory.BLOCKS,
-                (sound.getVolume() + 1f) / 8f, sound.getPitch() * 0.5f,
+            // Своего звука удара у ванильной рамки нет — тихий щелчок рамки.
+            mc.getSoundHandler().playSound(new PositionedSoundRecord(SoundEvents.ENTITY_ITEMFRAME_ROTATE_ITEM, SoundCategory.BLOCKS, 0.5f, 1f,
                 (float) breaking.posX, (float) breaking.posY, (float) breaking.posZ));
         }
         if (progress >= 1f) {

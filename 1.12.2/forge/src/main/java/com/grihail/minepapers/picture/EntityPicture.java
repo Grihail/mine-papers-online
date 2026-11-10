@@ -8,9 +8,10 @@ import com.grihail.minepapers.network.PacketBreakPicture;
 import com.grihail.minepapers.network.PacketOpenFrame;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraft.block.SoundType;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
+import net.minecraft.init.SoundEvents;
+import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.MoverType;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
@@ -92,6 +93,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         if (stack.hasTagCompound()) {
             frame.readSettings(stack.getTagCompound());
             refresh();
+            puzzleChanged = true;
         }
     }
 
@@ -161,8 +163,14 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
             lights.tick(frame, frame.glowLevel());
         } else {
             PictureManager.keepAlive(frame);
+            // Группа пазла — заново раз в секунду (куски могли повесить, снять или перенастроить) и сразу после смены своих настроек.
+            if (puzzleChanged || ticksExisted % 20 == 0) frame.clientPuzzle = frame.puzzle != 0 ? FrameGeometry.puzzle(world, frame) : null;
+            puzzleChanged = false;
         }
     }
+
+    /** Клиент: настройки только что пришли — группу пазла пересобрать сразу. */
+    private boolean puzzleChanged = true;
 
     @Override
     public void move(MoverType type, double x, double y, double z) {}
@@ -219,15 +227,18 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         return true;
     }
 
-    /** Сломать: звук как у блока, дроп — предмет с настройками. Только на сервере. */
+    /** Сломать: звук как у ванильной рамки для предметов, дроп — предмет с настройками. Только на сервере. */
     public void breakPicture(boolean drop) {
         if (isDead) return;
         setDead();
-        SoundType sound = SoundType.WOOD;
-        world.playSound(null, posX, posY, posZ, sound.getBreakSound(), SoundCategory.BLOCKS,
-            (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
+        world.playSound(null, posX, posY, posZ, SoundEvents.ENTITY_ITEMFRAME_BREAK, SoundCategory.BLOCKS, 1f, 1f);
         if (drop && world.getGameRules().getBoolean("doTileDrops")) {
-            entityDropItem(ItemPictureFrame.makeStack(frame), 0f);
+            // Перед холстом и без разлёта — предмет падает там, где висела картина.
+            double[] p = FrameGeometry.dropPos(frame);
+            EntityItem item = new EntityItem(world, p[0], p[1], p[2], ItemPictureFrame.makeStack(frame));
+            item.motionX = item.motionY = item.motionZ = 0;
+            item.setDefaultPickupDelay();
+            world.spawnEntity(item);
         }
     }
 

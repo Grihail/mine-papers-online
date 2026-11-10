@@ -37,6 +37,8 @@ public abstract class FrameEditor {
 
     public int tab = lastTab;
     public int source, fitMode, frameShape, canvasKind;
+    /** Стеклянная панель поверх картины — вкладка "Рамка", строка стекла. */
+    public boolean glass;
     /** Что светится (PictureSettings.GLOW_*) — вкладка "Рамка", строка свечения. */
     public int glowPart;
     /** Резкие пиксели и палитра карт (галочки), число цветов, сила и вид дизеринга, пикселей на блок — вкладка "Стиль". */
@@ -50,6 +52,8 @@ public abstract class FrameEditor {
     public boolean sign;
     /** Пометка NSFW (18+); применится при закрытии окна. */
     public boolean nsfw;
+    /** Номер группы пазла (PictureSettings.puzzle), 0 — нет: кнопка и поле справа от ряда вписывания. */
+    public int puzzle;
     /** Последний statusText — об ошибке. */
     public boolean statusError;
 
@@ -71,6 +75,7 @@ public abstract class FrameEditor {
         ppb = tile.pixelsPerBlock;
         frameShape = tile.getFrameShape();
         canvasKind = tile.getCanvasKind();
+        glass = tile.glass;
         sizePx = tile.sizeInPixels;
         posPx = tile.offsetInPixels;
         padPx = tile.paddingInPixels;
@@ -78,6 +83,7 @@ public abstract class FrameEditor {
         imagePx = tile.imageInPixels;
         locked = tile.isLocked();
         nsfw = tile.nsfw;
+        puzzle = tile.puzzle;
     }
 
     // ---------- От версии ----------
@@ -259,10 +265,16 @@ public abstract class FrameEditor {
         return v == null ? 0 : Math.round(v);
     }
 
-    /** Нужен ли выбранному в окне виду материал index (рамка, холст, свечение). Ненужные блоки вернутся игроку при закрытии окна. */
+    /** Кнопка пазла: выключить или включить с номером free — самым маленьким свободным (PuzzleGroup.freeNumber). */
+    public void togglePuzzle(int free) {
+        puzzle = puzzle != 0 ? 0 : free;
+    }
+
+    /** Нужен ли выбранному в окне виду материал index (рамка, холст, свечение, стекло). Ненужные блоки вернутся игроку при закрытии окна. */
     public boolean materialUsed(int index) {
         if (index == 0) return frameShape != PictureSettings.FRAME_NONE;
         if (index == 1) return canvasKind == PictureSettings.CANVAS_BLOCK;
+        if (index == 3) return glass;
         return true;
     }
 
@@ -388,6 +400,7 @@ public abstract class FrameEditor {
         c.title = text(F_TITLE).trim();
         c.description = text(F_DESC).trim();
         c.nsfw = nsfw;
+        c.puzzle = puzzle;
         c.source = source;
         c.path = line(pathField(source));
         Float interval = Numbers.parse(text(F_INTERVAL));
@@ -411,6 +424,7 @@ public abstract class FrameEditor {
         c.frame = frameShape;
         if (frameShape == PictureSettings.FRAME_MOLDING) c.moldingWidth = moldingWidth();
         c.canvas = canvasKind;
+        c.glass = glass;
         c.sharpPixels = sharp;
         c.mapPalette = mapPalette;
         c.colors = colors;
@@ -436,6 +450,7 @@ public abstract class FrameEditor {
         if (c.title != null) setText(F_TITLE, c.title);
         if (c.description != null) setText(F_DESC, c.description);
         if (c.nsfw != null) nsfw = c.nsfw;
+        if (c.puzzle != null) puzzle = Math.max(0, c.puzzle);
         if (c.source != null) source = c.source;
         if (c.path != null) setText(pathField(source), c.path);
         if (c.interval != null) setText(F_INTERVAL, String.valueOf(c.interval));
@@ -460,6 +475,7 @@ public abstract class FrameEditor {
         }
         if (c.frame != null) frameShape = c.frame;
         if (c.canvas != null) canvasKind = c.canvas;
+        if (c.glass != null) glass = c.glass;
         // Багет без ширины (конфиг прежних версий) — обычной ширины.
         setText(F_MOLDING, frameShape != PictureSettings.FRAME_MOLDING ? "0" : String.valueOf(
             c.moldingWidth != null && c.moldingWidth > 0 ? c.moldingWidth : PictureSettings.DEFAULT_MOLDING));
@@ -490,6 +506,7 @@ public abstract class FrameEditor {
         tile.title = text(F_TITLE).trim();
         tile.description = text(F_DESC).trim();
         tile.nsfw = nsfw;
+        tile.puzzle = puzzle;
         // Владельца решает сервер (PacketSaveFrame); здесь — только просьба закрыть или открыть замок.
         if (locked && tile.owner == null) {
             tile.owner = me;
@@ -532,6 +549,7 @@ public abstract class FrameEditor {
         tile.dither = dither;
         tile.ditherMode = ditherMode;
         tile.mode = look();
+        tile.glass = glass;
         if (frameShape == PictureSettings.FRAME_MOLDING) tile.moldingWidth = moldingWidth();
         tile.pixelsPerBlock = ppb;
 

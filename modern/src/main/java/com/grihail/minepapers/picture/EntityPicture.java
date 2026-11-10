@@ -12,12 +12,14 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
@@ -35,7 +37,6 @@ import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LightBlock;
-import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.phys.AABB;
@@ -200,6 +201,7 @@ public class EntityPicture extends Entity {
                 frame.readPlacement(tag);
                 frame.readSettings(tag);
                 refresh();
+                puzzleChanged = true;
             }
         }
     }
@@ -211,8 +213,14 @@ public class EntityPicture extends Entity {
             lights.tick(frame, frame.glowLevel());
         } else {
             PictureManager.keepAlive(frame);
+            // Группа пазла — заново раз в секунду (куски могли повесить, снять или перенастроить) и сразу после смены своих настроек.
+            if (puzzleChanged || tickCount % 20 == 0) frame.clientPuzzle = frame.puzzle != 0 ? FrameGeometry.puzzle(level(), frame) : null;
+            puzzleChanged = false;
         }
     }
+
+    /** Клиент: настройки только что пришли — группу пазла пересобрать сразу. */
+    private boolean puzzleChanged = true;
 
     @Override
     public void move(MoverType type, Vec3 movement) {}
@@ -286,22 +294,24 @@ public class EntityPicture extends Entity {
         return true;
     }
 
-    /** Сломать: звук как у деревянного блока, дроп — предмет с настройками. Только на сервере. */
+    /** Сломать: звук как у ванильной рамки для предметов, дроп — предмет с настройками. Только на сервере. */
     public void breakPicture(boolean drop) {
         if (isRemoved() || !(level() instanceof ServerLevel server)) return;
         discard();
-        SoundType sound = SoundType.WOOD;
-        server.playSound(null, getX(), getY(), getZ(), sound.getBreakSound(), SoundSource.BLOCKS,
-            (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
+        server.playSound(null, getX(), getY(), getZ(), SoundEvents.ITEM_FRAME_BREAK, SoundSource.BLOCKS, 1f, 1f);
         //? if >=26.1 {
-        /*if (drop && server.getGameRules().get(GameRules.BLOCK_DROPS)) {
-            spawnAtLocation(server, ItemPictureFrame.makeStack(frame));
-        }
+        /*if (drop && server.getGameRules().get(GameRules.BLOCK_DROPS)) dropItem(server);
         *///?} else {
-        if (drop && server.getGameRules().getBoolean(GameRules.RULE_DOBLOCKDROPS)) {
-            spawnAtLocation(ItemPictureFrame.makeStack(frame));
-        }
+        if (drop && server.getGameRules().getBoolean(GameRules.RULE_DOBLOCKDROPS)) dropItem(server);
         //?}
+    }
+
+    /** Предмет картины — перед холстом и без разлёта: падает там, где она висела (FrameGeometry.dropPos). */
+    private void dropItem(ServerLevel server) {
+        double[] p = FrameGeometry.dropPos(frame);
+        ItemEntity item = new ItemEntity(server, p[0], p[1], p[2], ItemPictureFrame.makeStack(frame), 0, 0, 0);
+        item.setDefaultPickUpDelay();
+        server.addFreshEntity(item);
     }
 
     /** Доля поломки за тик — та же формула, что у деревянного блока прочностью HARDNESS: топор быстрее, в воде и в прыжке медленнее. */

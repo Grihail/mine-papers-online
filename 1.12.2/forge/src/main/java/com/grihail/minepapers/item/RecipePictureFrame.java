@@ -1,7 +1,15 @@
 package com.grihail.minepapers.item;
 
-import com.grihail.minepapers.MinePapers;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+
 import com.grihail.minepapers.ModConfig;
+import com.grihail.minepapers.picture.FrameRecipe;
+import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.picture.PictureFrame;
 
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -13,9 +21,52 @@ import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 import net.minecraftforge.registries.IForgeRegistryEntry;
+import net.minecraft.item.Item;
+import net.minecraftforge.oredict.OreDictionary;
+import net.minecraftforge.oredict.ShapedOreRecipe;
+import net.minecraftforge.oredict.ShapelessOreRecipe;
+import net.minecraft.init.Items;
 
 /** Рецепты без формы, как копирование карт (заприваченные и подписанные картины не копируются, а разбираются, только если это разрешено в config/minepapers.json): одна настроенная рамка — разбор (если в ней лежат материалы — сначала только они: картина остаётся с настройками в виде граффити; иначе сброс до пустой); настроенная + пустые — столько же копий настроенной без материалов. Блоки из слотов материалов возвращаются игроку (см. Events). */
 public class RecipePictureFrame extends IForgeRegistryEntry.Impl<IRecipe> implements IRecipe {
+
+    /** Рецепт новой рамки из config/minepapers.json (ModConfig.recipe) — обычный рецепт Forge, его видно в JEI. Нет какого-то предмета в игре — рецепт по умолчанию. */
+    public static IRecipe frameRecipe() {
+        IRecipe recipe = build(ModConfig.recipe);
+        if (recipe != null) return recipe;
+        LogManager.getLogger("minepapers").warn("В рецепте рамки из config/minepapers.json есть предмет, которого нет в игре; действует рецепт по умолчанию");
+        return build(FrameRecipe.DEFAULT);
+    }
+
+    private static IRecipe build(FrameRecipe recipe) {
+        ItemStack result = new ItemStack(MinePapers.frame);
+        List<Object> args = new ArrayList<Object>();
+        if (!recipe.shaped()) {
+            for (String id : recipe.ingredients) {
+                ItemStack stack = stackOf(id);
+                if (stack == null) return null;
+                args.add(stack);
+            }
+            return new ShapelessOreRecipe(null, result, args.toArray());
+        }
+        args.addAll(Arrays.asList((Object[]) recipe.pattern));
+        for (Map.Entry<Character, String> e : recipe.key.entrySet()) {
+            ItemStack stack = stackOf(e.getValue());
+            if (stack == null) return null;
+            args.add(e.getKey());
+            args.add(stack);
+        }
+        return new ShapedOreRecipe(null, result, args.toArray());
+    }
+
+    /** Предмет рецепта "id" или "id:meta" (без метаданных — любые); null — такого нет. */
+    private static ItemStack stackOf(String item) {
+        String[] p = FrameRecipe.split(item);
+        Item found = Item.getByNameOrId(p[0]);
+        if (found == null || found == Items.AIR) return null;
+        return new ItemStack(found, 1, p[1] != null ? Integer.parseInt(p[1]) : OreDictionary.WILDCARD_VALUE);
+    }
+
 
     /** Настроенная рамка из сетки или null, если сетка не подходит под рецепт. Пустые пишутся в empty[0]. */
     private static ItemStack find(InventoryCrafting inv, int[] empty) {

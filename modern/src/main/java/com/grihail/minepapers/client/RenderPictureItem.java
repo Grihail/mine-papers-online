@@ -204,6 +204,16 @@ public class RenderPictureItem extends BlockEntityWithoutLevelRenderer {
                 }
             }
         }
+        // 2б. Стекло поверх картинки, как в мире: обычное стекло мода или текстура блока из слота стекла — на весь холст.
+        if (s.glass) {
+            FrameSkin glass = FrameSkin.glass(s.pane);
+            out = buffer(glass.sprite.atlasLocation(), true);
+            color(glass.r, glass.g, glass.b);
+            for (int face = 0; face < faces(); face++) {
+                rect(face, cx0, cy0, cx1, cy1, texU(glass.sprite, 0), texV(glass.sprite, 0), texU(glass.sprite, ICON), texV(glass.sprite, ICON), 2);
+            }
+            color(1f, 1f, 1f);
+        }
         // 3. Скрытая картина NSFW: поверх заглушки — значок "18+" по центру холста, квадратом по меньшей стороне.
         if (l.hidden) {
             double[] m = l.nsfwMark();

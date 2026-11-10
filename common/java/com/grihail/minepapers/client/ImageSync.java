@@ -33,6 +33,7 @@ import javax.imageio.stream.ImageOutputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.network.SharedImage;
 import com.grihail.minepapers.picture.PictureSettings;
 
@@ -47,6 +48,8 @@ public final class ImageSync {
     private static final int KEEP_ORIGINAL_BYTES = 3 * 1024 * 1024;
     /** Больше не нужно: исходник всё равно уменьшается до этого размера (PictureManager.MAX_SOURCE_SIZE). */
     private static final int MAX_SIDE = 2048;
+    /** Меньше не уменьшаем: столько весит заведомо меньше самого низкого лимита (1 МБ). */
+    private static final int MIN_SIDE = 256;
     private static final float JPEG_QUALITY = 0.92f;
 
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(r -> {
@@ -75,7 +78,21 @@ public final class ImageSync {
     private static volatile int jobStage, jobDone, jobTotal;
     public static final int STAGE_NONE = 0, STAGE_PREPARING = 1, STAGE_UPLOADING = 2;
 
+    /** Лимит веса картинки на сервере в мегабайтах, из ModConfig.maxImageMb сервера; 0 — ещё не известен. */
+    private static volatile int serverImageMb;
+
     private ImageSync() {}
+
+    /** Сервер сообщил свой лимит (при открытии окна картины). */
+    public static void setServerImageMb(int mb) {
+        serverImageMb = mb;
+    }
+
+    /** Сколько байт примет сервер. Пока он не сообщил лимит, это хост своего мира (autoOffer), а его сервер читает тот же конфиг. */
+    private static int uploadLimit() {
+        int mb = serverImageMb;
+        return mb > 0 ? mb * 1024 * 1024 : ModConfig.maxImageBytes();
+    }
 
     static File cacheDir() {
         return new File(ClientHost.get().gameDir(), "minepapers-cache");
@@ -218,7 +235,8 @@ public final class ImageSync {
 
     /** Фоновый поток: готовит файл к отправке и кладёт в кэш. Возвращает хеш или null, если файл не читается. */
     private static String prepare(File file) {
-        String id = file.getAbsolutePath() + "|" + file.length() + "|" + file.lastModified();
+        // Лимит входит в ключ: на сервере с другим лимитом тот же файл готовится иначе.
+        String id = file.getAbsolutePath() + "|" + file.length() + "|" + file.lastModified() + "|" + uploadLimit();
         String hex = PREPARED.get(id);
         if (hex != null && cacheFile(hex).isFile()) return hex;
         try {
@@ -234,9 +252,10 @@ public final class ImageSync {
         }
     }
 
-    /** Небольшие png/jpg/gif/webp отправляются как есть, остальное уменьшается до MAX_SIDE и пережимается: с прозрачностью — в PNG, без — в JPEG. Анимированный GIF при пережатии потерял бы анимацию, поэтому он отправляется как есть, пока помещается в лимит сервера (кадры уменьшит уже клиент). Исходный размер записывается в заголовок (от него зависит вписывание). */
-    private static byte[] encode(File file) throws IOException {
+    /** Небольшие png/jpg/gif/webp отправляются как есть, остальное уменьшается до MAX_SIDE и пережимается: с прозрачностью — в PNG, без — в JPEG; если и так не помещается в лимит сервера, уменьшается ещё. Анимированный GIF при пережатии потерял бы анимацию, поэтому он отправляется как есть, пока помещается в лимит сервера (кадры уменьшит уже клиент). Исходный размер записывается в заголовок (от него зависит вписывание). */
+    static byte[] encode(File file) throws IOException {
         if (file.length() > PictureManager.MAX_DOWNLOAD_BYTES) throw new IOException("File is too large");
+        int limit = uploadLimit();
         byte[] bytes = Files.readAllBytes(file.toPath());
         int w, h;
         String format;
@@ -257,20 +276,26 @@ public final class ImageSync {
             }
         }
 
-        if (animated && bytes.length + SharedImage.HEADER_BYTES <= SharedImage.MAX_BYTES) {
+        boolean fits = bytes.length + SharedImage.HEADER_BYTES <= limit;
+        if (animated && fits) {
             return SharedImage.pack(w, h, bytes);
         }
 
         boolean webFormat = format.equals("png") || format.equals("jpeg") || format.equals("jpg")
             || format.equals("gif") || format.equals("webp");
-        if (webFormat && bytes.length <= KEEP_ORIGINAL_BYTES && Math.max(w, h) <= MAX_SIDE) {
+        if (webFormat && fits && bytes.length <= KEEP_ORIGINAL_BYTES && Math.max(w, h) <= MAX_SIDE) {
             return SharedImage.pack(w, h, bytes);
         }
 
         int[] size = new int[2];
-        BufferedImage img = PictureManager.limitSize(PictureManager.decode(bytes, size), MAX_SIDE);
-        byte[] image = hasAlpha(img) ? writePng(img) : writeJpeg(img);
-        return SharedImage.pack(size[0], size[1], image);
+        BufferedImage source = PictureManager.decode(bytes, size);
+        for (int side = MAX_SIDE; ; side = side * 3 / 4) {
+            BufferedImage img = PictureManager.limitSize(source, side);
+            byte[] image = hasAlpha(img) ? writePng(img) : writeJpeg(img);
+            if (image.length + SharedImage.HEADER_BYTES <= limit || side <= MIN_SIDE) {
+                return SharedImage.pack(size[0], size[1], image);
+            }
+        }
     }
 
     private static boolean hasAlpha(BufferedImage img) {
@@ -369,6 +394,7 @@ public final class ImageSync {
 
     /** Отключились от сервера: всё, что было в пути, пропало. Может вызываться из сетевого потока. */
     public static void onDisconnect() {
+        serverImageMb = 0;
         MAIN.add(() -> {
             REQUESTED.clear();
             TO_REQUEST.clear();

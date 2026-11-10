@@ -13,6 +13,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
+import com.grihail.minepapers.picture.FrameRecipe;
 
 /** Настройки мода: config/minepapers.json — один файл и формат для всех версий игры. Читается при запуске мода; нет файла — он создаётся с настройками по умолчанию и пояснениями (JSON читается с комментариями //). Действуют на сервере (клиент узнаёт нужное от сервера), кроме hideNsfw и titleNeedsSneak — они только для своего клиента. */
 public final class ModConfig {
@@ -35,7 +36,21 @@ public final class ModConfig {
     /** Разрешить разбирать в крафте заприваченные картины (приват при сбросе пропадает). Копировать их нельзя всё равно. */
     public static boolean disassembleLocked = false;
 
+    /** Предел настройки maxImageMb: файлы тяжелее мод не читает вообще (PictureManager.MAX_DOWNLOAD_BYTES). */
+    public static final int MAX_IMAGE_MB_CEILING = 256;
+
+    /** Самая тяжёлая картинка, которую сервер принимает от игроков, в мегабайтах, от 1 до MAX_IMAGE_MB_CEILING. Клиент узнаёт её при открытии окна картины: что тяжелее, он уменьшает перед отправкой, а анимированный GIF при этом становится статичной картинкой. */
+    public static int maxImageMb = 16;
+
+    /** Рецепт новой рамки (см. FrameRecipe): можно заменить любыми предметами, в том числе из других модов, без формы или с формой до 3x3. Неверный в файле — остаётся рецепт по умолчанию. */
+    public static FrameRecipe recipe = FrameRecipe.DEFAULT;
+
     private ModConfig() {}
+
+    /** Лимит maxImageMb в байтах. */
+    public static int maxImageBytes() {
+        return maxImageMb * 1024 * 1024;
+    }
 
     /** Можно ли пустить картину в рецепт мода: обычную — всегда; заприваченную и подписанную копировать (copy) нельзя никогда, а разбирать — если это разрешено настройками. */
     public static boolean mayCraft(boolean locked, boolean signed, boolean copy) {
@@ -68,8 +83,16 @@ public final class ModConfig {
             if (json.has("titleNeedsSneak")) titleNeedsSneak = json.get("titleNeedsSneak").getAsBoolean();
             if (json.has("disassembleSigned")) disassembleSigned = json.get("disassembleSigned").getAsBoolean();
             if (json.has("disassembleLocked")) disassembleLocked = json.get("disassembleLocked").getAsBoolean();
+            if (json.has("maxImageMb")) maxImageMb = Math.max(1, Math.min(MAX_IMAGE_MB_CEILING, json.get("maxImageMb").getAsInt()));
+            if (json.has("recipe")) {
+                try {
+                    recipe = FrameRecipe.fromJson(json.get("recipe"));
+                } catch (Exception e) {
+                    LOG.warn("Рецепт рамки в " + file + " не подходит, действует рецепт по умолчанию: " + e.getMessage());
+                }
+            }
             // Файл прежней версии — дописываем новые настройки (со значениями по умолчанию).
-            if (!json.has("hideNsfw") || !json.has("titleNeedsSneak") || !json.has("disassembleSigned") || !json.has("disassembleLocked")) {
+            if (!json.has("hideNsfw") || !json.has("titleNeedsSneak") || !json.has("disassembleSigned") || !json.has("disassembleLocked") || !json.has("maxImageMb") || !json.has("recipe")) {
                 save(file);
             }
         } catch (Exception e) {
@@ -91,6 +114,16 @@ public final class ModConfig {
             + "  // true: private (locked) pictures can be taken apart in the crafting grid (the reset removes the lock).\n"
             + "  // Private pictures can never be copied.\n"
             + "  \"disassembleLocked\": " + disassembleLocked + ",\n"
+            + "\n"
+            + "  // The heaviest picture players can upload to this server, in megabytes (1 to " + MAX_IMAGE_MB_CEILING + "). Heavier pictures are scaled\n"
+            + "  // down before uploading, and a heavier animated GIF becomes a still picture. Applies to new uploads only.\n"
+            + "  \"maxImageMb\": " + maxImageMb + ",\n"
+            + "\n"
+            + "  // Recipe of a new picture frame. \"ingredients\": a shapeless recipe, items in any order (1 to 9).\n"
+            + "  // Or a shaped one: \"pattern\" (1 to 3 rows of 1 to 3 characters, a space is an empty cell) and \"key\"\n"
+            + "  // (character -> item), e.g. \"pattern\": [\"PPP\", \"PFP\", \"PPP\"], \"key\": { \"P\": \"minecraft:paper\", \"F\": \"minecraft:item_frame\" }.\n"
+            + "  // Items are registry ids of any mod; in 1.7.10 and 1.12.2 an id may end with :meta. Applies after a restart.\n"
+            + "  \"recipe\": " + recipe.toJson("  ") + ",\n"
             + "\n"
             + "  // Client only: true hides pictures marked as NSFW (18+). Instead of the picture you see an empty canvas,\n"
             + "  // and its images are not downloaded. Takes effect after restarting the game.\n"

@@ -25,8 +25,9 @@ public final class FrameSkin extends PictureMesh.Skin {
 
     private static final ResourceLocation BORDER = new ResourceLocation(MinePapers.MODID, "blocks/frame_border");
     private static final ResourceLocation CANVAS = new ResourceLocation(MinePapers.MODID, "blocks/frame_canvas");
-    /** Обычные рамка и холст: кладутся в атлас блоков при его сборке (Events). */
-    private static TextureAtlasSprite border, canvas;
+    private static final ResourceLocation GLASS = new ResourceLocation(MinePapers.MODID, "blocks/frame_glass");
+    /** Обычные рамка, холст и стекло: кладутся в атлас блоков при его сборке (Events). */
+    private static TextureAtlasSprite border, canvas, glass;
 
     public final TextureAtlasSprite icon;
 
@@ -62,6 +63,14 @@ public final class FrameSkin extends PictureMesh.Skin {
     /** Текстура холста из его материала. */
     public static FrameSkin canvas(PictureFrame.Material m) {
         return of(m.item, m.meta, plainCanvas());
+    }
+
+    /** Текстура стекла из его материала (блок — его текстурой, плиткой); пусто — обычное стекло мода, растянутое по проёму. */
+    public static FrameSkin glass(PictureFrame.Material m) {
+        if (!m.item.isEmpty()) return of(m.item, m.meta, standard());
+        FrameSkin plain = new FrameSkin(glass, 0xFFFFFF);
+        plain.stretched = true;
+        return plain;
     }
 
     /** Обычный холст — frame_canvas. */
@@ -102,6 +111,7 @@ public final class FrameSkin extends PictureMesh.Skin {
         public void onStitch(TextureStitchEvent.Pre event) {
             border = event.getMap().registerSprite(BORDER);
             canvas = event.getMap().registerSprite(CANVAS);
+            glass = event.getMap().registerSprite(GLASS);
         }
     }
 }

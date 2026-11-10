@@ -9,7 +9,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
-/** Окна мода открываются через IGuiHandler: x — картина (PictureTarget: id сущности или слот картины-предмета), y — можно ли менять материалы стопке (см. openFrame). */
+/** Окна мода открываются через IGuiHandler: x — картина (PictureTarget: id сущности или слот картины-предмета), y — можно ли менять материалы стопке, z — лимит веса картинки (см. openFrame). */
 public class CommonProxy implements IGuiHandler {
 
     public static final int GUI_FRAME = 0;
@@ -22,9 +22,9 @@ public class CommonProxy implements IGuiHandler {
     /** Кусок скачиваемой картинки (вызывается в сетевом потоке). */
     public void onFileChunk(byte[] hash, int total, int offset, byte[] data) {}
 
-    /** Открыть окно картины target (на сервере). y — можно ли менять материалы стопке (ModConfig.stackMaterials): так его узнаёт и клиент. */
+    /** Открыть окно картины target (на сервере). y — можно ли менять материалы стопке (ModConfig.stackMaterials), z — лимит веса картинки (ModConfig.maxImageMb): так их узнаёт и клиент. */
     public static void openFrame(EntityPlayer player, int target) {
-        player.openGui(MinePapers.instance, GUI_FRAME, player.worldObj, target, ModConfig.stackMaterials ? 1 : 0, 0);
+        player.openGui(MinePapers.instance, GUI_FRAME, player.worldObj, target, ModConfig.stackMaterials ? 1 : 0, ModConfig.maxImageMb);
     }
 
     @Override

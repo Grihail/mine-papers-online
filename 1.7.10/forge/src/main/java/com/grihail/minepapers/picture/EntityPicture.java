@@ -11,6 +11,7 @@ import cpw.mods.fml.common.registry.IEntityAdditionalSpawnData;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -137,13 +138,16 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         }
         PictureManager.keepAlive(frame);
         ItemStack stack = dataWatcher.getWatchableObjectItemStack(WATCH_SETTINGS);
-        if (stack != shownSettings) {
+        boolean changed = stack != shownSettings;
+        if (changed) {
             shownSettings = stack;
             if (stack != null && stack.hasTagCompound()) {
                 frame.readSettings(stack.getTagCompound());
                 refresh();
             }
         }
+        // Группа пазла — заново раз в секунду (куски могли повесить, снять или перекрасить) и сразу после смены своих настроек.
+        if (changed || ticksExisted % 20 == 0) frame.clientPuzzle = frame.puzzle != 0 ? FrameGeometry.puzzle(worldObj, frame) : null;
     }
 
     @Override
@@ -201,15 +205,18 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         return true;
     }
 
-    /** Сломать: звук как у блока, дроп — предмет с настройками. Только на сервере. */
+    /** Сломать: звук рамки (PictureSounds), дроп — предмет с настройками. Только на сервере. */
     public void breakPicture(boolean drop) {
         if (isDead) return;
         setDead();
-        Block.SoundType sound = MinePapers.frame.stepSound;
-        worldObj.playSoundEffect(posX, posY, posZ, sound.getBreakSound(),
-            (sound.getVolume() + 1f) / 2f, sound.getPitch() * 0.8f);
+        PictureSounds.destroy(worldObj, posX, posY, posZ);
         if (drop && worldObj.getGameRules().getGameRuleBooleanValue("doTileDrops")) {
-            entityDropItem(BlockPictureFrame.makeStack(frame), 0f);
+            // Перед холстом и без разлёта — предмет падает там, где висела картина.
+            double[] p = FrameGeometry.dropPos(frame);
+            EntityItem item = new EntityItem(worldObj, p[0], p[1], p[2], BlockPictureFrame.makeStack(frame));
+            item.motionX = item.motionY = item.motionZ = 0;
+            item.delayBeforeCanPickup = 10;
+            worldObj.spawnEntityInWorld(item);
         }
     }
 

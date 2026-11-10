@@ -21,6 +21,8 @@ public class PictureFrame extends PictureSettings {
     public final Material border = new Material("Border", false);
     public final Material canvas = new Material("Canvas", false);
     public final Material glow = new Material("Glow", true);
+    /** Стекло поверх картины (PictureSettings.glass): пусто — ванильное стекло. В окне его строка — между рамкой и холстом (MaterialSlots.ROW). */
+    public final Material pane = new Material("Glass", false);
 
     /** Сила света, который картина даёт миру (0..15), — как у блока в слоте свечения. */
     public int glowLevel() {
@@ -48,7 +50,7 @@ public class PictureFrame extends PictureSettings {
     }
 
     public Material[] materials() {
-        return new Material[] { border, canvas, glow };
+        return new Material[] { border, canvas, glow, pane };
     }
 
     /** Материал рамки или холста: блок, лежащий в картине (его текстура и есть материал). В настройках — под ключами key (id текстуры, "" — обычная) и key + "Item" (сам предмет как сохранённый ItemStack). Разобрать ItemStack можно только с реестрами мира, поэтому он — лениво, в stack(). */

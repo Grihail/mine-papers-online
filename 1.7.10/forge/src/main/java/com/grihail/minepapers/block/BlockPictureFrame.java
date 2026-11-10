@@ -28,6 +28,8 @@ public class BlockPictureFrame extends BlockContainer {
     /** Холст (окантовка — обычная иконка блока). */
     @SideOnly(Side.CLIENT)
     public IIcon canvasIcon;
+    /** Обычное стекло поверх картины (textures/blocks/frame_glass.png). */
+    public IIcon glassIcon;
 
     public BlockPictureFrame() {
         super(Material.wood);
@@ -42,7 +44,9 @@ public class BlockPictureFrame extends BlockContainer {
     @SideOnly(Side.CLIENT)
     public void registerBlockIcons(IIconRegister reg) {
         blockIcon = reg.registerIcon(MinePapers.MODID + ":frame_border");
-        canvasIcon = reg.registerIcon(MinePapers.MODID + ":frame_canvas");    }
+        canvasIcon = reg.registerIcon(MinePapers.MODID + ":frame_canvas");
+        glassIcon = reg.registerIcon(MinePapers.MODID + ":frame_glass");
+    }
 
     /** Название — как у предмета картины. */
     @Override

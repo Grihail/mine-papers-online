@@ -10,6 +10,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
@@ -24,7 +25,6 @@ import net.minecraft.client.renderer.MultiBufferSource;
 //?}
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -112,9 +112,8 @@ public class PictureControls {
         progress += breaking.breakRate(mc.player);
         ModClient.swing();
         if (ticks++ % 4 == 0) {
-            SoundType sound = SoundType.WOOD;
-            mc.getSoundManager().play(new SimpleSoundInstance(sound.getHitSound(), SoundSource.BLOCKS,
-                (sound.getVolume() + 1f) / 8f, sound.getPitch() * 0.5f, RandomSource.create(),
+            // Своего звука удара у ванильной рамки нет — тихий щелчок рамки.
+            mc.getSoundManager().play(new SimpleSoundInstance(SoundEvents.ITEM_FRAME_ROTATE_ITEM, SoundSource.BLOCKS, 0.5f, 1f, RandomSource.create(),
                 breaking.getX(), breaking.getY(), breaking.getZ()));
         }
         if (progress >= 1f) {

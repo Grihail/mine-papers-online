@@ -6,12 +6,13 @@ import java.util.Map;
 import com.grihail.minepapers.ModConfig;
 import com.grihail.minepapers.picture.CanvasGeometry;
 import com.grihail.minepapers.picture.PictureSettings;
+import com.grihail.minepapers.picture.PuzzleGroup;
 
 /** Картина в мире целиком: холст, рамка (по выбранному виду), сама картинка и значок NSFW. Всё строится в координатах стены (u — вправо, v — вверх, d — от стены), см. CanvasGeometry; вершины — относительно угла клетки рамки у поверхности (CanvasGeometry.origin). Версия наследует класс и даёт только вывод вершин (emit), свет мира (lightAt, opaqueAt) и смену текстуры (texture). Рендер однопоточный: состояние отрисовки — в полях. */
 public abstract class PictureMesh {
 
-    /** Что рисуется текстурой (см. texture): кусок атласа (холст, рамка), картинка, картинка-граффити (прижата к стене смещением полигонов), значок NSFW. */
-    public static final int ATLAS = 0, PICTURE = 1, DECAL = 2, MARK = 3;
+    /** Что рисуется текстурой (см. texture): кусок атласа (холст, рамка), картинка, картинка-граффити (прижата к стене смещением полигонов), значок NSFW, кусок атласа с полупрозрачностью (стекло). */
+    public static final int ATLAS = 0, PICTURE = 1, DECAL = 2, MARK = 3, GLASS = 4;
 
     private static final double PX = PictureSettings.PIXEL;
     /** Плоскость граффити — почти вплотную к стене. */
@@ -24,6 +25,8 @@ public abstract class PictureMesh {
     /** Текстура рамки или холста: спрайт в атласе и цвет блока (листва и трава в атласе серые — их красит цвет). */
     public abstract static class Skin {
         public final float r, g, b;
+        /** Обычное стекло мода (textures/block/frame_glass.png): растягивается по проёму — углы и кайма по краю, без повторов. У текстур блоков false: они лежат плиткой по блокам, как холст. */
+        public boolean stretched;
 
         protected Skin(int color) {
             this.r = (color >> 16 & 0xFF) / 255f;
@@ -64,14 +67,14 @@ public abstract class PictureMesh {
     /** Непрозрачный блок: сквозь него свет к картине не идёт. */
     protected abstract boolean opaqueAt(int x, int y, int z);
 
-    /** Дальше рисовать этой текстурой (kind — ATLAS, PICTURE, DECAL, MARK; у MARK текстура null — значок версии). Версия может пропустить смену, если текстура та же. */
+    /** Дальше рисовать этой текстурой (kind — ATLAS, PICTURE, DECAL, MARK, GLASS; у MARK текстура null — значок версии). Версия может пропустить смену, если текстура та же. */
     protected abstract void texture(int kind, Object texture);
 
     /** Отрисовка кончилась: дорисовать начатое. */
     protected abstract void finish();
 
-    /** Нарисовать картину. shown — что показывать (см. shown), glow — как ярко светится сама картина (PictureFrame.selfGlow), canvasSkin и borderSkin — текстуры холста и рамки по их материалам. */
-    public void draw(PictureSettings tile, PictureManager.Variant shown, int glow, Skin canvasSkin, Skin borderSkin) {
+    /** Нарисовать картину. shown — что показывать (см. shown), glow — как ярко светится сама картина (PictureFrame.selfGlow), canvasSkin, borderSkin и glassSkin — текстуры холста, рамки и стекла по их материалам (glassSkin нужен, только если стекло включено). */
+    public void draw(PictureSettings tile, PictureManager.Variant shown, int glow, Skin canvasSkin, Skin borderSkin, Skin glassSkin) {
         boolean hasPicture = shown != null && shown.hasTexture();
         facing = tile.getFacing();
         rotation = tile.getRotation();
@@ -127,7 +130,14 @@ public abstract class PictureMesh {
             double d = decal ? DECAL_DEPTH : canvasKind == PictureSettings.CANVAS_BLOCK ? PX + 0.002 : PX;
             // Кадр анимации — по реальным часам (см. getCurrentTexture): при просадках TPS анимация не тормозит и не дёргается.
             texture(decal ? DECAL : PICTURE, shown.getCurrentTexture());
-            double pu0 = u0 + shown.x0, pv0 = v0 + shown.y0, pu1 = u0 + shown.x1, pv1 = v0 + shown.y1;
+            // Место картинки отсчитывается от угла холста, а у пазла — от угла общего прямоугольника группы; видно только то, что на своём холсте.
+            PuzzleGroup group = tile.clientPuzzle;
+            double gu = group != null ? group.u0 : u0, gv = group != null ? group.v0 : v0;
+            double pu0 = gu + shown.x0, pv0 = gv + shown.y0, pu1 = gu + shown.x1, pv1 = gv + shown.y1;
+            clipU0 = u0;
+            clipV0 = v0;
+            clipU1 = u1;
+            clipV1 = v1;
             picture(pu0, pv0, pu1, pv1, d);
             if (plate) {
                 picture(pu0, pv0, pu1, pv1, 0);
@@ -138,6 +148,23 @@ public abstract class PictureMesh {
         // 3. Картина NSFW, скрытая настройкой hideNsfw: по центру холста красный значок "18+" (1x1 блок, не больше холста) -
         // чтобы её не путали с картиной, которая ещё не загрузилась.
         if (ModConfig.hides(tile.nsfw)) nsfwMark(u0, v0, u1, v1, base);
+
+        // 4. Стекло — в проёме рамки (у багета — внутри него, по его ширине; иначе — во весь холст), над картинкой, под лицом багета.
+        if (tile.glass && glassSkin != null) {
+            double in = frame == PictureSettings.FRAME_MOLDING ? Math.min(tile.getMoldingBlocks(), Math.min((u1 - u0) / 2, (v1 - v0) / 2)) : 0;
+            if (u1 - u0 - 2 * in > 1e-6 && v1 - v0 - 2 * in > 1e-6) {
+                texture(GLASS, glassSkin.atlas());
+                setTint(glassSkin.r, glassSkin.g, glassSkin.b);
+                // Стекло — на полпикселя над картинкой (у багета это всё ещё ниже его лица: оно на 2 пикселя от стены).
+                double gd = (decal ? DECAL_DEPTH : canvasKind == PictureSettings.CANVAS_BLOCK ? PX + 0.002 : PX) + PX / 2;
+                if (glassSkin.stretched) {
+                    glass(glassSkin, u0 + in, v0 + in, u1 - in, v1 - in, gd);
+                } else {
+                    canvas(glassSkin, u0 + in, v0 + in, u1 - in, v1 - in, gd); // блок в слоте стекла — своей текстурой, плиткой по блокам
+                }
+                setTint(1f, 1f, 1f);
+            }
+        }
         finish();
     }
 
@@ -166,7 +193,8 @@ public abstract class PictureMesh {
         if (ModConfig.hides(tile.nsfw)) return null;
 
         PictureManager.Source source = PictureManager.get(key);
-        long seed = tile.getSlideSeed();
+        // У пазла слайдшоу общее на всю группу.
+        long seed = tile.clientPuzzle != null ? tile.clientPuzzle.seed : tile.getSlideSeed();
         PictureManager.Picture pic = source.slide(time, tile.interval, 0, seed);
         if (pic == null && !source.isLoading()) return null; // ошибка или пустой источник
 
@@ -197,14 +225,18 @@ public abstract class PictureMesh {
 
     // --------------------------------------------------------------------- Части картины
 
-    /** Картинка с плавным освещением, как у ванильных блоков: свет считается в каждой вершине сетки (среднее по соседним клеткам) и плавно перетекает по поверхности — без "ступенек" по блокам. */
+    /** Холст рисуемой картины: картинка за его краями обрезается (у пазла она больше холста куска). */
+    private double clipU0, clipV0, clipU1, clipV1;
+
+    /** Картинка с плавным освещением, как у ванильных блоков: свет считается в каждой вершине сетки (среднее по соседним клеткам) и плавно перетекает по поверхности — без "ступенек" по блокам. Видна только часть внутри холста (clip*). */
     private void picture(double u0, double v0, double u1, double v1, double d) {
         lightCache.clear();
         r = g = b = shadeFront;
-        for (int cu = (int) Math.floor(u0); cu < u1; cu++) {
-            for (int cv = (int) Math.floor(v0); cv < v1; cv++) {
-                double a = Math.max(u0, cu), bu = Math.min(u1, cu + 1);
-                double c = Math.max(v0, cv), e = Math.min(v1, cv + 1);
+        double su0 = Math.max(u0, clipU0), sv0 = Math.max(v0, clipV0), su1 = Math.min(u1, clipU1), sv1 = Math.min(v1, clipV1);
+        for (int cu = (int) Math.floor(su0); cu < su1; cu++) {
+            for (int cv = (int) Math.floor(sv0); cv < sv1; cv++) {
+                double a = Math.max(su0, cu), bu = Math.min(su1, cu + 1);
+                double c = Math.max(sv0, cv), e = Math.min(sv1, cv + 1);
                 if (bu - a < 1e-6 || e - c < 1e-6) continue;
                 double ta = (a - u0) / (u1 - u0), tb = (bu - u0) / (u1 - u0);
                 double tc = 1 - (c - v0) / (v1 - v0), te = 1 - (e - v0) / (v1 - v0);
@@ -254,22 +286,26 @@ public abstract class PictureMesh {
         vertex(cu - half, cv + half, d, 0, 0);
     }
 
-    /** Торцы пластины: крайние пиксели картинки, растянутые на всю толщину. */
+    /** Торцы пластины: крайние пиксели видимой части картинки (у пазла — у края холста куска), растянутые на всю толщину. */
     private void plateEdges(PictureManager.Variant shown, double u0, double v0, double u1, double v1) {
+        double su0 = Math.max(u0, clipU0), sv0 = Math.max(v0, clipV0), su1 = Math.min(u1, clipU1), sv1 = Math.min(v1, clipV1);
+        if (su1 <= su0 || sv1 <= sv0) return;
         // Середина крайнего пикселя текстуры, чтобы не захватить соседний.
         double hu = 0.5 / shown.width, hv = 0.5 / shown.height;
-        plateU(u0, u1, v1, hv, 0.05);
-        plateU(u0, u1, v0, 1 - hv, -0.05);
-        plateV(v0, v1, u0, hu, -0.05);
-        plateV(v0, v1, u1, 1 - hu, 0.05);
+        double ta = (su0 - u0) / (u1 - u0), tb = (su1 - u0) / (u1 - u0);
+        double tc = 1 - (sv1 - v0) / (v1 - v0), te = 1 - (sv0 - v0) / (v1 - v0);
+        plateU(su0, su1, sv1, ta, tb, Math.max(hv, tc + hv), 0.05);
+        plateU(su0, su1, sv0, ta, tb, Math.min(1 - hv, te - hv), -0.05);
+        plateV(sv0, sv1, su0, te, tc, Math.max(hu, ta + hu), -0.05);
+        plateV(sv0, sv1, su1, te, tc, Math.min(1 - hu, tb - hu), 0.05);
     }
 
     /** Горизонтальный торец пластины (плоскость v = const), по блокам — свет у каждого свой. */
-    private void plateU(double u0, double u1, double v, double tv, double dv) {
+    private void plateU(double u0, double u1, double v, double t0, double t1, double tv, double dv) {
         for (double s = u0; s < u1 - 1e-6; s = Math.floor(s) + 1) {
             double e = Math.min(Math.floor(s) + 1, u1);
             light((s + e) / 2, v + dv, PX / 2, dv > 0 ? shadeUp : shadeDown);
-            double ta = (s - u0) / (u1 - u0), tb = (e - u0) / (u1 - u0);
+            double ta = t0 + (t1 - t0) * (s - u0) / (u1 - u0), tb = t0 + (t1 - t0) * (e - u0) / (u1 - u0);
             vertex(s, v, 0, ta, tv);
             vertex(e, v, 0, tb, tv);
             vertex(e, v, PX, tb, tv);
@@ -278,11 +314,12 @@ public abstract class PictureMesh {
     }
 
     /** Вертикальный торец пластины (плоскость u = const). */
-    private void plateV(double v0, double v1, double u, double tu, double du) {
+    private void plateV(double v0, double v1, double u, double t0, double t1, double tu, double du) {
         for (double s = v0; s < v1 - 1e-6; s = Math.floor(s) + 1) {
             double e = Math.min(Math.floor(s) + 1, v1);
             light(u + du, (s + e) / 2, PX / 2, du > 0 ? shadeRight : shadeLeft);
-            double ta = 1 - (s - v0) / (v1 - v0), tb = 1 - (e - v0) / (v1 - v0);
+            // t0 — текстура у нижнего края (v0), t1 — у верхнего (v1)
+            double ta = t1 + (t0 - t1) * (v1 - s) / (v1 - v0), tb = t1 + (t0 - t1) * (v1 - e) / (v1 - v0);
             vertex(u, s, 0, tu, ta);
             vertex(u, e, 0, tu, tb);
             vertex(u, e, PX, tu, tb);
@@ -355,6 +392,28 @@ public abstract class PictureMesh {
             alongV(icon, jb0, jb1, ib0, base, top, rows, false, false, 0.05);
             alongV(icon, jb0, jb1, ib1, base, top, rows, true, false, -0.05);
         }
+    }
+
+    /** Обычное стекло мода (ванильная текстура стекла) в прямоугольнике, без повторов: по углам — углы текстуры 5x5 пикселей (с бликами), между ними — кайма в пиксель из пикселя посередине края текстуры, растянутого вдоль; середина залита центральным пикселем (прозрачным). Пиксель текстуры — 1/16 блока. */
+    private void glass(Skin icon, double u0, double v0, double u1, double v1, double d) {
+        double c = Math.min(5 * PX, Math.min((u1 - u0) / 2, (v1 - v0) / 2)), cp = c * 16, far = 16 - cp;
+        double rim = Math.min(PX, c), rp = rim * 16;
+        // Углы
+        front(icon, u0, v1 - c, u0 + c, v1, d, 0, 0, cp, cp);
+        front(icon, u1 - c, v1 - c, u1, v1, d, far, 0, 16, cp);
+        front(icon, u0, v0, u0 + c, v0 + c, d, 0, far, cp, 16);
+        front(icon, u1 - c, v0, u1, v0 + c, d, far, far, 16, 16);
+        // Кайма между углами: один столбец (строка) пикселей края текстуры, растянутый вдоль
+        front(icon, u0 + c, v1 - rim, u1 - c, v1, d, 8.25, 0, 8.75, rp);
+        front(icon, u0 + c, v0, u1 - c, v0 + rim, d, 8.25, 16 - rp, 8.75, 16);
+        front(icon, u0, v0 + c, u0 + rim, v1 - c, d, 0, 8.25, rp, 8.75);
+        front(icon, u1 - rim, v0 + c, u1, v1 - c, d, 16 - rp, 8.25, 16, 8.75);
+        // Середина — центральный пиксель текстуры: полосы у каймы между углами и прямоугольник внутри
+        front(icon, u0 + c, v1 - c, u1 - c, v1 - rim, d, 8.25, 8.25, 8.75, 8.75);
+        front(icon, u0 + c, v0 + rim, u1 - c, v0 + c, d, 8.25, 8.25, 8.75, 8.75);
+        front(icon, u0 + rim, v0 + c, u0 + c, v1 - c, d, 8.25, 8.25, 8.75, 8.75);
+        front(icon, u1 - c, v0 + c, u1 - rim, v1 - c, d, 8.25, 8.25, 8.75, 8.75);
+        front(icon, u0 + c, v0 + c, u1 - c, v1 - c, d, 8.25, 8.25, 8.75, 8.75);
     }
 
     /** Лицевой прямоугольник (плоскость d), текстура — пиксели (pu0, pv0)-(pu1, pv1) спрайта. */

@@ -22,6 +22,35 @@ public final class FrameGeometry extends CanvasGeometry {
         return new AxisAlignedBB(b[0], b[1], b[2], b[3], b[4], b[5]);
     }
 
+    /** Группа пазла картины frame (PuzzleGroup) — соседи ищутся среди картин мира; null — картина сама по себе. */
+    public static PuzzleGroup puzzle(final World world, PictureFrame frame) {
+        return PuzzleGroup.of(frame, new PuzzleGroup.Finder() {
+            @Override
+            public List<PictureSettings> near(double[] b) {
+                List<PictureSettings> found = new ArrayList<PictureSettings>();
+                AxisAlignedBB box = new AxisAlignedBB(b[0], b[1], b[2], b[3], b[4], b[5]);
+                for (Object o : world.getEntitiesWithinAABB(EntityPicture.class, box.grow(SEARCH_MARGIN))) {
+                    EntityPicture other = (EntityPicture) o;
+                    if (!other.isDead && canvasBox(other.frame).intersects(box)) found.add(other.frame);
+                }
+                return found;
+            }
+        });
+    }
+
+    /** Другие куски группы пазла картины self (PuzzleGroup.sameGroup) среди картин мира. */
+    public static List<EntityPicture> puzzleMembers(World world, EntityPicture self) {
+        List<EntityPicture> found = new ArrayList<EntityPicture>();
+        if (self.frame.puzzle == 0) return found;
+        double[] b = PuzzleGroup.searchBox(self.frame);
+        AxisAlignedBB box = new AxisAlignedBB(b[0], b[1], b[2], b[3], b[4], b[5]);
+        for (Object o : world.getEntitiesWithinAABB(EntityPicture.class, box.grow(SEARCH_MARGIN))) {
+            EntityPicture other = (EntityPicture) o;
+            if (other != self && !other.isDead && PuzzleGroup.sameGroup(self.frame, other.frame)) found.add(other);
+        }
+        return found;
+    }
+
     /** Холст нельзя разместить: он прошёл бы сквозь блок или другую картину. */
     public static boolean isBlocked(World world, PictureFrame candidate, Entity self) {
         return hitsBlocks(world, candidate) || overlapping(world, candidate, self) != null;
