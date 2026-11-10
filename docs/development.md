@@ -379,7 +379,7 @@ If code is the same for two or more versions and does not use the game API, it m
 - Code comments are written in Russian.
 - Vanilla mechanics are used wherever possible: light blocks, wood sounds, drop rules, widget tooltips, vanilla window textures.
 - The code does not guard in advance against every possible error. Limits stay where they define game rules (canvas size, position, resolution) or protect the server from foreign clients (the server accepts only the files it asked for, and no heavier than `maxImageMb`). Other errors are fixed when they show up.
-- Notable changes go into [CHANGELOG.md](../CHANGELOG.md) under `[Unreleased]`. On release the section gets the version number.
+- Notable changes go under `[Unreleased]` in [CHANGELOG.md](../CHANGELOG.md), in English: it becomes the CurseForge file description. On release the section gets the version number.
 
 ## Releasing
 

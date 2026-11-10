@@ -1,172 +1,174 @@
-# Список изменений
+# Changelog
 
-Здесь собраны все заметные изменения мода.
-Формат следует [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), версии следуют [Semantic Versioning](https://semver.org/lang/ru/).
+All notable changes to the mod are listed here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Добавлено
+## [1.6.0]
 
-- Стекло поверх картины: на вкладке "Рамка" между рамкой и холстом новая строка - слот и кнопки "без стекла" и "стекло". По умолчанию - обычное стекло, в слот можно положить любой блок; текстура ложится на весь холст без швов (кайма - только по краю холста), цветное стекло полупрозрачное. В конфиге для копирования - поле `glass` и материал `glass`.
-- Пазл - кнопка и поле номера группы справа от вписывания. Картины с одним номером на одной стене складываются в одну: картинка вписывается в их общий прямоугольник, каждая показывает свой кусок, слайдшоу общее. Кнопка включает пазл с самым маленьким свободным номером, в поле можно вписать любой - так картина входит в группу и берёт её настройки. Источник, стиль и вид рамки синхронизируются по всей группе при сохранении любой картины, размер и смещение у каждой свои. Номер общий для всех игроков, у заприваченной картины - только среди картин её владельца. В конфиге для копирования - поле `puzzle`.
-- В config/minepapers.json новая настройка сервера `maxImageMb` (по умолчанию 16, от 1 до 256): максимальный вес картинки, которую игроки выкладывают на сервер. Что тяжелее, уменьшается перед отправкой, а анимированный GIF тяжелее лимита становится статичной картинкой. Действует на новые выкладывания.
-- Версии для Minecraft 26.1.2, 26.2 и 26.3 на Forge и NeoForge (отдельный jar для каждой версии и загрузчика).
-- Версии для Minecraft 1.20.1: Forge и Fabric (на Fabric рядом с модом нужен Fabric API).
-- Версия для Minecraft 1.12.2 (Forge 14.23.5.2847 и новее).
-- Онлайн-папка: публичные папки Google Диска (ссылки вида drive.google.com/drive/folders/... и .../drive/u/1/folders/...), без ключа API. Картинки качаются уменьшенной копией до 2048 пикселей, GIF - целиком.
-- Иконка светящейся картины в инвентаре помечена в правом верхнем углу: жёлтая точка - пыль светокамня, точка с ореолом - светящийся блок (факел, светокамень и т.п.).
-- Сдвиг картинки внутри её области: на вкладке размера ряд "Сдвиг" с полями вправо и вверх и галочкой "px". Размер, смещение и отступ задают область, масштаб и сдвиг двигают картинку в ней. В конфиге для копирования - поле `image`.
-- На вкладке "Рамка" справа от слота свечения - кнопки, что светится: всё, только рамка или только картинка с холстом (по умолчанию). Раньше светилось всё. В конфиге для копирования - поле `glowPart`.
-- Путь или ссылка, вставленные в поле не того источника, сами уходят в поле своего источника, и источник переключается: ссылка на папку Яндекс Диска или Google Диска - в онлайн-папку, другая ссылка - в ссылку на картинку, полный путь - в папку на компьютере, имя из config/minepapers - туда.
-- Последний показанный кадр каждой картины хранится на диске (minepapers-cache/covers, отдельно для каждого мира и сервера): когда чанк картины загружается снова, она сразу показывает этот кадр, а не пустой холст, пока источник читается заново.
+### Added
 
-### Изменено
+- Glass over the picture: on the "Frame" tab, a new row between the frame and the canvas, with a slot and the "No glass" and "Glass" buttons. Plain glass by default; any block can go into the slot. Its texture covers the whole canvas without seams (the border only runs along the canvas edge), and stained glass is translucent. In the copied settings: the `glass` field and the `glass` material.
+- Puzzle: a button and a group number field to the right of the fit list. Pictures with the same number on the same wall join into one: the image is fitted into their shared rectangle, each picture shows its own piece, and the slideshow is shared. The button turns the puzzle on with the smallest free number; any number can be typed into the field, so the picture joins that group and takes its settings. Source, style and frame look are synced across the whole group when any of its pictures is saved; size and offset stay per picture. Numbers are shared by all players; for a locked picture, only among its owner's pictures. In the copied settings: the `puzzle` field.
+- New server setting `maxImageMb` in config/minepapers.json (default 16, from 1 to 256): the largest image players can upload to the server. Heavier images are scaled down before sending, and an animated GIF over the limit becomes a still image. Applies to new uploads.
+- Minecraft 26.1.2, 26.2 and 26.3 on Forge and NeoForge (a separate jar for each version and loader).
+- Minecraft 1.20.1: Forge and Fabric (Fabric needs Fabric API next to the mod).
+- Minecraft 1.12.2 (Forge 14.23.5.2847 or newer).
+- Online folder: public Google Drive folders (links like drive.google.com/drive/folders/... and .../drive/u/1/folders/...), no API key needed. Pictures are downloaded as a reduced copy up to 2048 pixels, GIFs in full.
+- A glowing picture's inventory icon has a mark in the top right corner: a yellow dot for glowstone dust, a dot with a halo for a light-emitting block (torch, glowstone, etc.).
+- Moving the image inside its area: the "Move" row on the size tab, with right and up fields and a "px" checkbox. Size, offset and padding set the area; zoom and move shift the image inside it. In the copied settings: the `image` field.
+- Buttons for what glows, to the right of the glow slot on the "Frame" tab: everything, only the frame, or only the picture with its canvas (default). Before, everything glowed. In the copied settings: the `glowPart` field.
+- A path or link pasted into the field of the wrong source moves to the right source's field, and the source switches: a Yandex Disk or Google Drive folder link goes to the online folder, any other link to the picture link, a full path to the folder on this PC, a name from config/minepapers to that source.
+- The last frame shown by each picture is kept on disk (minepapers-cache/covers, separately for each world and server): when the picture's chunk loads again, it shows that frame right away instead of an empty canvas while the source is read again.
 
-- Рецепт новой рамки: рамка, картина, книга с пером и стеклянная панель (без формы). Рецепт вынесен в config/minepapers.json (ключ `recipe`): любые предметы, в том числе из других модов, без формы или с формой до 3x3. В 1.7.10 и 1.12.2 он виден в NEI и JEI, в новых версиях - работает, но в книге рецептов не показывается.
-- Вписывание выбирается из выпадающего списка с иконками (раскрывается вверх, полное описание режима - в подсказке) вместо пяти кнопок в ряд.
-- Звуки картины - как у ванильной рамки для предметов, а не досок: установка и разрушение - звуки рамки, удары при ломании - тихий щелчок рамки (в 1.7.10, где у рамки своих звуков нет, они лежат в самом моде).
-- Источник "Яндекс Диск" стал общим источником "Онлайн-папка" с иконкой папки с глобусом: сервис определяется по ссылке, в короткой подсказке кнопки - список поддерживаемых сервисов. На ссылку неподдерживаемого сервиса - понятная ошибка. Уже настроенные картины и конфиги работают как раньше.
-- Новая картина по умолчанию - с багетом шириной 2 пикселя (раньше - с обшивкой торцов).
-- Вкладка размера компактнее: каждая настройка в своём ряду (подпись, поля, "px"), между настройками холста и картинки - разделитель. У числовых полей в подсказке вместо длинного текста - стрелки направления, у подписей рядов - короткое пояснение, как работает параметр.
-- На вкладке "Рамка" рамку и холст выключает обычная кнопка с крестом, как соседние кнопки вида, вместо отдельного значка глаза.
-- Кнопки рамки и холста на вкладке "Рамка" не зависят друг от друга: обшивку можно выбрать и без холста.
-- В рамке без холста картинка больше не прижата к стене, как граффити: она висит в рамке на уровне холста, сквозь прозрачный фон видна стена. Граффити - только без рамки и без холста.
-- Картина держится в памяти, пока её чанк загружен, и выгружается вместе с ним. Своих правил выгрузки (полминуты без взгляда, 48 блоков от игрока) больше нет.
-- У вкладок "Источник", "Размер и позиция", "Рамка" и "Стиль" нет заголовка страницы (название вкладки - в подсказке её кнопки), их содержимое поднялось выше.
-- Подписанная картина блестит, как зачарованный предмет (как и заприваченная), и не участвует в крафте: её нельзя ни скопировать, ни разобрать, ни сбросить.
-- В config/minepapers.json новые настройки сервера `disassembleSigned` и `disassembleLocked` (по умолчанию `false`): с `true` подписанные или заприваченные картины можно разбирать в крафте. Копировать их нельзя в любом случае.
-- Блеск заприваченной и подписанной картины на иконке ярче (в современных версиях был блеском брони вместо блеска предметов).
+### Changed
 
-### Исправлено
+- New frame recipe: an item frame, a painting, a book and quill and a glass pane (shapeless). The recipe is in config/minepapers.json (the `recipe` key): any items, including ones from other mods, shapeless or with a shape up to 3x3. In 1.7.10 and 1.12.2 it shows in NEI and JEI; in newer versions it works but does not show in the recipe book.
+- Fit is picked from a dropdown with icons (opens upwards, the full description of each mode is in its tooltip) instead of five buttons in a row.
+- Picture sounds are those of the vanilla item frame instead of planks: placing and breaking use the item frame sounds, hits while breaking are the item frame's soft click (in 1.7.10, where the item frame has no sounds of its own, they ship with the mod).
+- The "Yandex Disk" source became the general "Online folder" source, with a folder-and-globe icon: the service is detected from the link, and the button's short tooltip lists the supported services. A link to an unsupported service gives a clear error. Pictures and configs set up before keep working as they did.
+- A new picture has a 2-pixel molding by default (before, edges).
+- The size tab is more compact: each setting has its own row (label, fields, "px"), with a separator between the canvas and image settings. Number fields show direction arrows in their tooltips instead of long text; row labels have a short note on how the setting works.
+- On the "Frame" tab, the frame and the canvas are turned off with a regular button with a cross, like the neighbouring look buttons, instead of a separate eye icon.
+- The frame and canvas buttons on the "Frame" tab no longer depend on each other: edges can be picked without a canvas.
+- In a frame without a canvas, the image no longer lies flat on the wall like graffiti: it hangs in the frame at canvas level, and the wall shows through the transparent background. Graffiti is only without both frame and canvas.
+- A picture stays in memory while its chunk is loaded and unloads with it. The mod's own unload rules (half a minute unseen, 48 blocks from the player) are gone.
+- The "Source", "Size and position", "Frame" and "Style" tabs have no page title (the tab name is in its button tooltip), so their content moved up.
+- A signed picture has the enchantment glint (like a locked one) and takes no part in crafting: it cannot be copied, taken apart or reset.
+- New server settings `disassembleSigned` and `disassembleLocked` in config/minepapers.json (default `false`): with `true`, signed or locked pictures can be taken apart in crafting. They can never be copied.
+- The glint of locked and signed pictures on the icon is brighter (in modern versions it was the armor glint instead of the item glint).
 
-- Предмет сломанной картины разлетался далеко и в случайную сторону: он появлялся в самой картине, вплотную к стене, и его выталкивало из блока. Теперь он падает перед серединой холста без разлёта.
-- Пока список папки Яндекс Диска догружался, слайдшоу меняло картинки примерно раз в секунду, не дожидаясь таймера: порядок слайдов пересчитывался с каждой новой страницей списка. Теперь картинка держится до конца своего интервала.
-- Картины рядом с игроком выгружались, пока одиночная игра стояла на паузе: после паузы при повороте был виден пустой холст. Время на паузе больше не считается.
-- Картинки с Яндекс Диска появляются быстрее: ссылки на файлы берутся прямо из списка папки (без отдельного запроса на каждую картинку), фото JPEG качаются превью до 1280 пикселей вместо оригинала, а пока грузится картинка текущего слайда, показывается любая уже загруженная.
-- Картина, на которую не смотрели полминуты, выгружалась из памяти даже в паре шагов от игрока: при повороте назад было видно пустой холст, пока она грузилась заново. Теперь картины ближе 48 блоков (от края холста) остаются в памяти, даже если их не видно.
-- Папка Яндекс Диска с большим числом картинок грузилась минутами, и до конца загрузки картина ничего не показывала; показывались только первые 1000 файлов. Теперь список читается страницами: картинки появляются сразу после первой страницы, остальные догружаются в фоне, ограничения в 1000 файлов нет.
-- "Резкие пиксели" не делали пиксель-арт резким: при сдвиге картинки на долю пикселя и при уменьшении соседние пиксели смешивались. Теперь с этой опцией пиксели не смешиваются; без неё картинка сглаживается, как раньше. Кадры анимированных GIF, которые приходится уменьшать, больше не сглаживаются заранее.
+### Fixed
+
+- The item of a broken picture flew far in a random direction: it spawned inside the picture, right against the wall, and got pushed out of the block. Now it drops in front of the middle of the canvas without scattering.
+- While a Yandex Disk folder list was still loading, the slideshow switched pictures about once a second instead of waiting for the timer: the slide order was rebuilt with each new page of the list. Now a picture stays until its interval ends.
+- Pictures near the player unloaded while a singleplayer game was paused: after the pause, turning around showed an empty canvas. Paused time no longer counts.
+- Yandex Disk pictures appear faster: file links are taken straight from the folder list (no separate request per picture), JPEG photos are downloaded as previews up to 1280 pixels instead of the original, and while the current slide is loading, any already loaded picture is shown.
+- A picture nobody had looked at for half a minute unloaded from memory even a couple of steps from the player: turning back showed an empty canvas while it loaded again. Now pictures closer than 48 blocks (from the canvas edge) stay in memory even when not visible.
+- A Yandex Disk folder with many pictures took minutes to load, and the picture showed nothing until it finished; only the first 1000 files were shown. Now the list is read page by page: pictures appear right after the first page, the rest load in the background, and there is no 1000-file limit.
+- "Sharp pixels" did not keep pixel art sharp: when the image was moved by a fraction of a pixel or scaled down, neighbouring pixels blended. Now pixels do not blend with this option; without it the image is smoothed as before. Frames of animated GIFs that have to be scaled down are no longer smoothed in advance.
 
 ## [1.5.1]
 
-### Добавлено
+### Added
 
-- Версия для Fabric 1.21.1. Рядом с модом в папке mods нужен Fabric API.
+- Fabric 1.21.1. Fabric API is needed next to the mod in the mods folder.
 
-### Изменено
+### Changed
 
-- Картина освещается как блоки рядом: лицевая сторона и торцы затеняются по стороне света, как грани ванильных блоков (на северной и южной стене темнее, на западной и восточной - ещё темнее). Раньше картина была заметно ярче стены, на которой висит.
+- A picture is lit like the blocks around it: the front and edges are shaded by the side they face, like vanilla block faces (darker on north and south walls, darker still on west and east). Before, a picture was noticeably brighter than the wall it hung on.
 
 ## [1.5.0]
 
-### Добавлено
+### Added
 
-- Рамка и холст выбираются по отдельности на вкладке "Рамка", кнопками справа от их слотов. Рамка: без рамки, обшивка торцов, багет. Холст: без холста, из блока, сама картинка. Выключает рамку или холст кнопка-глаз. Кроме четырёх прежних видов есть новые сочетания: багет вокруг граффити, холст без рамки, пластина в обшивке или в багете.
-- Подпись картины: кнопка с пером над замком. Подписать можно только одну картину без привата и только один раз, после подтверждения в ванильном окне "Да / Нет". Подпись остаётся навсегда: её нет в конфиге для копирования, подписанную картину нельзя скопировать крафтом и сбросить. В кнопке видна голова подписавшего. С зажатым Shift ник подписавшего виден курсивом рядом с заголовком.
-- Блоки рамки и холста, которые выбранному виду не нужны, возвращаются игроку при закрытии окна. Пока окно открыто, их слоты бледные, и вид можно свободно переключать.
-- В конфиге для копирования поля `frame` и `canvas`.
-- Пометка NSFW (18+): кнопка "18+" над подписью, ставит и снимает любой, кто может менять картину. Помеченная картина видна в подсказке предмета. В config/minepapers.json новая настройка клиента `hideNsfw`: с ней у помеченных картин вместо картинки пустой холст с красным значком "18+" по центру (1x1 блок; на иконке предмета - тоже, поверх заглушки), картинки не скачиваются. В конфиге для копирования - поле `nsfw`.
-- В config/minepapers.json новая настройка клиента `titleNeedsSneak`: с `false` заголовок и ник подписавшего над картиной видны сразу при наведении, без Shift.
-- Ширина багета: вместо кнопки багета - числовое поле, ширина в пикселях (0 - багета нет). В конфиге для копирования - поле `moldingWidth`.
-- У картины без холста в инвентаре под картинкой шахматка: прозрачный фон виден, и картина не теряется в слоте.
-- Картинки WebP (и с прозрачностью) - из всех источников. У анимированного WebP показывается только первый кадр. Небольшие WebP уходят на сервер как есть, без пережатия.
-- Числовые поля окна: набрать или вставить можно только число, стрелки вверх и вниз меняют его на 1, колёсико над полем - тоже, даже без клика по полю.
+- The frame and the canvas are picked separately on the "Frame" tab, with buttons to the right of their slots. Frame: no frame, edges, molding. Canvas: no canvas, block canvas, picture itself. An eye button turns the frame or the canvas off. Besides the four old looks there are new combinations: a molding around graffiti, a canvas without a frame, a plate in edges or in a molding.
+- Signing a picture: a button with a quill above the lock. Only one unlocked picture can be signed, and only once, after confirming in the vanilla "Yes / No" window. The signature stays forever: it is not in the copied settings, and a signed picture cannot be copied by crafting or reset. The button shows the signer's head. With Shift held, the signer's name shows in italics next to the title.
+- Frame and canvas blocks that the chosen look does not need go back to the player when the window closes. While the window is open, their slots are faded and the look can be switched freely.
+- The `frame` and `canvas` fields in the copied settings.
+- NSFW (18+) mark: the "18+" button above the signature; anyone who can edit the picture can set or remove it. A marked picture shows it in the item tooltip. New client setting `hideNsfw` in config/minepapers.json: with it, marked pictures show an empty canvas with a red "18+" badge in the middle instead of the image (1x1 block; on the item icon too, over the placeholder), and their images are not downloaded. In the copied settings: the `nsfw` field.
+- New client setting `titleNeedsSneak` in config/minepapers.json: with `false`, the title and the signer's name above a picture show right away on hover, without Shift.
+- Molding width: a number field instead of the molding button, width in pixels (0 means no molding). In the copied settings: the `moldingWidth` field.
+- A picture without a canvas has a checkerboard under the image in the inventory: the transparent background is visible and the picture does not get lost in the slot.
+- WebP images (including transparent ones) from every source. An animated WebP shows only its first frame. Small WebP files go to the server as they are, without re-encoding.
+- Number fields in the window: only a number can be typed or pasted, the up and down arrows change it by 1, and so does the mouse wheel over the field, even without clicking it.
 
-### Изменено
+### Changed
 
-- Вкладка "Вид и стиль" стала вкладкой "Стиль", без повторного заголовка.
-- У новой картины по умолчанию исходные цвета (раньше - палитра с мягким дизерингом).
-- Под слотами материалов нет названий блоков (их видно в подсказке блока). У свечения осталась сила света.
-- В подсказке предмета видно, какие у картины рамка и холст.
-- Заголовок картины виден, только если смотреть на неё с зажатым Shift.
-- Вместо четырёх стилей цвета (исходные цвета, палитра карт, с дизерингом, с мягким дизерингом) - галочка "Резкие пиксели" (по умолчанию стоит: без полупрозрачности, края картинки с прозрачным фоном не размываются по стене, как было с палитрой карт), галочка "Палитра карт" (как раньше, у каждой версии игры свои цвета карт; с ней не действует ползунок числа цветов) и ползунки под ними: число цветов от 2 до 25 (постеризация) и сила дизеринга от 0% до 100% (работает и с палитрой). Колёсико над ползунком двигает его. Старые картины и конфиги выглядят как раньше: палитра карт с теми же дизерингом и резкими пикселями. В конфиге для копирования - поля `sharpPixels`, `mapPalette`, `colors` и `dither`.
-- Вид дизеринга - две кнопки с иконками между ползунками числа цветов и силы дизеринга: диффузный (Флойд - Стейнберг, как раньше, по умолчанию) и сеточный (упорядоченный, Байер 4x4: точки ровной квадратной сеткой). В конфиге для копирования - поле `ditherMode`.
-- "Пикселей на блок" - ползунок вместо поля ввода, рядом с остальными ползунками: мышью значение меняется на 1, колёсико прыгает к соседней степени двойки (1, 2, 4 ... 256).
-- Широкий багет без "клетки": по краю - кайма текстуры рамки, внутри - бесшовное дерево, на боковых брусьях волокна идут вдоль бруса.
-- Справа от внутреннего отступа - поле масштаба со своей галочкой "px": больше нуля - картинка крупнее, меньше - мельче; что выходит за отступ, обрезается. В конфиге для копирования - поле `zoom`.
-- Кнопка обшивки не выключается без холста: она сама включает холст из блока.
-- Обычный холст - ванильная текстура задника картины. Рамка по умолчанию - цвета палки вместо латуни.
-- Файл мода стал в 2,5 раза меньше (около 315 КБ вместо 808 КБ): из библиотек WebP (TwelveMonkeys) в него попадает только то, что нужно для чтения WebP.
+- The "Look and style" tab became the "Style" tab, without a repeated title.
+- A new picture uses the original colors by default (before, a palette with soft dithering).
+- Material slots no longer have block names under them (they are in the block tooltip). The glow slot still shows the light level.
+- The item tooltip shows the picture's frame and canvas.
+- A picture's title shows only when looking at it with Shift held.
+- Instead of four color styles (original colors, map palette, dithered, soft dithered): a "Sharp pixels" checkbox (on by default: no translucency, and the edges of an image with a transparent background do not smear over the wall, as with the map palette), a "Map palette" checkbox (as before, each game version has its own map colors; the color count slider does nothing with it) and sliders below them: color count from 2 to 25 (posterization) and dither strength from 0% to 100% (works with the palette too). The mouse wheel over a slider moves it. Old pictures and configs look as before: map palette with the same dithering and sharp pixels. In the copied settings: the `sharpPixels`, `mapPalette`, `colors` and `dither` fields.
+- Dithering type: two icon buttons between the color count and dither strength sliders: diffusion (Floyd-Steinberg, as before, the default) and grid (ordered, Bayer 4x4: dots in an even square grid). In the copied settings: the `ditherMode` field.
+- "Pixels per block" is a slider instead of an input field, next to the other sliders: the mouse changes the value by 1, the wheel jumps to the neighbouring power of two (1, 2, 4 ... 256).
+- A wide molding has no "grid": a border of the frame texture runs along the edge, with seamless wood inside; on the side bars the grain runs along the bar.
+- A zoom field with its own "px" checkbox to the right of the padding: above zero the image gets bigger, below zero smaller; whatever goes past the padding is cropped. In the copied settings: the `zoom` field.
+- The edges button no longer turns off without a canvas: it turns on a block canvas by itself.
+- The plain canvas is the vanilla painting back texture. The default frame is stick-colored instead of brass.
+- The mod file is 2.5 times smaller (about 315 KB instead of 808 KB): only what is needed to read WebP goes into it from the WebP libraries (TwelveMonkeys).
 
-### Исправлено
+### Fixed
 
-- Картина без холста с большим отступом и отрицательным масштабом показывала вместо картинки обычный холст: от картинки не оставалось места, и пустой результат принимался за "ещё не загрузилась". Теперь масштаб не сжимает картинку меньше пикселя, а загруженная картинка, от которой ничего не видно, заглушку не рисует.
-- GIF в большой сборке шли медленнее и рывками: анимация шла по игровому времени, а оно при просадках TPS замедляется и скачет. Теперь она идёт по реальным часам (у игроков с верными часами кадр тот же). Кадры GIF загружаются в видеопамять понемногу за несколько кадров игры, без фриза, а картинки обрабатываются в 2-4 фоновых потоках с приоритетом чуть ниже обычного, а не в двух с самым низким.
-- В 1.7.10 мод показывал в списке модов и в User-Agent старую версию 1.4.1: версия была вписана в код. Теперь она, как и в 1.21.1, берётся из описания мода, куда её подставляет сборка.
-- Головы владельца и подписавшего не показывались на офлайн-серверах и в лаунчерах с офлайн-аккаунтом (Prism): теперь скин берётся прямо у Mojang, по UUID или по нику.
+- A picture without a canvas, with a large padding and a negative zoom, showed a plain canvas instead of the image: no room was left for the image, and the empty result was taken for "not loaded yet". Now zoom does not shrink the image below one pixel, and a loaded image of which nothing is visible does not draw the placeholder.
+- GIFs in a big modpack played slower and in jerks: the animation followed game time, which slows down and jumps when TPS drops. Now it follows the real clock (players with correct clocks see the same frame). GIF frames are uploaded to video memory bit by bit over several game frames, without freezes, and images are processed in 2-4 background threads with slightly below normal priority instead of two with the lowest.
+- In 1.7.10 the mod showed the old version 1.4.1 in the mod list and in the User-Agent: the version was written in the code. Now, as in 1.21.1, it comes from the mod description, where the build fills it in.
+- The heads of the owner and the signer did not show on offline servers and in launchers with an offline account (Prism): now the skin comes straight from Mojang, by UUID or by name.
 
 ## [1.4.1]
 
-### Добавлено
+### Added
 
-- Вкладка "Описание": заголовок и описание картины. Заголовок виден рядом с картиной, когда на неё смотрят. Заголовок и описание видны в подсказке предмета.
-- Ссылки в описании подчёркиваются. В окне чужой картины по ним можно кликнуть.
-- Замок привата: менять картину может только владелец, остальные видят только заголовок и описание. Приватная картина в инвентаре блестит.
-- Внутренний отступ картинки от краёв холста.
-- В творческом режиме вставка настроек создаёт недостающие материалы.
-- Окно настройки картины открывается и у предмета: ПКМ с картиной в руке, не глядя на блок. Окно настраивает сразу всю стопку. Пока окно открыто, картину нельзя переложить.
-- У стопки картин в слоте материала лежит по блоку на каждую картину. Стопка блоков меняет материал всей стопке картин, часть блоков меняет часть картин: изменённые картины отделяются от стопки и попадают в инвентарь.
-- Файл настроек `config/minepapers.json`, общий для всех версий. Настройка `stackMaterials` (по умолчанию включена) позволяет админу сервера запретить менять материалы у стопки картин: тогда они меняются только у одной картины.
+- The "Description" tab: the picture's title and description. The title shows next to the picture when looking at it. The title and description show in the item tooltip.
+- Links in the description are underlined. In the window of someone else's picture they can be clicked.
+- Lock: only the owner can edit the picture; others see only the title and description. A locked picture has a glint in the inventory.
+- Image padding from the canvas edges.
+- In creative mode, pasting settings creates the missing materials.
+- The picture settings window also opens for the item: right-click with a picture in hand while not looking at a block. The window sets up the whole stack at once. While the window is open, the picture cannot be moved.
+- For a stack of pictures, the material slot holds one block per picture. A stack of blocks changes the material of the whole stack of pictures; fewer blocks change only some of the pictures: the changed pictures split off the stack into the inventory.
+- The settings file `config/minepapers.json`, shared by all versions. The `stackMaterials` setting (on by default) lets a server admin forbid changing materials on a stack of pictures: then they change on one picture only.
 
-### Изменено
+### Changed
 
-- Один набор словарей в формате JSON для всех версий игры. Для 1.7.10 файлы `.lang` собираются из него при сборке.
-- Общий код для загрузки картинок, обмена ими с сервером, хранения на сервере, настроек и геометрии картины. Обе версии работают одинаково.
-- В 1.7.10 картина считает координаты так же точно, как в 1.21.1, и не съезжает вдали от центра мира.
-- В 1.7.10 большие картины правильно находят друг друга при проверке наложения.
-- В 1.7.10 открыть или сломать картину можно с того же расстояния, что и в 1.21.1.
-- В 1.7.10 включённые варианты лампы, печи и редстоун-руды светят в слоте свечения.
-- Подсказки окна в 1.21.1 стали ванильными.
-- Подпись размера: "Размер: ширина, высота:". На вкладках "Размер и позиция" и "Описание" нет заголовка вкладки.
-- Код упрощён, мод стал меньше.
+- One set of JSON translation files for all game versions. For 1.7.10, the `.lang` files are built from it.
+- Shared code for loading images, exchanging them with the server, storing them on the server, settings and picture geometry. Both versions work the same way.
+- In 1.7.10 a picture computes coordinates as precisely as in 1.21.1 and does not drift far from the world center.
+- In 1.7.10 large pictures detect each other correctly when checking for overlap.
+- In 1.7.10 a picture can be opened or broken from the same distance as in 1.21.1.
+- In 1.7.10 lit variants of the lamp, furnace and redstone ore glow in the glow slot.
+- Window tooltips in 1.21.1 are vanilla ones.
+- The size label: "Size: width, height:". The "Size and position" and "Description" tabs have no tab title.
+- Simpler code, smaller mod.
 
-### Исправлено
+### Fixed
 
-- У картин нет трещин и частиц при ломании.
-- Отступ иконки предмета для вида "Рамка".
+- Pictures have no cracks or particles when broken.
+- The item icon offset for the "Frame" look.
 
 ## [1.4.0]
 
-### Добавлено
+### Added
 
-- Новый интерфейс окна настройки.
-- Слот материала рамки: рамка делается из текстуры настоящего блока, который кладётся в слот.
-- Слот материала холста.
-- Слот свечения: картина светит с силой блока в слоте. Пыль светокамня делает картину яркой, но не освещает блоки вокруг.
-- При разборе картины в крафте игрок сначала получает материалы рамки, холста и свечения. Чтобы сбросить картину полностью, её разбирают ещё раз.
-- Копирование и вставка всех настроек картины в виде JSON. Работает и между разными версиями игры.
+- A new settings window.
+- A frame material slot: the frame is made from the texture of a real block placed in the slot.
+- A canvas material slot.
+- A glow slot: the picture glows with the light level of the block in the slot. Glowstone dust makes the picture bright but does not light up the blocks around.
+- When a picture is taken apart in crafting, the player first gets back the frame, canvas and glow materials. To reset the picture completely, take it apart again.
+- Copying and pasting all picture settings as JSON. Works between different game versions too.
 
-### Исправлено
+### Fixed
 
-- Развёртка текстуры на торцах рамки.
+- Texture mapping on the frame edges.
 
 ## [1.3.0]
 
-### Добавлено
+### Added
 
-- Анимированные GIF.
+- Animated GIFs.
 
 ## [1.2.1]
 
-### Исправлено
+### Fixed
 
-- Картины на подвижных конструкциях Create Aeronautics (подуровни Sable).
+- Pictures on moving Create Aeronautics contraptions (Sable sublevels).
 
 ## [1.2.0]
 
-### Добавлено
+### Added
 
-- Версия для Minecraft 1.21.1 на NeoForge.
-- Японский и китайский переводы.
-- Вид "Пластина".
+- Minecraft 1.21.1 on NeoForge.
+- Japanese and Chinese translations.
+- The "Plate" look.
 
 ## [1.1.0]
 
-Первая версия.
+First version.
 
-### Добавлено
+### Added
 
-- Рамка для картин. Картина является сущностью: не занимает клеток и держится без опоры.
-- Картину можно повесить на любую грань блока, в том числе на пол и потолок.
-- Источники картинок: config/minepapers, публичная папка Яндекс Диска, папка на компьютере, ссылка на картинку.
-- Разрешение от 1 пикселя на блок.
+- A picture frame. The picture is an entity: it takes no block space and needs no support.
+- A picture can hang on any block face, including the floor and the ceiling.
+- Picture sources: config/minepapers, a public Yandex Disk folder, a folder on this PC, a picture link.
+- Resolution from 1 pixel per block.
