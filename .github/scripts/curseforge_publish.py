@@ -102,7 +102,8 @@ def metadata_for(target, version, changelog):
     metadata = {
         "changelog": changelog,
         "changelogType": "markdown",
-        "displayName": f"Mine Papers Online {version} ({mc} {LOADERS[loader]})",
+        # Имя файла на сайте: 26.3-neoforge-1.6.0
+        "displayName": f"{target}-{version}",
         "gameVersionNames": game_version_names(target),
         "releaseType": release_type(version),
     }
