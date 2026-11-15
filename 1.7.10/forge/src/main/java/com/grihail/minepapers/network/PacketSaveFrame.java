@@ -66,12 +66,14 @@ public class PacketSaveFrame implements IMessage {
         if (members.isEmpty()) return;
         if (joined) {
             picture.frame.copyPuzzleSettings(members.get(0).frame);
+            picture.setRedstoneStep(members.get(0).frame.redstoneStep);
             picture.settingsChanged();
             return;
         }
         for (EntityPicture other : members) {
             if (!other.frame.mayEdit(player.getUniqueID())) continue;
             other.frame.copyPuzzleSettings(picture.frame);
+            other.setRedstoneStep(picture.frame.redstoneStep);
             other.settingsChanged();
         }
     }

@@ -195,7 +195,7 @@ public abstract class PictureMesh {
         PictureManager.Source source = PictureManager.get(key);
         // У пазла слайдшоу общее на всю группу.
         long seed = tile.clientPuzzle != null ? tile.clientPuzzle.seed : tile.getSlideSeed();
-        PictureManager.Picture pic = source.slide(time, tile.interval, 0, seed);
+        PictureManager.Picture pic = source.slideAt(tile.slideSlot(time), 0, seed, tile.sequential);
         if (pic == null && !source.isLoading()) return null; // ошибка или пустой источник
 
         PictureManager.Variant current = null;
@@ -203,7 +203,7 @@ public abstract class PictureMesh {
             current = pic.variant(ImageStylizer.Layout.of(tile, pic.getOrigWidth(), pic.getOrigHeight()));
         }
         // Заранее готовим следующий слайд
-        PictureManager.Picture next = source.slide(time, tile.interval, 1, seed);
+        PictureManager.Picture next = source.slideAt(tile.slideSlot(time), 1, seed, tile.sequential);
         if (next != null && next.request()) {
             next.variant(ImageStylizer.Layout.of(tile, next.getOrigWidth(), next.getOrigHeight()));
         }

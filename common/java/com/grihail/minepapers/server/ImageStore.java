@@ -64,7 +64,7 @@ public final class ImageStore {
         for (Iterator<Offer> it = OFFERS.iterator(); it.hasNext();) {
             if (it.next().isFor(world, target)) it.remove();
         }
-        Offer offer = new Offer(world, target, origin, hashes);
+        Offer offer = new Offer(world, target, origin, hashes, playerId);
         Set<String> missing = new LinkedHashSet<String>();
         for (int i = 0; i < hashes.length; i += SharedImage.HASH_BYTES) {
             String hex = SharedImage.hex(hashes, i, SharedImage.HASH_BYTES);
@@ -126,7 +126,7 @@ public final class ImageStore {
         PictureSettings frame = host.frame(offer.world, offer.target);
         // Пока картинки грузились, картину могли сломать (убрать предмет) или перенастроить на другой источник.
         if (frame == null || !offer.origin.equals(frame.getOriginKey())) return;
-        host.shareFiles(offer.world, offer.target, offer.hashes);
+        host.shareFiles(offer.world, offer.target, offer.hashes, offer.uploader);
     }
 
     // --------------------------------------------------------------------- Скачивание
@@ -248,12 +248,15 @@ public final class ImageStore {
         final int target;
         final String origin;
         final byte[] hashes;
+        /** Кто предложил картинки. */
+        final UUID uploader;
 
-        Offer(Object world, int target, String origin, byte[] hashes) {
+        Offer(Object world, int target, String origin, byte[] hashes, UUID uploader) {
             this.world = world;
             this.target = target;
             this.origin = origin;
             this.hashes = hashes;
+            this.uploader = uploader;
         }
 
         boolean isFor(Object world, int target) {

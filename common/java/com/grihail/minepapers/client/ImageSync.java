@@ -181,8 +181,20 @@ public final class ImageSync {
 
     /** Выложить картинки локального источника рамки на сервер, чтобы их увидели все. Если у этого игрока таких файлов нет, ничего не происходит. @param target картина, к которой относятся картинки (PictureTarget) */
     public static void offer(final int target, PictureSettings frame) {
-        final String origin = frame.getOriginKey();
-        if (origin == null || frame.isNetworkSource()) return;
+        if (frame.isNetworkSource()) return;
+        String origin = frame.getOriginKey();
+        if (origin == null) return;
+        trust(origin);
+        offer(target, origin);
+    }
+
+    /** Сервер просит выложить заново картинки источника origin для картины target (команда перезагрузки; самой картины у клиента может и не быть). Выкладываем, только если игрок сам когда-то выкладывал этот источник (trust): иначе сервер мог бы вытащить файлы из любой папки компьютера. */
+    public static void reofferRequested(int target, String origin) {
+        // Свой мир (одиночная игра, LAN-хост) — сервер свой, ему можно.
+        if (origin != null && (isTrusted(origin) || ClientHost.get().isSingleplayerHost())) offer(target, origin);
+    }
+
+    private static void offer(final int target, final String origin) {
         jobOrigin = origin;
         jobStage = STAGE_PREPARING;
         jobDone = 0;
@@ -212,6 +224,37 @@ public final class ImageSync {
                 finishJob(origin);
             }
         });
+    }
+
+    /** Источники, которые игрок сам выкладывал на сервер (ключи getOriginKey), — строками в файле в кэше: их сервер может попросить выложить заново. */
+    private static Set<String> trusted;
+
+    private static File trustedFile() {
+        return new File(cacheDir(), "offered-sources.txt");
+    }
+
+    private static synchronized boolean isTrusted(String origin) {
+        if (trusted == null) {
+            trusted = new HashSet<String>();
+            try {
+                if (trustedFile().isFile()) trusted.addAll(Files.readAllLines(trustedFile().toPath(), java.nio.charset.StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                LOG.warn("Не удалось прочитать " + trustedFile() + ": " + e);
+            }
+        }
+        return trusted.contains(origin);
+    }
+
+    private static synchronized void trust(String origin) {
+        if (isTrusted(origin) || origin.contains("\n")) return;
+        trusted.add(origin);
+        try {
+            Files.createDirectories(cacheDir().toPath());
+            Files.write(trustedFile().toPath(), (origin + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            LOG.warn("Не удалось записать " + trustedFile() + ": " + e);
+        }
     }
 
     /** Рамки без выложенных картинок хост одиночной игры / LAN выкладывает сам: файлы с его компьютера, значит, это его картины. @param world измерение картины (вместе с entityId отличает одну картину от другой) */

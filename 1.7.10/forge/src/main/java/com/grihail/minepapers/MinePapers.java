@@ -14,8 +14,11 @@ import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.PacketOpenFrame;
 import com.grihail.minepapers.network.PacketPasteMaterials;
+import com.grihail.minepapers.network.PacketReload;
+import com.grihail.minepapers.network.PacketReloadRequest;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.server.CommandMinePapers;
 import com.grihail.minepapers.server.ServerImages;
 
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -24,6 +27,7 @@ import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
@@ -87,6 +91,8 @@ public class MinePapers {
         network.registerMessage(PacketBreakPicture.Handler.class, PacketBreakPicture.class, 6, Side.SERVER);
         network.registerMessage(PacketOpenFrame.Handler.class, PacketOpenFrame.class, 7, Side.SERVER);
         network.registerMessage(PacketPasteMaterials.Handler.class, PacketPasteMaterials.class, 8, Side.SERVER);
+        network.registerMessage(PacketReload.Handler.class, PacketReload.class, 9, Side.CLIENT);
+        network.registerMessage(PacketReloadRequest.Handler.class, PacketReloadRequest.class, 10, Side.SERVER);
         NetworkRegistry.INSTANCE.registerGuiHandler(this, proxy);
         ServerImages.install();
         FMLCommonHandler.instance().bus().register(new ServerImages.Events());
@@ -103,6 +109,12 @@ public class MinePapers {
         RecipeSorter.register(MODID + ":frame_copy", RecipePictureFrame.class, RecipeSorter.Category.SHAPELESS,
             "after:minecraft:shapeless");
         GameRegistry.addRecipe(new RecipePictureFrame());
+    }
+
+    /** Команда /minepapers (перезагрузка картинок картин), работает и в командных блоках. */
+    @Mod.EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        event.registerServerCommand(new CommandMinePapers());
     }
 
     @Mod.EventHandler

@@ -17,6 +17,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketPasteMaterials;
+import com.grihail.minepapers.network.PacketReloadRequest;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.FrameHolder;
@@ -38,6 +39,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -51,7 +53,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** id кнопок: вкладки — 0..4, группы переключателей — начало группы + значение. */
     private static final int ID_TAB = 0, ID_SOURCE = 10, ID_FIT = 20, ID_FRAME = 30, ID_CANVAS = 35, ID_STYLE = 40, ID_DITHER_MODE = 45,
         ID_PREV = 50, ID_NEXT = 51, ID_FOLDER = 52, ID_RELOAD = 53, ID_SIZE_PX = 54, ID_POS_PX = 55,
-        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63, ID_ZOOM_PX = 64, ID_IMAGE_PX = 65, ID_PUZZLE = 66,
+        ID_COPY = 56, ID_PASTE = 57, ID_PAD_PX = 58, ID_LOCK = 59, ID_SIGN = 60, ID_SHARP = 61, ID_MAP_PALETTE = 62, ID_NSFW = 63, ID_ZOOM_PX = 64, ID_IMAGE_PX = 65, ID_PUZZLE = 66, ID_REDSTONE = 67, ID_ORDER = 68,
         ID_GLOW = 70, ID_GLASS = 75;
 
     /** Ширина — как у сундука; низ окна — часть его текстуры с инвентарём, слоты в ней на 14 пикселей ниже её верха. */
@@ -101,6 +103,14 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     /** Вкладка, на которой лежит кнопка (у самих вкладок записи нет — они видны всегда). */
     private final Map<GuiButton, Integer> buttonTab = new HashMap<GuiButton, Integer>();
     private GuiWidgets.Small btnPrev, btnNext, btnFolder, btnReload, btnCopy, btnPaste;
+    /** Справа от поля интервала: слайды меняются сигналом редстоуна, а не по интервалу (поле тогда выключено). */
+    private GuiWidgets.Toggle btnRedstone;
+    /** Под полем пути онлайн-папки и папки на компьютере: картинки в случайном порядке или по очереди (надпись — текущий режим). */
+    private GuiWidgets.Small btnOrder;
+    /** Верх ряда интервала на вкладке источника: подпись, поле и кнопка редстоуна. */
+    private static final int INTERVAL_Y = 128;
+    /** Кнопки config/minepapers (< > и "Открыть папку") — сразу под полем пути. */
+    private static final int LOCAL_BUTTONS_Y = 78;
     private GuiWidgets.Check cbSizePx, cbPosPx, cbPadPx, cbZoomPx, cbImagePx, cbSharp, cbMapPalette;
 
     /** Вкладка размера — ряды по одной настройке: подпись, одно или два поля, галочка "px". Верх полей рядов по порядку ROW_*; между отступом и масштабом — разделитель на SEPARATOR_Y: выше — область картинки на холсте, ниже — сама картинка в ней. */
@@ -170,6 +180,12 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         protected long worldTime() {
             return mc.theWorld.getTotalWorldTime();
         }
+
+        /** Сигналы редстоуна ловит EntityPicture. */
+        @Override
+        protected boolean supportsRedstone() {
+            return true;
+        }
     }
 
     @Override
@@ -214,14 +230,21 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             sourceButtons.add(add(new GuiWidgets.Toggle(ID_SOURCE + i, x + 8 + i * 22, y + 6, i * 16,
                 GuiWidgets.SOURCE_ICON_V), TAB_SOURCE));
         }
-        for (int f = F_PATH; f <= F_IMAGE; f++) area(new GuiTextArea(fontRendererObj, x + 9, y + 42, 158, 44), f, x + 9, y + 42, 158, 44);
-        btnPrev = small(TAB_SOURCE, ID_PREV, x + 8, y + 89, 14, 14, "<", -1);
-        btnNext = small(TAB_SOURCE, ID_NEXT, x + 24, y + 89, 14, 14, ">", -1);
+        // Поле пути или ссылки — сразу под кнопками источников, без подписи (что в него вводить — в подсказке кнопки источника).
+        for (int f = F_PATH; f <= F_IMAGE; f++) area(new GuiTextArea(fontRendererObj, x + 9, y + 31, 158, 44), f, x + 9, y + 31, 158, 44);
+        btnPrev = small(TAB_SOURCE, ID_PREV, x + 8, y + LOCAL_BUTTONS_Y, 14, 14, "<", -1);
+        btnNext = small(TAB_SOURCE, ID_NEXT, x + 24, y + LOCAL_BUTTONS_Y, 14, 14, ">", -1);
         String open = I18n.format("minepapers.gui.openFolder");
-        btnFolder = small(TAB_SOURCE, ID_FOLDER, x + 40, y + 89, fontRendererObj.getStringWidth(open) + 12, 14, open, -1);
-        // Интервал и состояние — внизу вкладки, над инвентарём
-        field(F_INTERVAL, x + 129, y + 117, 38, 6);
-        btnReload = small(TAB_SOURCE, ID_RELOAD, x + 154, y + 131, 14, 14, "", GuiWidgets.ICON_RELOAD_U);
+        btnFolder = small(TAB_SOURCE, ID_FOLDER, x + 40, y + LOCAL_BUTTONS_Y, fontRendererObj.getStringWidth(open) + 12, 14, open, -1);
+        int orderW = Math.max(fontRendererObj.getStringWidth(I18n.format("minepapers.gui.order.0")),
+            fontRendererObj.getStringWidth(I18n.format("minepapers.gui.order.1"))) + 12;
+        btnOrder = small(TAB_SOURCE, ID_ORDER, x + 8, y + LOCAL_BUTTONS_Y, orderW, 14, "", -1);
+        // Обновить — в правом верхнем углу, в ряду кнопок источника.
+        btnReload = add(new GuiWidgets.Bare(ID_RELOAD, x + WIDTH - 8 - 20, y + 6, 20, 20, GuiWidgets.ICON_RELOAD_U), TAB_SOURCE);
+        // Интервал — внизу вкладки, над инвентарём: подпись слева, поле и кнопка редстоуна прижаты к правому краю.
+        int redstoneX = WIDTH - 8 - 20;
+        field(F_INTERVAL, x + redstoneX - 5 - 38, y + INTERVAL_Y + 4, 38, 6);
+        btnRedstone = add(new GuiWidgets.ItemToggle(ID_REDSTONE, x + redstoneX, y + INTERVAL_Y, new ItemStack(Items.redstone)), TAB_SOURCE);
 
         // Размер, смещение и отступ холста, масштаб и сдвиг картинки — по ряду на каждый: подписи слева, поля и галочки "px" — столбцами.
         int labelW = 0;
@@ -357,6 +380,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         btnPrev.visible &= local;
         btnNext.visible &= local;
         btnFolder.visible &= local;
+        btnOrder.visible &= ed.source == PictureFrame.SOURCE_YANDEX || ed.source == PictureFrame.SOURCE_FOLDER;
+        btnOrder.displayString = I18n.format("minepapers.gui.order." + (ed.sequential ? 1 : 0));
         for (GuiWidgets.Tab t : tabs) t.selected = t.id - ID_TAB == ed.tab;
         cbSharp.checked = ed.sharp;
         cbMapPalette.checked = ed.mapPalette;
@@ -368,6 +393,8 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         fitList.value = ed.fitMode;
         if (!fitList.visible) fitList.open = false;
         btnPuzzle.checked = ed.puzzle != 0;
+        btnRedstone.checked = ed.redstone;
+        fields[F_INTERVAL].setEnabled(!ed.redstone);
         for (GuiWidgets.Toggle t : ditherButtons) t.checked = t.id - ID_DITHER_MODE == ed.ditherMode;
         for (GuiWidgets.Toggle t : frameButtons) t.checked = t.id - ID_FRAME == ed.frameShape;
         for (GuiWidgets.Toggle t : canvasButtons) t.checked = t.id - ID_CANVAS == ed.canvasKind;
@@ -386,8 +413,13 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         cbZoomPx.checked = ed.zoomPx;
         cbImagePx.checked = ed.imagePx;
         for (int f = 0; f < FIELD_COUNT; f++) {
-            if (!ed.fieldShown(f)) fields[f].setFocused(false);
+            if (!editable(f)) fields[f].setFocused(false);
         }
+    }
+
+    /** Поле видно и принимает ввод: интервал в режиме редстоуна виден, но выключен. */
+    private boolean editable(int f) {
+        return ed.fieldShown(f) && !(f == F_INTERVAL && ed.redstone);
     }
 
     @Override
@@ -426,7 +458,12 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                     pasteConfig();
                     break;
                 case ID_RELOAD:
-                    ed.reload();
+                    // Shift — у всех игроков (решает сервер, PictureReload.fromWindow); у картины-предмета — только у себя.
+                    if (isShiftKeyDown() && holder.picture != null) {
+                        MinePapers.network.sendToServer(new PacketReloadRequest(holder.picture.getEntityId()));
+                    } else {
+                        ed.reload();
+                    }
                     break;
                 case ID_SIZE_PX:
                     ed.toggleSizePx();
@@ -439,6 +476,12 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
                     break;
                 case ID_NSFW:
                     if (!readOnly) ed.nsfw = !ed.nsfw;
+                    break;
+                case ID_REDSTONE:
+                    ed.redstone = !ed.redstone;
+                    break;
+                case ID_ORDER:
+                    ed.sequential = !ed.sequential;
                     break;
                 case ID_PUZZLE:
                     ed.togglePuzzle(freePuzzleNumber());
@@ -554,7 +597,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         }
         for (int f = 0; f < FIELD_COUNT; f++) {
             GuiTextField field = fields[f];
-            if (ed.fieldShown(f) && field.isFocused()) {
+            if (editable(f) && field.isFocused()) {
                 if (f <= F_IMAGE && isCtrlKeyDown() && key == Keyboard.KEY_V && pastePath(f)) {
                     return;
                 } else if (FrameEditor.number(f) == null) {
@@ -624,7 +667,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
     private void focusNext() {
         List<GuiTextField> active = new ArrayList<GuiTextField>();
         for (int f = 0; f < FIELD_COUNT; f++) {
-            if (ed.fieldShown(f)) active.add(fields[f]);
+            if (editable(f)) active.add(fields[f]);
         }
         if (active.isEmpty()) return;
         int focused = -1;
@@ -659,7 +702,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         dragField = null;
         if (puzzleShown()) puzzleField.mouseClicked(x, y, button);
         for (int f = 0; f < FIELD_COUNT; f++) {
-            if (!ed.fieldShown(f)) continue;
+            if (!editable(f)) continue;
             GuiTextField field = fields[f];
             field.mouseClicked(x, y, button);
             if (button == 0 && field.isFocused() && !(field instanceof GuiTextArea)) dragField = field;
@@ -729,7 +772,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             stepPuzzle(wheel > 0 ? 1 : -1);
         }
         for (int f = 0; f < FIELD_COUNT; f++) {
-            if (FrameEditor.number(f) != null && ed.fieldShown(f) && over(f, mouseX, mouseY)) {
+            if (FrameEditor.number(f) != null && editable(f) && over(f, mouseX, mouseY)) {
                 ed.step(f, wheel > 0 ? 1 : -1);
                 updateWidgets();
             }
@@ -812,10 +855,7 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         int tab = ed.tab;
         switch (tab) {
             case TAB_SOURCE: {
-                text(I18n.format("minepapers.gui.path." + ed.source), 8, 31, GuiWidgets.TEXT);
-                text(I18n.format("minepapers.gui.interval"), 8, 119, GuiWidgets.TEXT);
-                String status = ed.statusText();
-                lines(status, 8, 133, 142, 2, ed.statusError ? GuiWidgets.ERROR : GuiWidgets.TEXT);
+                text(I18n.format("minepapers.gui.interval"), 8, INTERVAL_Y + 6, ed.redstone ? GuiWidgets.HINT : GuiWidgets.TEXT);
                 break;
             }
             case TAB_SIZE:
@@ -995,6 +1035,14 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
             titledTooltip("minepapers.gui.fit." + fitList.value, "minepapers.gui.fit." + fitList.value + ".tip", mouseX, mouseY);
             return;
         }
+        if (btnOrder.hovered()) {
+            titledTooltip("minepapers.gui.order", "minepapers.gui.order.tip", mouseX, mouseY);
+            return;
+        }
+        if (btnRedstone.hovered()) {
+            titledTooltip("minepapers.gui.redstone", "minepapers.gui.redstone.tip", mouseX, mouseY);
+            return;
+        }
         if (btnPuzzle.hovered()) {
             // Под пояснением — сколько картин сейчас в группе этой картины.
             List<String> lines = new ArrayList<String>();
@@ -1081,8 +1129,22 @@ public class GuiPictureFrame extends GuiContainer implements GuiYesNoCallback {
         } else if (ed.tab == TAB_SIZE && sizeTooltip(mouseX, mouseY)) {
             return;
         } else if (btnReload.hovered()) {
-            tooltip("minepapers.gui.reload", mouseX, mouseY);
+            reloadTooltip(mouseX, mouseY);
         }
+    }
+
+    /** "Обновить" и под ним состояние источника: сколько картинок, загрузка, выкладывание на сервер или ошибка (красным). Источник ещё не загружался — только название. */
+    @SuppressWarnings("unchecked")
+    private void reloadTooltip(int mouseX, int mouseY) {
+        List<String> lines = new ArrayList<String>();
+        lines.add(I18n.format("minepapers.gui.reload"));
+        String status = ed.statusText();
+        if (!ed.statusUnknown) {
+            String color = ed.statusError ? "\u00a7c" : "\u00a77";
+            for (String line : (List<String>) fontRendererObj.listFormattedStringToWidth(status, 200)) lines.add(color + line);
+        }
+        if (holder.picture != null) lines.add("\u00a78" + I18n.format("minepapers.gui.reload.all"));
+        drawHoveringText(lines, mouseX, mouseY, fontRendererObj);
     }
 
     private boolean over(int f, int mouseX, int mouseY) {

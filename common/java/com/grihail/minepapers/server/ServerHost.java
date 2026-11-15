@@ -1,6 +1,7 @@
 package com.grihail.minepapers.server;
 
 import java.io.File;
+import java.util.UUID;
 
 import com.grihail.minepapers.picture.PictureSettings;
 
@@ -15,6 +16,11 @@ public abstract class ServerHost {
 
     /** Картинки выложены: записать их список в картину target и разослать игрокам. */
     public abstract void shareFiles(Object world, int target, byte[] files);
+
+    /** То же, и известно, кто их выложил (uploader): версия может запомнить его, чтобы потом просить выложить их заново (команда перезагрузки). */
+    public void shareFiles(Object world, int target, byte[] files, UUID uploader) {
+        shareFiles(world, target, files);
+    }
 
     /** Пакет "пришли эти картинки" игроку player. */
     public abstract void sendNeed(Object player, byte[] hashes);

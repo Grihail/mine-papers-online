@@ -101,6 +101,12 @@ public class PictureSettings {
     public String imageUrl = "";
     /** Интервал слайдшоу в секундах */
     public int interval = 10;
+    /** Слайды меняются не по интервалу, а сигналом редстоуна: каждый новый сигнал — следующая картинка (сигналы ловит сущность картины версии, пока только 1.7.10). */
+    public boolean redstone;
+    /** Сколько сигналов редстоуна получила картина — номер слайда в режиме redstone. Считает сервер, хранит сущность картины (не в настройках: предмет и копии его не уносят), клиентам приходит отдельно от настроек. */
+    public int redstoneStep;
+    /** Картинки папки показываются по очереди, в порядке списка (по именам файлов), а не в случайном порядке. */
+    public boolean sequential;
 
     /** Ширина и высота холста (и хитбокса): в блоках или в пикселях (1/16 блока). */
     public float width = 1f;
@@ -224,6 +230,8 @@ public class PictureSettings {
         folderPath = from.folderPath;
         imageUrl = from.imageUrl;
         interval = from.interval;
+        redstone = from.redstone;
+        sequential = from.sequential;
         padding = from.padding;
         paddingInPixels = from.paddingInPixels;
         zoom = from.zoom;
@@ -243,6 +251,11 @@ public class PictureSettings {
         moldingWidth = from.moldingWidth;
         glass = from.glass;
         nsfw = from.nsfw;
+    }
+
+    /** Номер текущего слайда: по таймеру — от времени мира в тиках и интервала, в режиме редстоуна — сколько сигналов получила картина. */
+    public long slideSlot(long worldTime) {
+        return redstone ? redstoneStep : worldTime / (Math.max(1, interval) * 20L);
     }
 
     /** Своё зерно случайного порядка слайдшоу у каждой рамки (одинаковое у всех игроков). */
@@ -483,6 +496,8 @@ public class PictureSettings {
         tag.putString("Folder", folderPath);
         tag.putString("ImageUrl", imageUrl);
         tag.putInt("Interval", interval);
+        if (redstone) tag.putInt("Redstone", 1);
+        if (sequential) tag.putInt("Sequential", 1);
         tag.putFloat("W", width);
         tag.putFloat("H", height);
         tag.putInt("SizePx", sizeInPixels ? 1 : 0);
@@ -530,6 +545,8 @@ public class PictureSettings {
         folderPath = tag.getString("Folder");
         imageUrl = tag.getString("ImageUrl");
         interval = Math.max(1, tag.getInt("Interval"));
+        redstone = tag.getInt("Redstone") != 0;
+        sequential = tag.getInt("Sequential") != 0;
 
         // Размер всегда явный: от него зависит хитбокс. Старое "0 = авто" превращаем в квадрат.
         sizeInPixels = tag.getInt("SizePx") != 0;

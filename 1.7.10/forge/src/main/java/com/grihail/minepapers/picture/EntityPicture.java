@@ -9,6 +9,9 @@ import com.grihail.minepapers.network.PacketOpenFrame;
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.registry.IEntityAdditionalSpawnData;
 import io.netty.buffer.ByteBuf;
+import java.util.List;
+import java.util.UUID;
+
 import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
@@ -18,18 +21,25 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.DamageSource;
+import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
 
 /** Картина — сущность, как ванильные картины и рамки: не занимает клеток, поэтому блоки и другие картины могут стоять вплотную и в той же клетке. Хитбокс — весь холст, сквозь него можно пройти. Опора не нужна: картина держится, даже если убрать блок за ней. Настройки синхронизируются с клиентами через DataWatcher (предмет с настройками в NBT). */
 public class EntityPicture extends Entity implements IEntityAdditionalSpawnData {
 
     private static final int WATCH_SETTINGS = 10;
+    /** Номер слайда в режиме редстоуна (PictureSettings.redstoneStep) — отдельно от настроек: меняется с каждым сигналом. */
+    private static final int WATCH_STEP = 11;
     /** Прочность как у деревянного блока. */
     public static final float HARDNESS = 0.5f;
 
     public final PictureFrame frame = new PictureFrame();
+    /** Кто выложил на сервер картинки этой картины с компьютера (ServerImages.shareFiles) и его ник: его клиент просят выложить их заново при перезагрузке (server.PictureReload). Только на сервере; null — неизвестно (картина прежних версий). */
+    public UUID uploader;
+    public String uploaderName = "";
     private ItemStack shownSettings;
 
     public EntityPicture(World world) {
@@ -56,6 +66,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
     @Override
     protected void entityInit() {
         dataWatcher.addObjectByDataType(WATCH_SETTINGS, 5);
+        dataWatcher.addObject(WATCH_STEP, Integer.valueOf(0));
     }
 
     // ---------- Настройки и хитбокс ----------
@@ -63,6 +74,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
     /** Настройки изменились: пересчитать хитбокс и (на сервере) разослать игрокам и обновить свет. */
     public void settingsChanged() {
         refresh();
+        centerTick = -1;
         if (worldObj != null && !worldObj.isRemote) {
             ItemStack stack = new ItemStack(Item.getItemFromBlock(MinePapers.frame));
             NBTTagCompound tag = new NBTTagCompound();
@@ -129,14 +141,120 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         refresh();
     }
 
+    // ---------- Редстоун ----------
+
+    /** Был ли сигнал при прошлой проверке слева и справа от центра картины (LEFT, RIGHT — биты); -1 — ещё не проверяли (режим только включили или картину только поставили): первая проверка только запоминает сигнал, слайд не листает. */
+    private int powered = -1;
+    private static final int LEFT = 1, RIGHT = 2;
+    /** Тик мира, в который картина последний раз листала слайд: сигнал, который дошёл до нескольких кусков пазла, листает группу один раз. */
+    private long lastStep = -1;
+    /** Центр картины (у пазла — всей группы) по горизонтали, в координатах стены (CanvasGeometry: u — вправо, как видит смотрящий), и тик, когда он посчитан (-1 — пересчитать). */
+    private double centerU;
+    private int centerTick = -1;
+
+    /** Режим редстоуна (PictureSettings.redstone): новый сигнал справа от центра картины (или в самом центре) — следующий слайд, слева — предыдущий. Сигнал ловится как у лампы, но по всей площади картины: в клетках её холста и в блоках стены за ним; сторону задаёт то, откуда он пришёл. Поэтому подходит всё, что рядом: кнопка или рычаг на стене возле картины, нажимная плита под ней, провод, повторитель или факел, подведённые к стене сзади. Большие картины проверяются реже, чтобы не нагружать сервер. Только на сервере. */
+    private void tickRedstone() {
+        if (!frame.redstone) {
+            powered = -1;
+            return;
+        }
+        int[] r = redstoneArea();
+        int cells = (r[3] - r[0] + 1) * (r[4] - r[1] + 1) * (r[5] - r[2] + 1);
+        int every = Math.min(8, 1 + cells / 128);
+        if (powered >= 0 && ticksExisted % every != 0) return;
+        // Чанки вокруг картины не загружаем: не загружены — ждём.
+        if (!worldObj.checkChunksExist(r[0] - 2, r[1] - 2, r[2] - 2, r[3] + 2, r[4] + 2, r[5] + 2)) return;
+        int now = poweredSides(r);
+        if (powered >= 0) {
+            int rising = now & ~powered;
+            // Сигнал сразу с обеих сторон (например, провод через всю стену) — вперёд.
+            if ((rising & RIGHT) != 0) {
+                stepSlide(1);
+            } else if ((rising & LEFT) != 0) {
+                stepSlide(-1);
+            }
+        }
+        powered = now;
+    }
+
+    /** Клетки, где ловится сигнал, {minX, minY, minZ, maxX, maxY, maxZ}: клетки холста и слой за ними, в стене. */
+    private int[] redstoneArea() {
+        double e = 1e-4;
+        AxisAlignedBB box = FrameGeometry.canvasBox(frame).contract(e, e, e);
+        ForgeDirection back = ForgeDirection.getOrientation(frame.getFacing()).getOpposite();
+        int minX = MathHelper.floor_double(box.minX), minY = MathHelper.floor_double(box.minY), minZ = MathHelper.floor_double(box.minZ);
+        int maxX = MathHelper.floor_double(box.maxX), maxY = MathHelper.floor_double(box.maxY), maxZ = MathHelper.floor_double(box.maxZ);
+        return new int[] { Math.min(minX, minX + back.offsetX), Math.min(minY, minY + back.offsetY), Math.min(minZ, minZ + back.offsetZ),
+            Math.max(maxX, maxX + back.offsetX), Math.max(maxY, maxY + back.offsetY), Math.max(maxZ, maxZ + back.offsetZ) };
+    }
+
+    /** Откуда в клетки области r приходит сигнал (как World.isBlockIndirectlyGettingPowered, но с каждой из шести сторон по отдельности): LEFT, RIGHT или оба — по тому, левее центра картины блок, который его даёт, или нет. */
+    private int poweredSides(int[] r) {
+        double center = centerU();
+        double[] o = FrameGeometry.origin(frame);
+        int facing = frame.getFacing(), rotation = frame.getRotation(), sides = 0;
+        int y0 = Math.max(0, r[1]), y1 = Math.min(worldObj.getHeight() - 1, r[4]);
+        for (int x = r[0]; x <= r[3]; x++) {
+            for (int y = y0; y <= y1; y++) {
+                for (int z = r[2]; z <= r[5]; z++) {
+                    for (int side = 0; side < 6; side++) {
+                        ForgeDirection d = ForgeDirection.getOrientation(side);
+                        int sx = x + d.offsetX, sy = y + d.offsetY, sz = z + d.offsetZ;
+                        // Сторона у getIndirectPowerLevelTo — та, с которой источник смотрит на клетку (как в isBlockIndirectlyGettingPowered).
+                        if (sy < 0 || sy >= worldObj.getHeight() || worldObj.getIndirectPowerLevelTo(sx, sy, sz, side) <= 0) continue;
+                        double u = FrameGeometry.toWall(facing, rotation, new double[] { sx + 0.5 - o[0], sy + 0.5 - o[1], sz + 0.5 - o[2] })[0];
+                        sides |= u < center - 1e-3 ? LEFT : RIGHT;
+                        if (sides == (LEFT | RIGHT)) return sides;
+                    }
+                }
+            }
+        }
+        return sides;
+    }
+
+    /** Центр картины по горизонтали (у пазла — всей группы) в координатах стены; группа пересобирается раз в две секунды и после смены настроек. */
+    private double centerU() {
+        if (centerTick < 0 || ticksExisted - centerTick >= 40) {
+            PuzzleGroup group = frame.puzzle != 0 ? FrameGeometry.puzzle(worldObj, frame) : null;
+            centerU = group != null ? (group.u0 + group.u1) / 2 : frame.getOffsetXBlocks() + frame.getWidthBlocks() / 2;
+            centerTick = ticksExisted;
+        }
+        return centerU;
+    }
+
+    /** Следующий (dir = 1) или предыдущий (-1) слайд — у всей группы пазла сразу (слайдшоу у неё общее): номера кусков совпадают, от самого большого из них. */
+    private void stepSlide(int dir) {
+        long tick = worldObj.getTotalWorldTime();
+        if (lastStep == tick) return;
+        List<EntityPicture> group = FrameGeometry.puzzleMembers(worldObj, this);
+        int step = frame.redstoneStep;
+        for (EntityPicture p : group) step = Math.max(step, p.frame.redstoneStep);
+        step += dir;
+        setRedstoneStep(step);
+        lastStep = tick;
+        for (EntityPicture p : group) {
+            if (!p.frame.redstone) continue;
+            p.setRedstoneStep(step);
+            p.lastStep = tick;
+        }
+    }
+
+    /** Номер слайда в режиме редстоуна — на сервере; клиентам уходит через DataWatcher. */
+    public void setRedstoneStep(int step) {
+        frame.redstoneStep = step;
+        dataWatcher.updateObject(WATCH_STEP, Integer.valueOf(step));
+    }
+
     /** Картина не движется и не горит; сервер обновляет свет после смены настроек, клиент подхватывает новые настройки с сервера и держит картинку в памяти, пока сама сущность есть на клиенте - пока загружен её чанк (PictureManager.keepAlive). */
     @Override
     public void onUpdate() {
         if (!worldObj.isRemote) {
             lights.tick(frame, frame.glowLevel());
+            tickRedstone();
             return;
         }
         PictureManager.keepAlive(frame);
+        frame.redstoneStep = dataWatcher.getWatchableObjectInt(WATCH_STEP);
         ItemStack stack = dataWatcher.getWatchableObjectItemStack(WATCH_SETTINGS);
         boolean changed = stack != shownSettings;
         if (changed) {
@@ -238,6 +356,10 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         frame.readPlacement(tag);
         frame.readSettings(tag.getCompoundTag("Settings"));
         lights.load(tag.getIntArray("Lights"));
+        setRedstoneStep(tag.getInteger("RedstoneStep"));
+        powered = tag.hasKey("PoweredSides") ? tag.getInteger("PoweredSides") & (LEFT | RIGHT) : -1;
+        uploader = PictureSettings.parseUuid(tag.getString("Uploader"));
+        uploaderName = tag.getString("UploaderName");
         settingsChanged();
     }
 
@@ -248,6 +370,12 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         frame.writeSettings(settings);
         tag.setTag("Settings", settings);
         tag.setIntArray("Lights", lights.save());
+        if (frame.redstoneStep != 0) tag.setInteger("RedstoneStep", frame.redstoneStep);
+        if (powered >= 0) tag.setInteger("PoweredSides", powered);
+        if (uploader != null) {
+            tag.setString("Uploader", uploader.toString());
+            tag.setString("UploaderName", uploaderName);
+        }
     }
 
     @Override
@@ -255,6 +383,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         NBTTagCompound tag = new NBTTagCompound();
         frame.writePlacement(tag);
         frame.writeSettings(tag);
+        tag.setInteger("RedstoneStep", frame.redstoneStep);
         ByteBufUtils.writeTag(buf, tag);
     }
 
@@ -263,6 +392,7 @@ public class EntityPicture extends Entity implements IEntityAdditionalSpawnData 
         NBTTagCompound tag = ByteBufUtils.readTag(buf);
         frame.readPlacement(tag);
         frame.readSettings(tag);
+        frame.redstoneStep = tag.getInteger("RedstoneStep");
         refresh();
     }
 }

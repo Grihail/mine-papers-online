@@ -43,6 +43,10 @@ public final class PictureConfig {
     public Integer source;
     public String path;
     public Integer interval;
+    /** Слайды меняются сигналом редстоуна, а не по интервалу (PictureSettings.redstone). */
+    public Boolean redstone;
+    /** Картинки по очереди, а не в случайном порядке (PictureSettings.sequential). */
+    public Boolean sequential;
     public Float width, height;
     public Boolean sizePixels;
     public Float offsetRight, offsetUp;
@@ -94,6 +98,8 @@ public final class PictureConfig {
         if (source != null) src.addProperty("type", name(SOURCES, source));
         if (path != null) src.addProperty("path", path);
         if (interval != null) src.addProperty("interval", interval);
+        if (redstone != null) src.addProperty("redstone", redstone);
+        if (sequential != null) src.addProperty("sequential", sequential);
         root.add("source", src);
 
         JsonObject size = new JsonObject();
@@ -184,6 +190,8 @@ public final class PictureConfig {
                 c.source = value(src, "type", SOURCES);
                 c.path = string(src, "path");
                 c.interval = integer(src, "interval");
+                c.redstone = bool(src, "redstone");
+                c.sequential = bool(src, "sequential");
             }
             JsonObject size = object(root, "size");
             if (size != null) {

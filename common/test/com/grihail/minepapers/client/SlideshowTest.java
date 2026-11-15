@@ -32,6 +32,32 @@ class SlideshowTest {
         assertNotSame(first, source.slide(t + ticks, interval, 0, 42));
     }
 
+    /** По порядку: слайды идут по списку и по кругу. */
+    @Test
+    void sequentialSlidesFollowTheList() {
+        PictureManager.Source source = new PictureManager.Source("test");
+        List<PictureManager.Picture> all = pictures(3);
+        source.pictures = new ArrayList<PictureManager.Picture>(all);
+        for (int slot = 0; slot < 7; slot++) {
+            assertSame(all.get(slot % 3), source.slideAt(slot, 0, 42, true), "slot " + slot);
+        }
+        assertSame(all.get(1), source.slideAt(3, 1, 42, true));
+    }
+
+    /** Редстоун листает и назад: отрицательные номера слайдов — тоже картинки списка, и шаг назад возвращает ту же картинку. */
+    @Test
+    void negativeSlotsWork() {
+        List<PictureManager.Picture> all = pictures(5);
+        for (int n : new int[] { 2, 5 }) {
+            PictureManager.Source source = new PictureManager.Source("test" + n);
+            source.pictures = new ArrayList<PictureManager.Picture>(all.subList(0, n));
+            for (long slot = -12; slot < 12; slot++) {
+                assertNotNull(source.slideAt(slot, 0, 42, false), "random, slot " + slot + ", list of " + n);
+                assertSame(all.get((int) Math.floorMod(slot, (long) n)), source.slideAt(slot, 0, 42, true), "in order, slot " + slot);
+            }
+        }
+    }
+
     /** Онлайн-папка: ссылки Яндекс Диска узнаются (и без https://), чужие сервисы — нет. */
     @Test
     void yandexLinksAreRecognized() {

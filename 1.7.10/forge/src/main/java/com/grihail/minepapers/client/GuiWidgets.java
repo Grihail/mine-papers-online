@@ -9,6 +9,7 @@ import java.util.function.IntFunction;
 
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 
 import com.grihail.minepapers.MinePapers;
 import com.mojang.authlib.GameProfile;
@@ -19,7 +20,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.entity.RenderItem;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
 /** Элементы окна настройки картины. Панель, слоты, вкладки и кнопки — ванильные текстуры (сундук, вкладки творческого режима, кнопки), поэтому окно выглядит как родное и меняется вместе с ресурспаком. Из своей текстуры textures/gui/picture_frame.png — только иконки. */
@@ -189,8 +193,36 @@ final class GuiWidgets {
             blit(x + 10, y, u + 12, 219, 10, 10);
             blit(x, y + 10, u, 231, 10, 10);
             blit(x + 10, y + 10, u + 12, 231, 10, 10);
-            icon(x + 2, y + 2, iconU, iconV, 16, 16);
+            drawIcon(mc, x + 2, y + 2);
             if (!enabled) drawRect(x + 2, y + 2, x + 18, y + 18, 0xA0303030);
+        }
+
+        /** Иконка 16x16 в (x, y). */
+        void drawIcon(Minecraft mc, int x, int y) {
+            icon(x, y, iconU, iconV, 16, 16);
+        }
+    }
+
+    /** Переключатель с иконкой ванильного предмета (так он меняется вместе с ресурспаком). */
+    static class ItemToggle extends Toggle {
+
+        private static final RenderItem ITEMS = new RenderItem();
+        private final ItemStack stack;
+
+        ItemToggle(int id, int x, int y, ItemStack stack) {
+            super(id, x, y, 0, 0);
+            this.stack = stack;
+        }
+
+        @Override
+        void drawIcon(Minecraft mc, int x, int y) {
+            RenderHelper.enableGUIStandardItemLighting();
+            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
+            ITEMS.renderItemAndEffectIntoGUI(mc.fontRenderer, mc.getTextureManager(), stack, x, y);
+            GL11.glDisable(GL12.GL_RESCALE_NORMAL);
+            RenderHelper.disableStandardItemLighting();
+            GL11.glDisable(GL11.GL_LIGHTING);
+            GL11.glColor4f(1f, 1f, 1f, 1f);
         }
     }
 
@@ -318,6 +350,19 @@ final class GuiWidgets {
                 mc.fontRenderer.drawStringWithShadow(displayString, x + (w - tw) / 2, y + (h - 8) / 2,
                     hovered ? 0xFFFFA0 : 0xE0E0E0);
             }
+        }
+    }
+
+    /** Кнопка без фона — только иконка 10x10 по центру своей области. */
+    static class Bare extends Small {
+
+        Bare(int id, int x, int y, int w, int h, int iconU) {
+            super(id, x, y, w, h, "", iconU);
+        }
+
+        @Override
+        void draw(Minecraft mc, boolean hovered) {
+            icon(xPosition + (width - 10) / 2, yPosition + (height - 10) / 2, iconU, 0, 10, 10);
         }
     }
 

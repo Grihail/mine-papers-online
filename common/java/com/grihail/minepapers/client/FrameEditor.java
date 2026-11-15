@@ -54,8 +54,14 @@ public abstract class FrameEditor {
     public boolean nsfw;
     /** Номер группы пазла (PictureSettings.puzzle), 0 — нет: кнопка и поле справа от ряда вписывания. */
     public int puzzle;
+    /** Слайды меняются сигналом редстоуна, а не по интервалу (PictureSettings.redstone). */
+    public boolean redstone;
+    /** Картинки папки по очереди, а не в случайном порядке (PictureSettings.sequential). */
+    public boolean sequential;
     /** Последний statusText — об ошибке. */
     public boolean statusError;
+    /** Последний statusText — источник ещё не загружался (подсказка "нажмите Обновить"). */
+    public boolean statusUnknown;
 
     protected FrameEditor(PictureSettings tile, int target, UUID me, String myName, String gameVersion) {
         this.tile = tile;
@@ -84,6 +90,8 @@ public abstract class FrameEditor {
         locked = tile.isLocked();
         nsfw = tile.nsfw;
         puzzle = tile.puzzle;
+        redstone = tile.redstone;
+        sequential = tile.sequential;
     }
 
     // ---------- От версии ----------
@@ -107,6 +115,11 @@ public abstract class FrameEditor {
 
     /** Время мира в тиках (для слайдшоу). */
     protected abstract long worldTime();
+
+    /** Умеет ли версия менять слайды сигналом редстоуна (PictureSettings.redstone): ловить сигналы должна её сущность картины. Без этого режим не копируется в конфиг и не берётся из вставленного. */
+    protected boolean supportsRedstone() {
+        return false;
+    }
 
     // ---------- Поля и вкладки ----------
 
@@ -372,6 +385,7 @@ public abstract class FrameEditor {
     /** Состояние источника под полем пути: сколько картинок, загрузка, выкладывание на сервер или ошибка (тогда statusError). */
     public String statusText() {
         statusError = false;
+        statusUnknown = false;
         String key = currentKey();
         if (key == null) return tr("minepapers.gui.status.none");
         int[] job = ImageSync.jobStatus(key);
@@ -381,7 +395,10 @@ public abstract class FrameEditor {
         }
         key = shownKey();
         PictureManager.Source s = PictureManager.peek(key);
-        if (s == null) return tr("minepapers.gui.status.unknown");
+        if (s == null) {
+            statusUnknown = true;
+            return tr("minepapers.gui.status.unknown");
+        }
         if (s.isLoading()) return tr("minepapers.gui.status.loading");
         if (s.getErrorKey() != null || s.getErrorDetail() != null) {
             statusError = true;
@@ -405,6 +422,8 @@ public abstract class FrameEditor {
         c.path = line(pathField(source));
         Float interval = Numbers.parse(text(F_INTERVAL));
         if (interval != null) c.interval = Math.round(interval);
+        if (supportsRedstone()) c.redstone = redstone;
+        c.sequential = sequential;
         c.width = Numbers.parse(text(F_WIDTH));
         c.height = Numbers.parse(text(F_HEIGHT));
         c.sizePixels = sizePx;
@@ -454,6 +473,8 @@ public abstract class FrameEditor {
         if (c.source != null) source = c.source;
         if (c.path != null) setText(pathField(source), c.path);
         if (c.interval != null) setText(F_INTERVAL, String.valueOf(c.interval));
+        if (c.redstone != null && supportsRedstone()) redstone = c.redstone;
+        if (c.sequential != null) sequential = c.sequential;
         if (c.sizePixels != null) sizePx = c.sizePixels;
         if (c.width != null) setText(F_WIDTH, Numbers.fmt(c.width));
         if (c.height != null) setText(F_HEIGHT, Numbers.fmt(c.height));
@@ -527,6 +548,8 @@ public abstract class FrameEditor {
         tile.imageUrl = line(F_IMAGE);
         Float interval = Numbers.parse(text(F_INTERVAL));
         if (interval != null) tile.interval = Math.round(interval);
+        tile.redstone = redstone;
+        tile.sequential = sequential;
         tile.sizeInPixels = sizePx;
         float[] size = resolveSize(Numbers.parse(text(F_WIDTH)), Numbers.parse(text(F_HEIGHT)));
         tile.width = size[0];
@@ -583,7 +606,7 @@ public abstract class FrameEditor {
     private double currentAspect() {
         PictureManager.Source s = PictureManager.peek(shownKey());
         if (s != null) {
-            PictureManager.Picture p = s.slide(worldTime(), tile.interval, 0, tile.getSlideSeed());
+            PictureManager.Picture p = s.slideAt(tile.slideSlot(worldTime()), 0, tile.getSlideSeed(), tile.sequential);
             if (p != null && p.request() && p.getOrigWidth() > 0) {
                 return (double) p.getOrigHeight() / p.getOrigWidth();
             }

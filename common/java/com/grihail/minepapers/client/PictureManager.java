@@ -292,17 +292,22 @@ public final class PictureManager {
 
         /** Картинка для текущего момента слайдшоу (null, если список ещё не готов). Порядок случайный, но считается от игрового времени и seed рамки — у всех игроков одинаковый. @param offset 0 — текущий слайд, 1 — следующий (для предзагрузки) @param seed   своё значение у каждой рамки, чтобы рамки с одной папкой не показывали одно и то же */
         public Picture slide(long worldTime, int intervalSeconds, int offset, long seed) {
+            return slideAt(worldTime / (Math.max(1, intervalSeconds) * 20L), offset, seed, false);
+        }
+
+        /** Картинка слайда номер current (+ offset) — как slide, но номер слайда уже посчитан (см. PictureSettings.slideSlot: по таймеру или по сигналам редстоуна). @param sequential картинки по очереди, в порядке списка (PictureSettings.sequential), а не в случайном */
+        public Picture slideAt(long current, int offset, long seed, boolean sequential) {
             lastUsed = now();
             List<Picture> list = pictures;
             if (list == null || list.isEmpty()) return null;
             int n = list.size();
             if (n == 1 && offset != 0) return null;
-            long slot = worldTime / (Math.max(1, intervalSeconds) * 20L) + offset;
+            long slot = current + offset;
             // Выбранная на этот интервал картинка держится до его конца: список папки Яндекс Диска растёт по мере загрузки, и с новым числом картинок перестановка другая — без этого слайды менялись бы с каждой новой страницей списка, а не по таймеру.
-            String key = seed + ":" + slot;
+            String key = (sequential ? "seq:" : "") + seed + ":" + slot;
             Picture chosen = chosenSlides.get(key);
             if (chosen == null) {
-                chosen = n == 1 ? list.get(0) : list.get(shuffledIndex(slot, n, seed));
+                chosen = n == 1 ? list.get(0) : list.get(sequential ? (int) Math.floorMod(slot, (long) n) : shuffledIndex(slot, n, seed));
                 if (chosenSlides.size() > 64) chosenSlides.clear();
                 chosenSlides.put(key, chosen);
             }
@@ -331,14 +336,15 @@ public final class PictureManager {
 
         /** Каждый "круг" из n слайдов — своя случайная перестановка: за круг каждая картинка показывается ровно один раз, а на стыке кругов одна и та же картинка не повторяется дважды подряд. */
         private int shuffledIndex(long slot, int n, long seed) {
-            if (n == 2) return (int) (slot % 2);
-            long cycle = slot / n;
-            int pos = (int) (slot % n);
+            // Номер бывает и отрицательным: редстоун листает слайды назад.
+            if (n == 2) return (int) Math.floorMod(slot, 2L);
+            long cycle = Math.floorDiv(slot, (long) n);
+            int pos = (int) Math.floorMod(slot, (long) n);
             int[] perm = permutation(cycle, n, seed);
-            if (pos == 0 && cycle > 0 && perm[0] == permutation(cycle - 1, n, seed)[n - 1]) {
+            if (pos == 0 && cycle != 0 && perm[0] == permutation(cycle - 1, n, seed)[n - 1]) {
                 return perm[1];
             }
-            if (pos == 1 && cycle > 0 && perm[0] == permutation(cycle - 1, n, seed)[n - 1]) {
+            if (pos == 1 && cycle != 0 && perm[0] == permutation(cycle - 1, n, seed)[n - 1]) {
                 return perm[0];
             }
             return perm[pos];

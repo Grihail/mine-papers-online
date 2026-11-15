@@ -11,6 +11,7 @@ import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.common.network.FMLNetworkEvent;
+import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.world.World;
@@ -42,6 +43,14 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void onFilesNeeded(byte[] hashes) {
         ImageSync.onFilesNeeded(hashes);
+    }
+
+    @Override
+    public void onReload(final String key, final int entity) {
+        Minecraft.getMinecraft().func_152344_a(() -> {
+            PictureManager.reload(key);
+            if (entity >= 0) ImageSync.reofferRequested(entity, key);
+        });
     }
 
     @Override
