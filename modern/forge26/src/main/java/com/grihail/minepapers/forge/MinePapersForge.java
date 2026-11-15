@@ -14,9 +14,12 @@ import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.PacketOpenFrame;
 import com.grihail.minepapers.network.PacketPasteMaterials;
+import com.grihail.minepapers.network.PacketReload;
+import com.grihail.minepapers.network.PacketReloadRequest;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.server.CommandMinePapers;
 import com.grihail.minepapers.server.ServerImages;
 
 import net.minecraft.core.component.DataComponentType;
@@ -34,6 +37,7 @@ import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
@@ -93,6 +97,7 @@ public final class MinePapersForge implements Platform {
         TickEvent.ServerTickEvent.Pre.BUS.addListener(e -> ServerImages.onServerTick());
         PlayerEvent.PlayerLoggedOutEvent.BUS.addListener(e -> ServerImages.onLogout(e.getEntity().getUUID()));
         ServerStoppedEvent.BUS.addListener(e -> ServerImages.onServerStopped());
+        RegisterCommandsEvent.BUS.addListener(e -> CommandMinePapers.register(e.getDispatcher()));
         PlayerEvent.ItemCraftedEvent.BUS.addListener(e -> RecipePictureFrame.onCrafted(e.getEntity(), e.getContainer()));
 
         if (FMLEnvironment.dist == Dist.CLIENT) MinePapersForgeClient.init(modBus);
@@ -117,6 +122,11 @@ public final class MinePapersForge implements Platform {
         CHANNEL.messageBuilder(PacketFileChunk.class, NetworkDirection.PLAY_TO_CLIENT)
             .encoder(PacketFileChunk::write).decoder(PacketFileChunk::read)
             .consumerMainThread((msg, ctx) -> MinePapers.proxy.onFileChunk(msg.hash(), msg.total(), msg.offset(), msg.data())).add();
+        // Новые пакеты — в конце: номера прежних не меняются.
+        toServer(PacketReloadRequest.class, PacketReloadRequest::read, PacketReloadRequest::apply);
+        CHANNEL.messageBuilder(PacketReload.class, NetworkDirection.PLAY_TO_CLIENT)
+            .encoder(PacketReload::write).decoder(PacketReload::read)
+            .consumerMainThread((msg, ctx) -> MinePapers.proxy.onReload(msg.key(), msg.entity())).add();
         CHANNEL.build();
     }
 

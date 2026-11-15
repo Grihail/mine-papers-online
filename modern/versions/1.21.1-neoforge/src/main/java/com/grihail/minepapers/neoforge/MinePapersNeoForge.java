@@ -14,9 +14,12 @@ import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.PacketOpenFrame;
 import com.grihail.minepapers.network.PacketPasteMaterials;
+import com.grihail.minepapers.network.PacketReload;
+import com.grihail.minepapers.network.PacketReloadRequest;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.server.CommandMinePapers;
 import com.grihail.minepapers.server.ServerImages;
 
 import net.minecraft.core.component.DataComponentType;
@@ -40,6 +43,7 @@ import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -92,6 +96,7 @@ public class MinePapersNeoForge implements Platform {
         NeoForge.EVENT_BUS.addListener((ServerTickEvent.Pre e) -> ServerImages.onServerTick());
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedOutEvent e) -> ServerImages.onLogout(e.getEntity().getUUID()));
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent e) -> ServerImages.onServerStopped());
+        NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent e) -> CommandMinePapers.register(e.getDispatcher()));
         NeoForge.EVENT_BUS.addListener((PlayerEvent.ItemCraftedEvent e) -> RecipePictureFrame.onCrafted(e.getEntity(), e.getInventory()));
     }
 
@@ -110,10 +115,13 @@ public class MinePapersNeoForge implements Platform {
         toServer(registrar, PacketBreakPicture.ID, PacketBreakPicture::read, PacketBreakPicture::apply);
         toServer(registrar, PacketOpenFrame.ID, PacketOpenFrame::read, PacketOpenFrame::apply);
         toServer(registrar, PacketPasteMaterials.ID, PacketPasteMaterials::read, PacketPasteMaterials::apply);
+        toServer(registrar, PacketReloadRequest.ID, PacketReloadRequest::read, PacketReloadRequest::apply);
         registrar.playToClient(new CustomPacketPayload.Type<PacketHashes.Need>(PacketHashes.Need.ID), codec(PacketHashes.Need::read),
             (msg, ctx) -> MinePapers.proxy.onFilesNeeded(msg.hashes()));
         registrar.playToClient(new CustomPacketPayload.Type<PacketFileChunk>(PacketFileChunk.ID), codec(PacketFileChunk::read),
             (msg, ctx) -> MinePapers.proxy.onFileChunk(msg.hash(), msg.total(), msg.offset(), msg.data()));
+        registrar.playToClient(new CustomPacketPayload.Type<PacketReload>(PacketReload.ID), codec(PacketReload::read),
+            (msg, ctx) -> MinePapers.proxy.onReload(msg.key(), msg.entity()));
     }
 
     private static <T extends ModPacket> void toServer(PayloadRegistrar registrar, ResourceLocation id, Function<FriendlyByteBuf, T> read,

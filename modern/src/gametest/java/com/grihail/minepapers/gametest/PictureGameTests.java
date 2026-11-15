@@ -465,6 +465,9 @@ public final class PictureGameTests {
         picture.frame.title = "Saved";
         picture.frame.width = 2;
         picture.settingsChanged();
+        picture.setRedstoneStep(3);
+        picture.uploader = UUID.randomUUID();
+        picture.uploaderName = "uploader";
         EntityPicture loaded = new EntityPicture(MinePapers.PICTURE.get(), h.getLevel());
         //? if >=26.1 {
         /*// С 26.1 сущность сохраняется через ValueOutput/ValueInput — поверх того же тега.
@@ -479,6 +482,64 @@ public final class PictureGameTests {
         //?}
         eq(h, settings(loaded.frame), settings(picture.frame), "settings");
         eq(h, loaded.getBoundingBox(), picture.getBoundingBox(), "hitbox");
+        eq(h, loaded.frame.redstoneStep, 3, "redstone step");
+        eq(h, loaded.uploader, picture.uploader, "uploader");
+        eq(h, loaded.uploaderName, "uploader", "uploader name");
+        leave(h, player);
+        h.succeed();
+    }
+
+    // ---------- Редстоун и перезагрузка ----------
+
+    /** Режим редстоуна: новый сигнал справа от центра картины (для смотрящего на неё) — следующий слайд, слева — предыдущий; первая проверка только запоминает. */
+    public static void redstoneStepsSlides(GameTestHelper h) {
+        ServerPlayer player = player(h, true);
+        EntityPicture picture = hang(h, player);
+        picture.frame.redstone = true;
+        picture.settingsChanged();
+        // Картина на южной грани: смотрящий стоит лицом на север, справа от него — восток.
+        BlockPos right = WALL.south().east(), left = WALL.south().west();
+        h.runAfterDelay(3, () -> {
+            eq(h, picture.frame.redstoneStep, 0, "no signal - no step");
+            h.setBlock(right, Blocks.REDSTONE_BLOCK);
+            h.runAfterDelay(3, () -> {
+                eq(h, picture.frame.redstoneStep, 1, "signal on the right - next slide");
+                h.setBlock(right, Blocks.AIR);
+                h.runAfterDelay(3, () -> {
+                    h.setBlock(left, Blocks.REDSTONE_BLOCK);
+                    h.runAfterDelay(3, () -> {
+                        eq(h, picture.frame.redstoneStep, 0, "signal on the left - previous slide");
+                        leave(h, player);
+                        h.succeed();
+                    });
+                });
+            });
+        });
+    }
+
+    /** /minepapers reload находит картины по клетке и по радиусу; ничего не нашлось — ошибка команды. */
+    public static void reloadCommandSelectsPictures(GameTestHelper h) {
+        ServerPlayer player = player(h, true);
+        hang(h, player);
+        net.minecraft.server.MinecraftServer server = h.getLevel().getServer();
+        com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> commands = server.getCommands().getDispatcher();
+        net.minecraft.commands.CommandSourceStack source = server.createCommandSourceStack().withLevel(h.getLevel())
+            .withPosition(h.absoluteVec(Vec3.atCenterOf(WALL.south(2)))).withSuppressedOutput();
+        BlockPos wall = h.absolutePos(WALL);
+        try {
+            h.assertTrue(commands.execute("minepapers reload at " + wall.getX() + " " + wall.getY() + " " + wall.getZ(), source) > 0,
+                "picture next to the wall block is found");
+            h.assertTrue(commands.execute("minepapers reload near 3", source) > 0, "picture nearby is found");
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+            throw new IllegalStateException("command failed: " + e.getMessage(), e);
+        }
+        boolean failed = false;
+        try {
+            commands.execute("minepapers reload group 77", source);
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+            failed = true;
+        }
+        h.assertTrue(failed, "no pictures in the group - command fails");
         leave(h, player);
         h.succeed();
     }

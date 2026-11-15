@@ -8,6 +8,7 @@ import com.grihail.minepapers.client.RenderPicture;
 import com.grihail.minepapers.client.RenderPictureItem;
 import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
+import com.grihail.minepapers.network.PacketReload;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -46,6 +47,10 @@ public class MinePapersFabricClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(PacketFileChunk.ID, (client, handler, buf, sender) -> {
             PacketFileChunk msg = PacketFileChunk.read(buf);
             client.execute(() -> MinePapers.proxy.onFileChunk(msg.hash(), msg.total(), msg.offset(), msg.data()));
+        });
+        ClientPlayNetworking.registerGlobalReceiver(PacketReload.ID, (client, handler, buf, sender) -> {
+            PacketReload msg = PacketReload.read(buf);
+            client.execute(() -> MinePapers.proxy.onReload(msg.key(), msg.entity()));
         });
 
         EntityRendererRegistry.register(MinePapers.PICTURE.get(), RenderPicture::new);

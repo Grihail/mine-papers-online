@@ -15,12 +15,15 @@ import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.PacketOpenFrame;
 import com.grihail.minepapers.network.PacketPasteMaterials;
+import com.grihail.minepapers.network.PacketReloadRequest;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.server.CommandMinePapers;
 import com.grihail.minepapers.server.ServerImages;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
@@ -82,6 +85,7 @@ public class MinePapersFabric implements ModInitializer, Platform {
             server = null;
         });
         ServerTickEvents.START_SERVER_TICK.register(s -> ServerImages.onServerTick());
+        CommandRegistrationCallback.EVENT.register((dispatcher, registries, environment) -> CommandMinePapers.register(dispatcher));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, s) -> ServerImages.onLogout(handler.getPlayer().getUUID()));
     }
 
@@ -98,6 +102,7 @@ public class MinePapersFabric implements ModInitializer, Platform {
         toServer(PacketBreakPicture.ID, PacketBreakPicture::read, PacketBreakPicture::apply);
         toServer(PacketOpenFrame.ID, PacketOpenFrame::read, PacketOpenFrame::apply);
         toServer(PacketPasteMaterials.ID, PacketPasteMaterials::read, PacketPasteMaterials::apply);
+        toServer(PacketReloadRequest.ID, PacketReloadRequest::read, PacketReloadRequest::apply);
     }
 
     private static <T extends ModPacket> void toServer(ResourceLocation id, Function<FriendlyByteBuf, T> read, BiConsumer<ServerPlayer, T> apply) {

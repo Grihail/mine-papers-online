@@ -19,6 +19,12 @@ public class ClientProxy extends CommonProxy {
     }
 
     @Override
+    public void onReload(String key, int entity) {
+        PictureManager.reload(key);
+        if (entity >= 0) ImageSync.reofferRequested(entity, key);
+    }
+
+    @Override
     public void onFileChunk(byte[] hash, int total, int offset, byte[] data) {
         ImageSync.onFileChunk(hash, total, offset, data);
     }

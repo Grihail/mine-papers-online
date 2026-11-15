@@ -19,6 +19,9 @@ public class CommonProxy implements IGuiHandler {
     /** Сервер просит выложить эти картинки (вызывается в сетевом потоке). */
     public void onFilesNeeded(byte[] hashes) {}
 
+    /** Сервер просит загрузить источник key заново, а entity >= 0 — ещё и выложить его картинки для этой картины (PacketReload; вызывается в сетевом потоке). */
+    public void onReload(String key, int entity) {}
+
     /** Кусок скачиваемой картинки (вызывается в сетевом потоке). */
     public void onFileChunk(byte[] hash, int total, int offset, byte[] data) {}
 

@@ -41,6 +41,7 @@ public class MinePapersFabricClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(MinePapersFabric.NEED, (msg, ctx) -> MinePapers.proxy.onFilesNeeded(msg.hashes()));
         ClientPlayNetworking.registerGlobalReceiver(MinePapersFabric.FILE_CHUNK,
             (msg, ctx) -> MinePapers.proxy.onFileChunk(msg.hash(), msg.total(), msg.offset(), msg.data()));
+        ClientPlayNetworking.registerGlobalReceiver(MinePapersFabric.RELOAD, (msg, ctx) -> MinePapers.proxy.onReload(msg.key(), msg.entity()));
 
         EntityRendererRegistry.register(MinePapers.PICTURE.get(), RenderPicture::new);
         MenuScreens.register(MinePapers.FRAME_MENU.get(), GuiPictureFrame::new);

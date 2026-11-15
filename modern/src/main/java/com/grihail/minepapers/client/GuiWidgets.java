@@ -23,6 +23,7 @@ import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 //? if >=1.20.2 {
 import java.util.Optional;
 import net.minecraft.client.gui.components.WidgetSprites;
@@ -294,8 +295,33 @@ final class GuiWidgets {
         @Override
         protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
             beaconButton(g, getX(), getY(), active, checked, isHovered());
-            icon(g, getX() + 3, getY() + 3, iconU, iconV, 16, 16);
+            drawIcon(g, getX() + 3, getY() + 3);
             if (!active) g.fill(getX() + 3, getY() + 3, getX() + 19, getY() + 19, 0xA0303030);
+        }
+
+        /** Иконка 16x16 в (x, y). */
+        void drawIcon(GuiGraphics g, int x, int y) {
+            icon(g, x, y, iconU, iconV, 16, 16);
+        }
+    }
+
+    /** Переключатель с иконкой ванильного предмета (так он меняется вместе с ресурспаком). */
+    static class ItemToggle extends Toggle {
+
+        private final ItemStack stack;
+
+        ItemToggle(int x, int y, ItemStack stack, Component name, Runnable action) {
+            super(x, y, 0, 0, 0, name, action);
+            this.stack = stack;
+        }
+
+        @Override
+        void drawIcon(GuiGraphics g, int x, int y) {
+            //? if >=26.1 {
+            /*g.item(stack, x, y);
+            *///?} else {
+            g.renderItem(stack, x, y);
+            //?}
         }
     }
 
@@ -616,6 +642,19 @@ final class GuiWidgets {
                 g.drawCenteredString(font(), getMessage(), getX() + width / 2, getY() + (height - 8) / 2,
                     isHovered() ? 0xFFFFFFA0 : 0xFFE0E0E0);
             }
+        }
+    }
+
+    /** Кнопка без фона — только иконка 10x10 по центру своей области. */
+    static class Bare extends Small {
+
+        Bare(int x, int y, int w, int h, Component text, int iconU, Runnable action) {
+            super(x, y, w, h, text, iconU, action);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+            icon(g, getX() + (width - 10) / 2, getY() + (height - 10) / 2, iconU, 0, 10, 10);
         }
     }
 }

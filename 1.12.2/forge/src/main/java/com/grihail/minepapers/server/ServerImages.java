@@ -12,6 +12,7 @@ import com.grihail.minepapers.MinePapers;
 import com.grihail.minepapers.network.PacketFileChunk;
 import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.picture.FrameGeometry;
 import com.grihail.minepapers.picture.FrameHolder;
 import com.grihail.minepapers.picture.PictureSettings;
 
@@ -47,6 +48,7 @@ public final class ServerImages extends ServerHost {
     public static void reset() {
         TASKS.clear();
         ImageStore.reset();
+        PictureReload.reset();
     }
 
     /** Настройки открывают кликом по любой части картины (см. PictureSettings.editReach). */
@@ -84,7 +86,12 @@ public final class ServerImages extends ServerHost {
 
     public static void offer(EntityPlayerMP player, int target, String origin, byte[] hashes) {
         FrameHolder holder = changeable(player, target);
-        if (holder == null) return;
+        if (holder == null) {
+            // Сервер сам попросил выложить картинки заново (PictureReload): картина может быть далеко и в другом измерении.
+            Integer dimension = PictureReload.grantedDimension(player, target);
+            if (dimension != null) ImageStore.offer(player.getUniqueID(), player, dimension, target, origin, hashes);
+            return;
+        }
         Object world = holder.isItem() ? player.getUniqueID() : (Object) player.dimension;
         ImageStore.offer(player.getUniqueID(), player, world, target, origin, hashes);
     }
@@ -127,6 +134,28 @@ public final class ServerImages extends ServerHost {
         }
         EntityPicture picture = pictureById(DimensionManager.getWorld((Integer) world), target);
         return picture != null ? FrameHolder.of(picture, null) : null;
+    }
+
+    /** Запоминаем, кто выложил картинки (PictureReload попросит его выложить их заново), и даём их кускам пазла с тем же источником: картинки у группы общие. */
+    @Override
+    public void shareFiles(Object world, int target, byte[] files, UUID uploader) {
+        shareFiles(world, target, files);
+        FrameHolder holder = holder(world, target);
+        EntityPicture picture = holder != null ? holder.picture : null;
+        if (picture == null) return;
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        EntityPlayerMP player = server != null ? server.getPlayerList().getPlayerByUUID(uploader) : null;
+        String name = player != null ? player.getName() : "";
+        picture.uploader = uploader;
+        picture.uploaderName = name;
+        String origin = picture.frame.getOriginKey();
+        for (EntityPicture other : FrameGeometry.puzzleMembers(picture.world, picture)) {
+            if (origin == null || !origin.equals(other.frame.getOriginKey())) continue;
+            other.frame.files = files;
+            other.uploader = uploader;
+            other.uploaderName = name;
+            other.settingsChanged();
+        }
     }
 
     @Override

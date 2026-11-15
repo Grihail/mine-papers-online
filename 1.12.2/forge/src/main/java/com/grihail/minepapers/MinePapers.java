@@ -11,8 +11,11 @@ import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.PacketOpenFrame;
 import com.grihail.minepapers.network.PacketPasteMaterials;
+import com.grihail.minepapers.network.PacketReload;
+import com.grihail.minepapers.network.PacketReloadRequest;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.server.CommandMinePapers;
 import com.grihail.minepapers.server.ServerImages;
 
 import net.minecraft.block.Block;
@@ -27,6 +30,7 @@ import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
@@ -83,12 +87,20 @@ public class MinePapers {
         network.registerMessage(PacketBreakPicture.Handler.class, PacketBreakPicture.class, 6, Side.SERVER);
         network.registerMessage(PacketOpenFrame.Handler.class, PacketOpenFrame.class, 7, Side.SERVER);
         network.registerMessage(PacketPasteMaterials.Handler.class, PacketPasteMaterials.class, 8, Side.SERVER);
+        network.registerMessage(PacketReload.Handler.class, PacketReload.class, 9, Side.CLIENT);
+        network.registerMessage(PacketReloadRequest.Handler.class, PacketReloadRequest.class, 10, Side.SERVER);
         NetworkRegistry.INSTANCE.registerGuiHandler(this, proxy);
         ServerImages.install();
         MinecraftForge.EVENT_BUS.register(new ServerImages.Events());
         MinecraftForge.EVENT_BUS.register(new RecipePictureFrame.Events());
 
         proxy.preInit();
+    }
+
+    /** Команда /minepapers (перезагрузка картинок картин), работает и в командных блоках. */
+    @Mod.EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        event.registerServerCommand(new CommandMinePapers());
     }
 
     @Mod.EventHandler

@@ -15,12 +15,16 @@ import com.grihail.minepapers.network.PacketHashes;
 import com.grihail.minepapers.network.PacketOfferFiles;
 import com.grihail.minepapers.network.PacketOpenFrame;
 import com.grihail.minepapers.network.PacketPasteMaterials;
+import com.grihail.minepapers.network.PacketReload;
+import com.grihail.minepapers.network.PacketReloadRequest;
 import com.grihail.minepapers.network.PacketSaveFrame;
 import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
+import com.grihail.minepapers.server.CommandMinePapers;
 import com.grihail.minepapers.server.ServerImages;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
@@ -88,6 +92,7 @@ public class MinePapersFabric implements ModInitializer, Platform {
             server = null;
         });
         ServerTickEvents.START_SERVER_TICK.register(s -> ServerImages.onServerTick());
+        CommandRegistrationCallback.EVENT.register((dispatcher, registries, environment) -> CommandMinePapers.register(dispatcher));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, s) -> ServerImages.onLogout(handler.getPlayer().getUUID()));
     }
 
@@ -98,6 +103,7 @@ public class MinePapersFabric implements ModInitializer, Platform {
     /** Типы пакетов сервер -> клиент: на них клиент вешает обработчики (MinePapersFabricClient). */
     static final CustomPacketPayload.Type<PacketHashes.Need> NEED = new CustomPacketPayload.Type<>(PacketHashes.Need.ID);
     static final CustomPacketPayload.Type<PacketFileChunk> FILE_CHUNK = new CustomPacketPayload.Type<>(PacketFileChunk.ID);
+    static final CustomPacketPayload.Type<PacketReload> RELOAD = new CustomPacketPayload.Type<>(PacketReload.ID);
 
     /** Пакеты мода. Обработчики Fabric выполняются в главном потоке сервера. */
     private static void registerPackets() {
@@ -108,8 +114,10 @@ public class MinePapersFabric implements ModInitializer, Platform {
         toServer(PacketBreakPicture.ID, PacketBreakPicture::read, PacketBreakPicture::apply);
         toServer(PacketOpenFrame.ID, PacketOpenFrame::read, PacketOpenFrame::apply);
         toServer(PacketPasteMaterials.ID, PacketPasteMaterials::read, PacketPasteMaterials::apply);
+        toServer(PacketReloadRequest.ID, PacketReloadRequest::read, PacketReloadRequest::apply);
         PayloadTypeRegistry.playS2C().register(NEED, codec(PacketHashes.Need::read));
         PayloadTypeRegistry.playS2C().register(FILE_CHUNK, codec(PacketFileChunk::read));
+        PayloadTypeRegistry.playS2C().register(RELOAD, codec(PacketReload::read));
     }
 
     private static <T extends ModPacket> void toServer(ResourceLocation id, Function<FriendlyByteBuf, T> read, BiConsumer<ServerPlayer, T> apply) {

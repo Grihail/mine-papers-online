@@ -9,6 +9,7 @@ import com.grihail.minepapers.picture.ContainerPictureFrame;
 import com.grihail.minepapers.picture.EntityPicture;
 import com.grihail.minepapers.picture.FrameHolder;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.block.model.ModelBakery;
 import net.minecraft.entity.player.EntityPlayer;
@@ -63,6 +64,14 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void onFilesNeeded(byte[] hashes) {
         ImageSync.onFilesNeeded(hashes);
+    }
+
+    @Override
+    public void onReload(final String key, final int entity) {
+        Minecraft.getMinecraft().addScheduledTask(() -> {
+            PictureManager.reload(key);
+            if (entity >= 0) ImageSync.reofferRequested(entity, key);
+        });
     }
 
     @Override
