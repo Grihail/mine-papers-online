@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ver
 
 ## [Unreleased]
 
+## [1.6.1]
+
+### Added
+
+- Redstone switching: a button with redstone dust to the right of the interval field on the "Source" tab. Instead of the timer, pictures change on a redstone signal next to the picture or into the block behind it: a signal right of the picture center shows the next picture, left of center the previous one. Buttons, levers, pressure plates, wires, repeaters and torches all work. A puzzle steps as one group. In the copied settings: the `redstone` field.
+- Picture order for both folder sources: a "Random" / "In order" button under the path field. "In order" goes through the folder alphabetically. In the copied settings: the `sequential` field.
+- The `/minepapers reload` command, also for command blocks: `/minepapers reload [group <number> [owner] | near <radius> | at <x> <y> <z> | all] [to <players>]`. Without a target it reloads the picture the player looks at; without `to` it reloads for all players. Operators and command blocks can reload any picture, other players only pictures they can edit, and without `all`. Pictures from this PC are read again and uploaded by the player who uploaded them.
+- Shift+click on "Reload" reloads the picture for all players.
+
+### Changed
+
+- "Source" tab: no labels above the path field, so the field and the folder buttons moved up; "Reload" is a button without background in the top right corner; the interval row is at the bottom right. The status line under the field is gone: the number of pictures and errors are in the "Reload" tooltip.
+
 ## [1.6.0]
 
 ### Added
