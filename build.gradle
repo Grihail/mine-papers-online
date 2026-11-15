@@ -4,6 +4,8 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.148' apply false
     id 'net.neoforged.moddev.legacyforge' version '2.0.148' apply false
     id 'fabric-loom' version '1.15.5' apply false
+    // Тот же Loom без перемаппинга - для версий без обфускации (26.x). 1.15.5 - последний, что работает на нашем Gradle 9.3.1.
+    id 'net.fabricmc.fabric-loom' version '1.15.5' apply false
     id 'net.minecraftforge.gradle' version '7.0.40' apply false
 }
 

@@ -1,0 +1,68 @@
+plugins {
+    id 'net.fabricmc.fabric-loom'
+}
+
+// Узел Stonecutter на Fabric 26.x (versions/<версия>-fabric). Игра без обфускации: Loom без перемаппинга (net.fabricmc.fabric-loom),
+// зависимости - обычные implementation, имён (mappings) нет. Общий код (modern/src) Stonecutter подключает сам; код движка,
+// fabric.mod.json и миксины у всех 26.x одни - в modern/fabric26/src (без условий версий: что в 26.x различается, лежит в общем
+// коде под //? if fabric && ..., см. client/FabricClientEvents); в папке узла - только gradle.properties с версиями.
+stonecutter.constants.match('fabric', 'fabric', 'neoforge', 'forge')
+// Функции игровых тестов регистрирует мод тестов minepapers-gametest (fabric26/src/gametest) под именем minepapers.
+ext.test_functions_namespace = 'minepapers'
+apply from: rootProject.file('modern/mc26.gradle')
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(property('java_version') as int)
+    }
+}
+
+// Игровые тесты (общие - modern/src/gametest, обёртка Fabric - fabric26/src/gametest) - отдельный мод minepapers-gametest: в jar мода не попадают.
+def fabric26 = rootProject.file('modern/fabric26/src')
+sourceSets {
+    main {
+        java.srcDir new File(fabric26, 'main/java')
+        resources.srcDir new File(fabric26, 'main/resources')
+    }
+    gametest {
+        java.srcDir new File(fabric26, 'gametest/java')
+        resources.srcDir new File(fabric26, 'gametest/resources')
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += main.runtimeClasspath + main.output
+    }
+}
+
+loom {
+    accessWidenerPath = new File(fabric26, 'main/resources/minepapers.accesswidener')
+
+    mods {
+        minepapers {
+            sourceSet sourceSets.main
+        }
+        minepapers_gametest {
+            sourceSet sourceSets.gametest
+        }
+    }
+
+    runs {
+        // Сервер прогоняет все тесты и выходит; упал хоть один - сборка с ошибкой.
+        gametest {
+            server()
+            name 'Game Test'
+            source sourceSets.gametest
+            vmArg '-Dfabric-api.gametest'
+            vmArg "-Dfabric-api.gametest.report-file=${layout.buildDirectory.file('gametest/report.xml').get().asFile}"
+            runDir 'build/gametest'
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${stonecutter.current.version}"
+    implementation "net.fabricmc:fabric-loader:${property('fabric_loader_version')}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${property('fabric_api_version')}"
+}
+
+rootProject.tasks.named('gameTest') {
+    dependsOn tasks.named('runGametest')
+}

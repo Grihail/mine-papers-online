@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ver
 
 ### Added
 
+- Minecraft 26.1.2, 26.2 and 26.3 on Fabric (a separate jar for each version, needs Fabric API).
 - Redstone switching: a button with redstone dust to the right of the interval field on the "Source" tab. Instead of the timer, pictures change on a redstone signal next to the picture or into the block behind it: a signal right of the picture center shows the next picture, left of center the previous one. Buttons, levers, pressure plates, wires, repeaters and torches all work. A puzzle steps as one group. In the copied settings: the `redstone` field.
 - Picture order for both folder sources: a "Random" / "In order" button under the path field. "In order" goes through the folder alphabetically. In the copied settings: the `sequential` field.
 - The `/minepapers reload` command, also for command blocks: `/minepapers reload [group <number> [owner] | near <radius> | at <x> <y> <z> | all] [to <players>]`. Without a target it reloads the picture the player looks at; without `to` it reloads for all players. Operators and command blocks can reload any picture, other players only pictures they can edit, and without `all`. Pictures from this PC are read again and uploaded by the player who uploaded them.

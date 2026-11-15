@@ -1,0 +1,7 @@
+accessWidener v2 official
+
+# Список типов особых моделей предметов: туда кладётся рендерер настроенной рамки (у NeoForge - событие RegisterSpecialModelRendererEvent).
+accessible field net/minecraft/client/renderer/special/SpecialModelRenderers ID_MAPPER Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;
+
+# Подсветка ссылки под мышью в описании картины (у NeoForge и Forge метод открыт).
+accessible method net/minecraft/client/gui/GuiGraphicsExtractor componentHoverEffect (Lnet/minecraft/client/gui/Font;Lnet/minecraft/network/chat/Style;II)V
